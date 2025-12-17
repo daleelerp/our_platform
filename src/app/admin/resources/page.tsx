@@ -38,7 +38,6 @@ export default function ResourcesPage() {
           is_free: true,
           price: null,
           price_currency: "USD",
-          is_free: true,
           is_verified: false,
           is_active: true,
         }}

@@ -193,26 +193,31 @@ async function saveGeneratedPathToDatabase(
       const platformMap = new Map<string, string>();
       
       for (const resource of milestone.resources) {
+        // Normalize platform name (fallback to 'Other' if missing)
+        const platformName: string = resource.platform || "Other";
+
         // Get or create platform
-        let platformId = platformMap.get(resource.platform);
+        let platformId: string | undefined = platformMap.get(platformName);
         
         if (!platformId) {
           const { data: platform } = await supabase
             .from("resource_platforms")
             .select("id")
-            .eq("name", resource.platform)
+            .eq("name", platformName)
             .single();
 
           if (platform) {
+            // platform.id is guaranteed to be a string here
             platformId = platform.id;
+            platformMap.set(platformName, platform.id);
           } else {
             // Create new platform
             const { data: newPlatform } = await supabase
               .from("resource_platforms")
               .insert({
-                name: resource.platform,
+                name: platformName,
                 name_ar: resource.platform_ar,
-                platform_type: getPlatformType(resource.platform),
+                platform_type: getPlatformType(platformName),
                 is_free: resource.is_free,
                 supports_arabic: resource.language === "ar" || resource.language === "both",
               })
@@ -221,9 +226,15 @@ async function saveGeneratedPathToDatabase(
             
             if (newPlatform) {
               platformId = newPlatform.id;
-              platformMap.set(resource.platform, platformId);
+              platformMap.set(platformName, newPlatform.id);
             }
           }
+        }
+
+        // Skip if we couldn't get/create platform
+        if (!platformId) {
+          console.warn(`Could not get or create platform for resource: ${resource.title}`);
+          continue;
         }
 
         // Create resource

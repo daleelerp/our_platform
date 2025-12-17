@@ -147,12 +147,12 @@ async function scrapeYouTube(query: string): Promise<any[]> {
   const detailsResponse = await fetch(detailsUrl);
   const detailsData = await detailsResponse.json();
   
-  const detailsMap = new Map(
-    detailsData.items.map((item: any) => [item.id, item])
+  const detailsMap = new Map<string, any>(
+    detailsData.items.map((item: any) => [item.id as string, item])
   );
 
   return data.items.map((item: any) => {
-    const details = detailsMap.get(item.id.videoId);
+    const details: any | undefined = detailsMap.get(item.id.videoId);
     return {
       title: item.snippet.title,
       description: item.snippet.description,

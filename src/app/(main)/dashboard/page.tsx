@@ -62,7 +62,7 @@ export default async function DashboardPage() {
     
     // Sort to match the saved order
     recommendedPaths = savedPreferences.recommended_path_ids
-      .map(id => savedPaths?.find(p => p.id === id))
+      .map((id: string) => savedPaths?.find(p => p.id === id))
       .filter(Boolean) as any[];
   } else {
     // Fallback to generic recommendations if no saved preferences

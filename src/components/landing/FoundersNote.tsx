@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useTranslation } from "@/hooks/useTranslation";
-import founderImage from "../../../public/founder/Magdy Image.jpg";
+import founderImage from "../../../public/Founder/Magdy Image.jpg";
 
 export function FoundersNote() {
   const { t } = useTranslation();

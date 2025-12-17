@@ -187,7 +187,7 @@ export default function ProfilePage() {
   };
 
   const handleAvatarChange = async (avatarUrl: string) => {
-    if (!user) return;
+    if (!user || !userProfile) return;
     setIsUploadingAvatar(true);
     try {
       const supabase = createClient();
@@ -198,6 +198,7 @@ export default function ProfilePage() {
       
       if (!error) {
         await fetchOnboardingData();
+        // userProfile is guaranteed non-null here
         setUserProfile({ ...userProfile, avatar_url: avatarUrl });
         setShowAvatarPicker(false);
         setSuccess(isArabic ? "تم تحديث الصورة الشخصية" : "Avatar updated");
@@ -669,7 +670,7 @@ export default function ProfilePage() {
                         >
                           {t.upgradePlan}
                         </Link>
-                        {subscription && subscription.status !== "cancelled" && subscription.status !== "expired" && (
+                        {subscription && !subscription.cancelled_at && (
                           <button
                             onClick={async () => {
                               const confirmMessage = isArabic 

@@ -2,18 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminSession } from "@/utils/admin-auth";
 import { getAdminSupabaseClient } from "@/utils/admin-supabase";
 
+// Note: Next.js 16's route handler types expect `params` to be a Promise in dev type validation.
+// We model that here and await it, which is safe even if Next actually passes a plain object.
 export async function GET(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  context: { params: Promise<{ userId: string }> }
 ) {
   try {
+    const { userId } = await context.params;
+
     // Verify admin session
     const adminSession = await getAdminSession();
     if (!adminSession) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { userId } = params;
     const supabase = getAdminSupabaseClient();
 
     // Fetch all related data for this user

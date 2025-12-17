@@ -37,10 +37,18 @@ export async function GET(request: NextRequest) {
     const supabase = getAdminSupabaseClient();
 
     // Build query
-    let query = supabase.from(table).select("*");
+    let query: any = supabase.from(table).select("*");
 
     if (id) {
-      query = query.eq("id", id).single();
+      const { data, error } = await query.eq("id", id).single();
+      if (error) {
+        console.error(`Error fetching from ${table}:`, error);
+        return NextResponse.json(
+          { error: error.message },
+          { status: 500 }
+        );
+      }
+      return NextResponse.json({ data });
     } else {
       if (filterColumn && filterValue) {
         query = query.eq(filterColumn, filterValue);
