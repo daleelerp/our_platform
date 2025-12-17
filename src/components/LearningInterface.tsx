@@ -1,0 +1,947 @@
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { useAppStore } from "@/store/useAppStore";
+import { VideoPlayer } from "./VideoPlayer";
+import { QuizPlayer } from "./Quiz/QuizPlayer";
+import { ResourceViewer } from "./ResourceViewer";
+import { ContentTierBadge } from "./ContentTierBadge";
+import { LockedContent } from "./LockedContent";
+import { getContentTierFromBudget, hasAccessToTier, type ContentTier } from "@/utils/contentTiers";
+import { createClient } from "@/utils/supabase/client";
+import { checkMilestoneCompletion, updateMilestoneProgress, calculatePathProgress } from "@/utils/milestoneProgress";
+import Link from "next/link";
+import { CheckCircleIcon, PlayIcon } from "@heroicons/react/24/outline";
+import { LearningResource } from "@/types/learning";
+
+type Path = {
+  id: string;
+  title: string;
+  title_ar: string | null;
+  slug: string;
+};
+
+type Milestone = {
+  id: string;
+  title: string;
+  title_ar: string | null;
+  description: string | null;
+  description_ar: string | null;
+  milestone_number: number;
+  estimated_hours: number | null;
+  learning_objectives: string[] | null;
+  learning_objectives_ar: string[] | null;
+};
+
+type Video = {
+  id: string;
+  youtube_video_id: string;
+  title: string;
+  title_ar: string | null;
+  description: string | null;
+  content_tier: string | null;
+  video_order: number;
+  duration_seconds: number | null;
+};
+
+type Quiz = {
+  id: string;
+  title: string;
+  title_ar: string | null;
+  quiz_type: string;
+  passing_score: number;
+  content_tier: string | null;
+  quiz_questions: any[];
+};
+
+type Enrollment = {
+  id: string;
+  progress_percentage: number;
+  current_milestone_number: number;
+};
+
+type VideoProgress = {
+  video_id: string;
+  completion_percentage: number;
+  is_completed: boolean;
+  last_watched_position: number;
+};
+
+type Props = {
+  path: Path;
+  milestones: Milestone[];
+  currentMilestone: Milestone | null;
+  videos: Video[];
+  quizzes: Quiz[];
+  resources: LearningResource[];
+  enrollment: Enrollment;
+  videoProgress: VideoProgress[];
+  milestoneProgress: any;
+  userId: string;
+  userProfile: any;
+};
+
+export function LearningInterface({
+  path,
+  milestones,
+  currentMilestone,
+  videos,
+  quizzes,
+  resources,
+  enrollment,
+  videoProgress,
+  milestoneProgress,
+  userId,
+  userProfile,
+}: Props) {
+  const language = useAppStore((state) => state.language);
+  const router = useRouter();
+  const hasReloadedRef = useRef(false);
+  const [selectedVideo, setSelectedVideo] = useState<Video | null>(
+    videos.length > 0 ? videos[0] : null
+  );
+  const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
+  const [selectedResource, setSelectedResource] = useState<LearningResource | null>(
+    resources.length > 0 && videos.length === 0 ? resources[0] : null
+  );
+  const [activeTab, setActiveTab] = useState<"videos" | "quiz" | "resources">(
+    videos.length > 0 ? "videos" : resources.length > 0 ? "resources" : quizzes.length > 0 ? "quiz" : "videos"
+  );
+  // Track which videos have been played in the current session
+  const [playedVideos, setPlayedVideos] = useState<Set<string>>(new Set());
+  // Track current progress for videos being watched (updates in real-time)
+  const [currentVideoProgress, setCurrentVideoProgress] = useState<Map<string, number>>(new Map());
+  const supabase = createClient();
+
+  // Calculate user's content tier from budget
+  const userBudgetEgp = userProfile?.budgetAmount || 0;
+  const userTier = getContentTierFromBudget(userBudgetEgp);
+
+  // Get video progress map
+  const videoProgressMap = new Map(
+    videoProgress.map((vp) => [vp.video_id, vp])
+  );
+
+  const getText = (en: string | null, ar: string | null): string => {
+    if (language === "ar" && ar) return ar;
+    return en || "";
+  };
+
+  // Check milestone completion periodically based on actual content completion
+  useEffect(() => {
+    if (!currentMilestone) return;
+    hasReloadedRef.current = false; // Reset on milestone change
+
+    const checkAndUpdateProgress = async () => {
+      try {
+        // Use the milestone progress utility to check actual completion
+        const completionStatus = await checkMilestoneCompletion(userId, currentMilestone.id);
+        
+        // Update milestone progress in database (this will mark milestones with no content as completed)
+        await updateMilestoneProgress(userId, currentMilestone.id, completionStatus);
+
+        // Always update progress (even if milestone is not completed yet)
+        // This ensures progress reflects partial completion
+        const overallProgress = await calculatePathProgress(userId, path.id);
+        
+        // Update progress if it changed (can increase or stay same, but recalculate to be accurate)
+        const currentProgress = enrollment.progress_percentage || 0;
+        
+        // Update if progress changed (increased or recalculated to be more accurate)
+        if (overallProgress !== currentProgress || completionStatus.isCompleted) {
+          // Find next milestone if current one is completed
+          let nextMilestone = null;
+          if (completionStatus.isCompleted) {
+            nextMilestone = milestones.find(
+              (m) => m.milestone_number > currentMilestone.milestone_number
+            );
+          }
+
+          // Update enrollment progress
+          const updateData: any = {
+            progress_percentage: overallProgress,
+            last_activity_at: new Date().toISOString(),
+          };
+
+          if (completionStatus.isCompleted) {
+            if (nextMilestone) {
+              updateData.current_milestone_number = nextMilestone.milestone_number;
+            } else {
+              // All milestones completed
+              updateData.current_milestone_number = milestones.length;
+              updateData.status = "completed";
+              updateData.completed_at = new Date().toISOString();
+            }
+          }
+
+          await supabase
+            .from("path_enrollments")
+            .update(updateData)
+            .eq("id", enrollment.id);
+          
+          // Update local enrollment object
+          enrollment.progress_percentage = overallProgress;
+          
+          // Only reload once if milestone is newly completed (not already completed)
+          if (completionStatus.isCompleted && !hasReloadedRef.current) {
+            // Check if milestone was already completed before this check
+            const { data: existingProgress } = await supabase
+              .from("user_milestone_progress")
+              .select("status")
+              .eq("user_id", userId)
+              .eq("milestone_id", currentMilestone.id)
+              .single();
+            
+            // Only reload if this is a new completion (wasn't already completed)
+            if (existingProgress?.status !== "completed") {
+              hasReloadedRef.current = true;
+              // Use router.push instead of reload to avoid infinite loops
+              router.push(`/paths/${path.slug}/learn?milestone=${updateData.current_milestone_number || currentMilestone.milestone_number}`);
+            }
+          }
+        }
+      } catch (error: any) {
+        // Only log error message
+        if (error?.message) {
+          console.error("Error checking milestone progress:", error.message);
+        }
+      }
+    };
+
+    // Check immediately and then every 30 seconds
+    checkAndUpdateProgress();
+    const interval = setInterval(checkAndUpdateProgress, 30000);
+    return () => clearInterval(interval);
+  }, [currentMilestone, userId, path.id, milestones, enrollment.id, supabase, path.slug, router]);
+
+  const handleVideoComplete = async () => {
+    if (!currentMilestone) return;
+
+    // Use the milestone progress utility to check actual completion
+    // This checks videos, quizzes, articles, and external tests
+    const completionStatus = await checkMilestoneCompletion(userId, currentMilestone.id);
+    
+    // Update milestone progress
+    await updateMilestoneProgress(userId, currentMilestone.id, completionStatus);
+
+    // Always update progress to reflect current state
+    const overallProgress = await calculatePathProgress(userId, path.id);
+    
+    // Update progress (recalculate to ensure accuracy)
+    const currentProgress = enrollment.progress_percentage || 0;
+    
+    // Update if progress changed or milestone is completed
+    if (overallProgress !== currentProgress || completionStatus.isCompleted) {
+      // Find next milestone if current one is completed
+      let nextMilestone = null;
+      if (completionStatus.isCompleted) {
+        nextMilestone = milestones.find(
+          (m) => m.milestone_number > currentMilestone.milestone_number
+        );
+      }
+
+      // Update enrollment progress
+      const updateData: any = {
+        progress_percentage: overallProgress,
+        last_activity_at: new Date().toISOString(),
+      };
+
+      if (completionStatus.isCompleted) {
+        if (nextMilestone) {
+          updateData.current_milestone_number = nextMilestone.milestone_number;
+        } else {
+          // All milestones completed
+          updateData.current_milestone_number = milestones.length;
+          updateData.status = "completed";
+          updateData.completed_at = new Date().toISOString();
+        }
+      }
+
+      const { error: enrollmentError } = await supabase
+        .from("path_enrollments")
+        .update(updateData)
+        .eq("id", enrollment.id);
+
+      if (enrollmentError) {
+        // Only log error message
+        if (enrollmentError.message) {
+          console.error("Error updating enrollment progress:", enrollmentError.message);
+        }
+      } else {
+        // Update local enrollment object
+        enrollment.progress_percentage = overallProgress;
+        
+        // Only navigate if milestone is newly completed (not already completed)
+        // Use router.push instead of reload to avoid infinite loops
+        if (completionStatus.isCompleted && !hasReloadedRef.current) {
+          // Check if milestone was already completed
+          const { data: existingProgress } = await supabase
+            .from("user_milestone_progress")
+            .select("status")
+            .eq("user_id", userId)
+            .eq("milestone_id", currentMilestone.id)
+            .single();
+          
+          // Only navigate if this is a new completion
+          if (existingProgress?.status !== "completed") {
+            hasReloadedRef.current = true;
+            const targetMilestone = updateData.current_milestone_number || currentMilestone.milestone_number;
+            router.push(`/paths/${path.slug}/learn?milestone=${targetMilestone}`);
+          }
+        }
+      }
+    }
+  };
+
+  if (!currentMilestone) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-slate-600">
+            {language === "ar" ? "لا توجد مراحل متاحة" : "No milestones available"}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const milestoneTitle = getText(currentMilestone.title, currentMilestone.title_ar);
+  const milestoneDesc = getText(
+    currentMilestone.description,
+    currentMilestone.description_ar
+  );
+
+  // Filter videos, quizzes, and resources by tier access
+  const accessibleVideos = videos.filter((video) => {
+    if (!video.content_tier) return true;
+    return hasAccessToTier(userTier, video.content_tier as ContentTier);
+  });
+
+  // Removed debug logging
+
+  const accessibleQuizzes = quizzes.filter((quiz) => {
+    if (!quiz.content_tier) return true;
+    return hasAccessToTier(userTier, quiz.content_tier as ContentTier);
+  });
+
+  const accessibleResources = resources.filter((resource) => {
+    // Resources don't have content_tier field, so all are accessible
+    // If content_tier is added later, uncomment below:
+    // if (!resource.content_tier) return true;
+    // return hasAccessToTier(userTier, resource.content_tier as ContentTier);
+    return true;
+  });
+
+  const lockedVideos = videos.filter((video) => {
+    if (!video.content_tier) return false;
+    return !hasAccessToTier(userTier, video.content_tier as ContentTier);
+  });
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      {/* Header */}
+      <div className="bg-white border-b border-slate-200 sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Link
+                href={`/paths/${path.slug}`}
+                className="text-slate-600 hover:text-slate-900 transition-colors"
+              >
+                ← {language === "ar" ? "العودة" : "Back"}
+              </Link>
+              <div>
+                <h1 className="text-lg font-semibold text-slate-900">
+                  {getText(path.title, path.title_ar)}
+                </h1>
+                <p className="text-sm text-slate-500">
+                  {language === "ar" ? "المرحلة" : "Milestone"} {currentMilestone.milestone_number}{" "}
+                  {language === "ar" ? "من" : "of"} {milestones.length}
+                </p>
+              </div>
+            </div>
+            <div className="text-sm text-slate-600">
+              {enrollment.progress_percentage.toFixed(0)}%{" "}
+              {language === "ar" ? "مكتمل" : "Complete"}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        <div className="grid lg:grid-cols-4 gap-6">
+          {/* Sidebar - Milestones & Content List */}
+          <div className="lg:col-span-1 space-y-4">
+            {/* Milestones List */}
+            <div className="bg-white rounded-xl border border-slate-200 p-4">
+              <h3 className="font-semibold text-slate-900 mb-3">
+                {language === "ar" ? "المراحل" : "Milestones"}
+              </h3>
+              <div className="space-y-2">
+                {milestones.map((milestone) => {
+                  const isCurrent = milestone.id === currentMilestone.id;
+                  const isCompleted = milestone.milestone_number < currentMilestone.milestone_number;
+                  const milestoneTitle = getText(milestone.title, milestone.title_ar);
+
+                  return (
+                    <Link
+                      key={milestone.id}
+                      href={`/paths/${path.slug}/learn?milestone=${milestone.milestone_number}`}
+                      className={`block p-3 rounded-lg border transition-colors ${
+                        isCurrent
+                          ? "border-teal-500 bg-teal-50"
+                          : isCompleted
+                          ? "border-green-200 bg-green-50"
+                          : "border-slate-200 hover:border-slate-300"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        {isCompleted ? (
+                          <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                        ) : (
+                          <div
+                            className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-semibold ${
+                              isCurrent
+                                ? "bg-teal-500 text-white"
+                                : "bg-slate-200 text-slate-600"
+                            }`}
+                          >
+                            {milestone.milestone_number}
+                          </div>
+                        )}
+                        <span
+                          className={`text-sm ${
+                            isCurrent ? "font-semibold text-teal-900" : "text-slate-700"
+                          }`}
+                        >
+                          {milestoneTitle}
+                        </span>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Videos List */}
+            <div className="bg-white rounded-xl border border-slate-200 p-4">
+              <h3 className="font-semibold text-slate-900 mb-3">
+                {language === "ar" ? "الفيديوهات" : "Videos"}
+              </h3>
+              {videos.length > 0 ? (
+                <div className="space-y-2">
+                  {accessibleVideos.map((video) => {
+                    const progress = videoProgressMap.get(video.id);
+                    const isSelected = selectedVideo?.id === video.id;
+                    const videoTitle = getText(video.title, video.title_ar);
+
+                    return (
+                      <button
+                        key={video.id}
+                        onClick={() => {
+                          setSelectedVideo(video);
+                          setActiveTab("videos");
+                          setSelectedQuiz(null);
+                          setSelectedResource(null);
+                        }}
+                        className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                          isSelected
+                            ? "border-teal-500 bg-teal-50"
+                            : "border-slate-200 hover:border-slate-300"
+                        }`}
+                      >
+                        <div className="flex items-start gap-2">
+                          <PlayIcon className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p
+                              className={`text-sm ${
+                                isSelected ? "font-semibold text-teal-900" : "text-slate-700"
+                              }`}
+                            >
+                              {videoTitle}
+                            </p>
+                            {progress && (
+                              <div className="mt-1">
+                                <div className="h-1 bg-slate-200 rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full bg-teal-500"
+                                    style={{ 
+                                      width: `${(() => {
+                                        // Use real-time progress if available (video is currently being watched)
+                                        const realTimeProgress = currentVideoProgress.get(video.id);
+                                        if (realTimeProgress !== undefined) {
+                                          return realTimeProgress;
+                                        }
+                                        // If video was previously completed (100%) but not played in this session,
+                                        // reset to 0% to indicate it needs to be watched again
+                                        if (progress.completion_percentage >= 100 && !playedVideos.has(video.id)) {
+                                          return 0;
+                                        }
+                                        return progress.completion_percentage;
+                                      })()}%` 
+                                    }}
+                                  />
+                                </div>
+                                <p className="text-xs text-slate-500 mt-1">
+                                  {(() => {
+                                    // Use real-time progress if available
+                                    const realTimeProgress = currentVideoProgress.get(video.id);
+                                    if (realTimeProgress !== undefined) {
+                                      return `${realTimeProgress.toFixed(0)}%`;
+                                    }
+                                    // If video was previously completed but not played in this session, show 0%
+                                    if (progress.completion_percentage >= 100 && !playedVideos.has(video.id)) {
+                                      return "0%";
+                                    }
+                                    return `${progress.completion_percentage.toFixed(0)}%`;
+                                  })()}{" "}
+                                  {language === "ar" ? "مكتمل" : "complete"}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-6">
+                  <div className="text-4xl mb-2">📹</div>
+                  <p className="text-sm text-slate-500">
+                    {language === "ar" 
+                      ? "لا توجد فيديوهات متاحة بعد" 
+                      : "No videos available yet"}
+                  </p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    {language === "ar"
+                      ? "سيتم إضافة المحتوى قريباً"
+                      : "Content will be added soon"}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Resources List */}
+            {resources.length > 0 && (
+              <div className="bg-white rounded-xl border border-slate-200 p-4">
+                <h3 className="font-semibold text-slate-900 mb-3">
+                  {language === "ar" ? "الموارد" : "Resources"}
+                </h3>
+                <div className="space-y-2">
+                  {accessibleResources.map((resource) => {
+                    const isSelected = selectedResource?.id === resource.id;
+                    const resourceTitle = getText(resource.title, resource.title_ar);
+
+                    return (
+                      <button
+                        key={resource.id}
+                        onClick={() => {
+                          setSelectedResource(resource);
+                          setActiveTab("resources");
+                          setSelectedVideo(null);
+                          setSelectedQuiz(null);
+                        }}
+                        className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                          isSelected
+                            ? "border-teal-500 bg-teal-50"
+                            : "border-slate-200 hover:border-slate-300"
+                        }`}
+                      >
+                        <div className="flex items-start gap-2">
+                          <PlayIcon className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p
+                              className={`text-sm ${
+                                isSelected ? "font-semibold text-teal-900" : "text-slate-700"
+                              }`}
+                            >
+                              {resourceTitle}
+                            </p>
+                            <p className="text-xs text-slate-500 mt-1">
+                              {resource.resource_type === "video" 
+                                ? (language === "ar" ? "فيديو" : "Video")
+                                : resource.resource_type === "article"
+                                ? (language === "ar" ? "مقال" : "Article")
+                                : resource.resource_type === "test"
+                                ? (language === "ar" ? "اختبار" : "Test")
+                                : resource.resource_type}
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Quizzes List */}
+            <div className="bg-white rounded-xl border border-slate-200 p-4">
+              <h3 className="font-semibold text-slate-900 mb-3">
+                {language === "ar" ? "الاختبارات" : "Quizzes"}
+              </h3>
+              {quizzes.length > 0 ? (
+                <div className="space-y-2">
+                  {accessibleQuizzes.map((quiz) => {
+                    const isSelected = selectedQuiz?.id === quiz.id;
+                    const quizTitle = getText(quiz.title, quiz.title_ar);
+
+                    return (
+                      <button
+                        key={quiz.id}
+                        onClick={() => {
+                          setSelectedQuiz(quiz);
+                          setActiveTab("quiz");
+                          setSelectedVideo(null);
+                          setSelectedResource(null);
+                        }}
+                        className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                          isSelected
+                            ? "border-teal-500 bg-teal-50"
+                            : "border-slate-200 hover:border-slate-300"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold">📝</span>
+                          <span
+                            className={`text-sm ${
+                              isSelected ? "font-semibold text-teal-900" : "text-slate-700"
+                            }`}
+                          >
+                            {quizTitle}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-6">
+                  <div className="text-4xl mb-2">📝</div>
+                  <p className="text-sm text-slate-500">
+                    {language === "ar" 
+                      ? "لا توجد اختبارات متاحة بعد" 
+                      : "No quizzes available yet"}
+                  </p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    {language === "ar"
+                      ? "سيتم إضافة الاختبارات قريباً"
+                      : "Quizzes will be added soon"}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Main Content Area */}
+          <div className="lg:col-span-3 space-y-6">
+            {/* Milestone Header */}
+            <div className="bg-white rounded-xl border border-slate-200 p-6">
+              <h2 className="text-2xl font-bold text-slate-900 mb-2">{milestoneTitle}</h2>
+              {milestoneDesc && (
+                <p className="text-slate-600 mb-4">{milestoneDesc}</p>
+              )}
+              {currentMilestone.learning_objectives && (
+                <div>
+                  <h3 className="font-semibold text-slate-900 mb-2">
+                    {language === "ar" ? "أهداف التعلم:" : "Learning Objectives:"}
+                  </h3>
+                  <ul className="list-disc list-inside space-y-1 text-slate-600">
+                    {(language === "ar" && currentMilestone.learning_objectives_ar
+                      ? currentMilestone.learning_objectives_ar
+                      : currentMilestone.learning_objectives
+                    ).map((objective, i) => (
+                      <li key={i}>{objective}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            {/* Video Player */}
+            {activeTab === "videos" && selectedVideo && (
+              <div>
+                {hasAccessToTier(
+                  userTier,
+                  (selectedVideo.content_tier || "free") as ContentTier
+                ) ? (
+                  <div className="bg-white rounded-xl border border-slate-200 p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-slate-900">
+                        {getText(selectedVideo.title, selectedVideo.title_ar)}
+                      </h3>
+                      {selectedVideo.content_tier && (
+                        <ContentTierBadge tier={selectedVideo.content_tier} size="sm" />
+                      )}
+                    </div>
+                    {selectedVideo.youtube_video_id ? (
+                      <VideoPlayer
+                        videoId={selectedVideo.youtube_video_id}
+                        videoContentId={selectedVideo.id}
+                        userId={userId}
+                        milestoneId={currentMilestone.id}
+                        startAt={
+                          videoProgressMap.get(selectedVideo.id)?.last_watched_position || 0
+                        }
+                        onProgress={(progress, currentTime) => {
+                          // Track that this video has been played in the current session
+                          if (currentTime > 0 && !playedVideos.has(selectedVideo.id)) {
+                            setPlayedVideos(prev => new Set(prev).add(selectedVideo.id));
+                          }
+                          // Update current progress for real-time display
+                          setCurrentVideoProgress(prev => {
+                            const newMap = new Map(prev);
+                            newMap.set(selectedVideo.id, progress);
+                            return newMap;
+                          });
+                        }}
+                        onComplete={handleVideoComplete}
+                      />
+                    ) : (
+                      <div className="bg-slate-100 rounded-lg aspect-video flex items-center justify-center p-8">
+                        <p className="text-slate-600 text-center">
+                          {language === "ar" 
+                            ? "معرف الفيديو غير متوفر. يرجى التحقق من إعدادات الفيديو." 
+                            : "Video ID not available. Please check video settings."}
+                        </p>
+                      </div>
+                    )}
+                    {selectedVideo.description && (
+                      <p className="mt-4 text-slate-600 text-sm">
+                        {getText(selectedVideo.description, null)}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <LockedContent
+                    requiredTier={selectedVideo.content_tier as ContentTier}
+                    currentTier={userTier}
+                    contentType="video"
+                  />
+                )}
+              </div>
+            )}
+
+            {/* Empty State - No Video Selected */}
+            {activeTab === "videos" && !selectedVideo && videos.length === 0 && (
+              <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
+                <div className="text-6xl mb-4">🎥</div>
+                <h3 className="text-xl font-semibold text-slate-900 mb-2">
+                  {language === "ar" ? "لا توجد فيديوهات متاحة" : "No Videos Available"}
+                </h3>
+                <p className="text-slate-600 mb-4">
+                  {language === "ar"
+                    ? "لم يتم إضافة فيديوهات لهذه المرحلة بعد. سيتم إضافة المحتوى قريباً."
+                    : "No videos have been added to this milestone yet. Content will be added soon."}
+                </p>
+                <div className="mt-6 p-4 bg-slate-50 rounded-lg">
+                  <p className="text-sm text-slate-600">
+                    {language === "ar"
+                      ? "في هذه المرحلة، ستجد:"
+                      : "In this milestone, you'll find:"}
+                  </p>
+                  <ul className="mt-2 text-sm text-slate-500 space-y-1 text-left max-w-md mx-auto">
+                    <li>• {language === "ar" ? "دروس فيديو تعليمية" : "Educational video lessons"}</li>
+                    <li>• {language === "ar" ? "شروحات عملية" : "Practical demonstrations"}</li>
+                    <li>• {language === "ar" ? "أمثلة من الحياة الواقعية" : "Real-world examples"}</li>
+                  </ul>
+                </div>
+              </div>
+            )}
+
+            {/* Empty State - No Video Selected but videos exist */}
+            {activeTab === "videos" && !selectedVideo && videos.length > 0 && (
+              <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
+                <div className="text-4xl mb-4">▶️</div>
+                <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                  {language === "ar" ? "اختر فيديو للبدء" : "Select a Video to Start"}
+                </h3>
+                <p className="text-slate-600">
+                  {language === "ar"
+                    ? "اختر فيديو من القائمة الجانبية لبدء التعلم"
+                    : "Select a video from the sidebar to start learning"}
+                </p>
+              </div>
+            )}
+
+            {/* Quiz Player */}
+            {activeTab === "quiz" && selectedQuiz && (
+              <div>
+                {hasAccessToTier(
+                  userTier,
+                  (selectedQuiz.content_tier || "free") as ContentTier
+                ) ? (
+                  <QuizPlayer
+                    quiz={selectedQuiz}
+                    questions={selectedQuiz.quiz_questions}
+                    userId={userId}
+                    onComplete={async (score, isPassed) => {
+                      // Check if milestone should be marked as completed after quiz
+                      if (currentMilestone && isPassed) {
+                        const completionStatus = await checkMilestoneCompletion(userId, currentMilestone.id);
+                        await updateMilestoneProgress(userId, currentMilestone.id, completionStatus);
+                        
+                        // Always update progress to reflect current state
+                        const overallProgress = await calculatePathProgress(userId, path.id);
+                        const currentProgress = enrollment.progress_percentage || 0;
+                        
+                        // Update if progress changed or milestone is completed
+                        if (overallProgress !== currentProgress || completionStatus.isCompleted) {
+                          const updateData: any = {
+                            progress_percentage: overallProgress,
+                            last_activity_at: new Date().toISOString(),
+                          };
+
+                          if (completionStatus.isCompleted) {
+                            // Find next milestone
+                            const nextMilestone = milestones.find(
+                              (m) => m.milestone_number > currentMilestone.milestone_number
+                            );
+                            
+                            if (nextMilestone) {
+                              updateData.current_milestone_number = nextMilestone.milestone_number;
+                            } else {
+                              updateData.current_milestone_number = milestones.length;
+                              updateData.status = "completed";
+                              updateData.completed_at = new Date().toISOString();
+                            }
+                          }
+
+                          await supabase
+                            .from("path_enrollments")
+                            .update(updateData)
+                            .eq("id", enrollment.id);
+                          
+                          // Update local enrollment object
+                          enrollment.progress_percentage = overallProgress;
+                          
+                          // Refresh to show updated progress
+                          if (completionStatus.isCompleted) {
+                            // Use router.push instead of reload to avoid infinite loops
+                            const targetMilestone = updateData.current_milestone_number || currentMilestone.milestone_number;
+                            router.push(`/paths/${path.slug}/learn?milestone=${targetMilestone}`);
+                          }
+                        }
+                      }
+                    }}
+                  />
+                ) : (
+                  <LockedContent
+                    requiredTier={selectedQuiz.content_tier as ContentTier}
+                    currentTier={userTier}
+                    contentType="quiz"
+                  />
+                )}
+              </div>
+            )}
+
+            {/* Resource Viewer */}
+            {activeTab === "resources" && selectedResource && (
+              <ResourceViewer
+                resource={selectedResource}
+                userId={userId}
+                milestoneId={currentMilestone?.id}
+                onComplete={handleVideoComplete}
+              />
+            )}
+
+            {/* Empty State - No Resource Selected but resources exist */}
+            {activeTab === "resources" && !selectedResource && resources.length > 0 && (
+              <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
+                <div className="text-4xl mb-4">📚</div>
+                <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                  {language === "ar" ? "اختر مورد للبدء" : "Select a Resource to Start"}
+                </h3>
+                <p className="text-slate-600">
+                  {language === "ar"
+                    ? "اختر مورد من القائمة الجانبية لبدء التعلم"
+                    : "Select a resource from the sidebar to start learning"}
+                </p>
+              </div>
+            )}
+
+            {/* Empty State - No Resources Available */}
+            {activeTab === "resources" && resources.length === 0 && (
+              <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
+                <div className="text-6xl mb-4">📚</div>
+                <h3 className="text-xl font-semibold text-slate-900 mb-2">
+                  {language === "ar" ? "لا توجد موارد متاحة" : "No Resources Available"}
+                </h3>
+                <p className="text-slate-600">
+                  {language === "ar"
+                    ? "لم يتم إضافة موارد لهذه المرحلة بعد."
+                    : "No resources have been added to this milestone yet."}
+                </p>
+              </div>
+            )}
+
+            {/* Empty State - No Quiz Selected */}
+            {activeTab === "quiz" && !selectedQuiz && (
+              <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
+                {quizzes.length === 0 ? (
+                  <>
+                    <div className="text-6xl mb-4">📝</div>
+                    <h3 className="text-xl font-semibold text-slate-900 mb-2">
+                      {language === "ar" ? "لا توجد اختبارات متاحة" : "No Quizzes Available"}
+                    </h3>
+                    <p className="text-slate-600 mb-4">
+                      {language === "ar"
+                        ? "لم يتم إضافة اختبارات لهذه المرحلة بعد. سيتم إضافة الاختبارات قريباً."
+                        : "No quizzes have been added to this milestone yet. Quizzes will be added soon."}
+                    </p>
+                    <div className="mt-6 p-4 bg-slate-50 rounded-lg">
+                      <p className="text-sm text-slate-600">
+                        {language === "ar"
+                          ? "في هذه المرحلة، ستجد:"
+                          : "In this milestone, you'll find:"}
+                      </p>
+                      <ul className="mt-2 text-sm text-slate-500 space-y-1 text-left max-w-md mx-auto">
+                        <li>• {language === "ar" ? "اختبارات تقييمية" : "Assessment quizzes"}</li>
+                        <li>• {language === "ar" ? "أسئلة عملية" : "Practical questions"}</li>
+                        <li>• {language === "ar" ? "تغذية راجعة فورية" : "Instant feedback"}</li>
+                      </ul>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-4xl mb-4">📝</div>
+                    <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                      {language === "ar" ? "اختر اختبار للبدء" : "Select a Quiz to Start"}
+                    </h3>
+                    <p className="text-slate-600">
+                      {language === "ar"
+                        ? "اختر اختبار من القائمة الجانبية لبدء الاختبار"
+                        : "Select a quiz from the sidebar to start"}
+                    </p>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Locked Videos */}
+            {lockedVideos.length > 0 && (
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900 mb-4">
+                  {language === "ar" ? "محتوى مقفل" : "Locked Content"}
+                </h3>
+                <div className="grid md:grid-cols-2 gap-4">
+                  {lockedVideos.map((video) => (
+                    <LockedContent
+                      key={video.id}
+                      requiredTier={video.content_tier as ContentTier}
+                      currentTier={userTier}
+                      contentType="video"
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
