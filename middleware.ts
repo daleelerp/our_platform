@@ -8,9 +8,18 @@ export async function middleware(request: NextRequest) {
     },
   });
 
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  // If Supabase env vars are missing, skip auth checks and continue
+  if (!supabaseUrl || !supabaseKey) {
+    console.error("Missing Supabase environment variables in middleware");
+    return response;
+  }
+
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseUrl,
+    supabaseKey,
     {
       cookies: {
         getAll() {
@@ -31,9 +40,16 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let user = null;
+  try {
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser();
+    user = authUser;
+  } catch (error) {
+    // If auth fails, continue without user
+    console.error("Auth error in middleware:", error);
+  }
 
   const pathname = request.nextUrl.pathname;
 
@@ -60,14 +76,19 @@ export async function middleware(request: NextRequest) {
 
   // If user is logged in and tries to access onboarding but has completed it, redirect to dashboard
   if (user && pathname.startsWith("/onboarding")) {
-    const { data: profile } = await supabase
-      .from("user_profiles")
-      .select("onboarding_completed")
-      .eq("id", user.id)
-      .single();
+    try {
+      const { data: profile } = await supabase
+        .from("user_profiles")
+        .select("onboarding_completed")
+        .eq("id", user.id)
+        .single();
 
-    if (profile?.onboarding_completed) {
-      return NextResponse.redirect(new URL("/dashboard", request.url));
+      if (profile?.onboarding_completed) {
+        return NextResponse.redirect(new URL("/dashboard", request.url));
+      }
+    } catch (error) {
+      // If profile fetch fails, continue
+      console.error("Profile fetch error in middleware:", error);
     }
   }
 

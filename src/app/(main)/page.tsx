@@ -12,40 +12,53 @@ import { PricingSection } from "@/components/landing/PricingSection";
 import { SpecialOffers } from "@/components/landing/SpecialOffers";
 
 export default async function HomePage() {
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
+  let user = null;
+  let erpSystems = null;
+  let learningPaths = null;
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  try {
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
 
-  // If user is already logged in, redirect to dashboard
-  if (user) {
-    redirect("/dashboard");
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser();
+    user = authUser;
+
+    // If user is already logged in, redirect to dashboard
+    if (user) {
+      redirect("/dashboard");
+    }
+
+    // Fetch ERP systems for the grid
+    const { data: erpSystemsData } = await supabase
+      .from("erp_systems")
+      .select("*")
+      .order("priority_order");
+    erpSystems = erpSystemsData;
+
+    // Fetch published learning paths
+    const { data: learningPathsData } = await supabase
+      .from("learning_paths")
+      .select(`
+        id,
+        title,
+        title_ar,
+        slug,
+        description,
+        description_ar,
+        target_audience,
+        estimated_duration_hours,
+        difficulty_level,
+        career_outcomes
+      `)
+      .eq("is_published", true);
+    learningPaths = learningPathsData;
+  } catch (error) {
+    // If Supabase is unavailable, continue with empty data
+    console.error("Error fetching data for homepage:", error);
+    // Don't throw - allow page to render with empty data
   }
-
-  // Fetch ERP systems for the grid
-  const { data: erpSystems } = await supabase
-    .from("erp_systems")
-    .select("*")
-    .order("priority_order");
-
-  // Fetch published learning paths
-  const { data: learningPaths } = await supabase
-    .from("learning_paths")
-    .select(`
-      id,
-      title,
-      title_ar,
-      slug,
-      description,
-      description_ar,
-      target_audience,
-      estimated_duration_hours,
-      difficulty_level,
-      career_outcomes
-    `)
-    .eq("is_published", true);
 
   // Sort paths from beginner to advanced
   const difficultyOrder: Record<string, number> = {
