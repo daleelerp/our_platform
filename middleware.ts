@@ -9,7 +9,10 @@ export async function middleware(request: NextRequest) {
   });
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  // Support both variable names (new Supabase uses PUBLISHABLE_DEFAULT_KEY)
+  const supabaseKey = 
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY;
 
   // If Supabase env vars are missing, skip auth checks and continue
   if (!supabaseUrl || !supabaseKey) {
