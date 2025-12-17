@@ -46,9 +46,23 @@ export async function middleware(request: NextRequest) {
       data: { user: authUser },
     } = await supabase.auth.getUser();
     user = authUser;
-  } catch (error) {
+  } catch (error: any) {
     // If auth fails, continue without user
-    console.error("Auth error in middleware:", error);
+    const errorMessage = error?.message || String(error);
+    const isNetworkError = 
+      errorMessage.includes('ENOTFOUND') ||
+      errorMessage.includes('getaddrinfo') ||
+      errorMessage.includes('fetch failed') ||
+      error?.code === 'ENOTFOUND';
+    
+    if (isNetworkError) {
+      console.error("Network error in middleware connecting to Supabase:", {
+        url: supabaseUrl,
+        error: errorMessage
+      });
+    } else {
+      console.error("Auth error in middleware:", error);
+    }
   }
 
   const pathname = request.nextUrl.pathname;

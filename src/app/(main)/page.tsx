@@ -54,9 +54,24 @@ export default async function HomePage() {
       `)
       .eq("is_published", true);
     learningPaths = learningPathsData;
-  } catch (error) {
+  } catch (error: any) {
     // If Supabase is unavailable, continue with empty data
-    console.error("Error fetching data for homepage:", error);
+    const errorMessage = error?.message || String(error);
+    const isNetworkError = 
+      errorMessage.includes('ENOTFOUND') ||
+      errorMessage.includes('getaddrinfo') ||
+      errorMessage.includes('fetch failed') ||
+      error?.code === 'ENOTFOUND';
+    
+    if (isNetworkError) {
+      console.error("Network error connecting to Supabase. Please check:", {
+        url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+        error: errorMessage,
+        hint: "Verify your Supabase project is active and the URL is correct"
+      });
+    } else {
+      console.error("Error fetching data for homepage:", error);
+    }
     // Don't throw - allow page to render with empty data
   }
 

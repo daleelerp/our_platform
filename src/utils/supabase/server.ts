@@ -13,6 +13,15 @@ export const createClient = (
     );
   }
 
+  // Validate URL format
+  try {
+    new URL(supabaseUrl);
+  } catch {
+    throw new Error(
+      `Invalid Supabase URL format: ${supabaseUrl}. Please check NEXT_PUBLIC_SUPABASE_URL`
+    );
+  }
+
   return createServerClient(
     supabaseUrl,
     supabaseKey,
