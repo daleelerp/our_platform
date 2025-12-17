@@ -6,9 +6,21 @@ import { useAppStore } from "@/store/useAppStore";
 
 function getSupabaseClient() {
   try {
+    // Check if we're in browser and env vars exist
+    if (typeof window === "undefined") return null;
+    
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    
+    if (!url || !key) {
+      console.warn("Supabase environment variables not configured");
+      return null;
+    }
+    
     return createClient();
   } catch (error) {
     // During build or if env vars are missing, return null
+    console.warn("Failed to create Supabase client:", error);
     return null;
   }
 }
@@ -32,32 +44,46 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     const supabase = supabaseRef.current;
     if (!supabase) return;
 
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser(session.user);
-        fetchUserProfile(session.user.id);
-      }
-    }).catch((error) => {
-      // Silently fail during build or if Supabase is unavailable
-      console.warn("Failed to get session:", error);
-    });
+    let subscription: { unsubscribe: () => void } | null = null;
 
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.user) {
-        setUser(session.user);
-        fetchUserProfile(session.user.id);
-      } else {
-        setUser(null);
-        setUserProfile(null);
-      }
-    });
+    try {
+      // Get initial session
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user) {
+          setUser(session.user);
+          fetchUserProfile(session.user.id);
+        }
+      }).catch((error) => {
+        // Silently fail during build or if Supabase is unavailable
+        console.warn("Failed to get session:", error);
+      });
+
+      // Listen for auth changes
+      const {
+        data: { subscription: authSubscription },
+      } = supabase.auth.onAuthStateChange((event, session) => {
+        if (session?.user) {
+          setUser(session.user);
+          fetchUserProfile(session.user.id);
+        } else {
+          setUser(null);
+          setUserProfile(null);
+        }
+      });
+
+      subscription = authSubscription;
+    } catch (error) {
+      console.warn("Failed to initialize Supabase auth:", error);
+    }
 
     return () => {
-      subscription.unsubscribe();
+      if (subscription) {
+        try {
+          subscription.unsubscribe();
+        } catch (error) {
+          // Ignore unsubscribe errors
+        }
+      }
     };
   }, [setUser, setUserProfile]);
 
