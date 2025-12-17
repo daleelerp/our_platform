@@ -389,16 +389,16 @@ export async function getPlaylistItems(playlistId: string, maxResults: number = 
     let nextPageToken: string | undefined = undefined;
 
     do {
-      const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${playlistId}&maxResults=${Math.min(maxResults, 50)}&key=${apiKey}${nextPageToken ? `&pageToken=${nextPageToken}` : ''}`;
+      const url: string = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${playlistId}&maxResults=${Math.min(maxResults, 50)}&key=${apiKey}${nextPageToken ? `&pageToken=${nextPageToken}` : ''}`;
       
-      const response = await fetch(url);
+      const response: Response = await fetch(url);
 
       if (!response.ok) {
-        const error = await response.json();
+        const error: any = await response.json();
         throw new Error(`YouTube API error: ${error.error?.message || response.statusText}`);
       }
 
-      const data = await response.json();
+      const data: any = await response.json();
 
       if (data.items) {
         for (const item of data.items) {

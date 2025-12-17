@@ -180,7 +180,7 @@ export async function POST(request: NextRequest) {
 
           if (platform) {
             platformId = platform.id;
-            platformMap.set(resource.platform, platformId);
+            platformMap.set(resource.platform, platform.id);
           } else {
             // Create new platform
             const { data: newPlatform } = await supabase
@@ -197,7 +197,7 @@ export async function POST(request: NextRequest) {
 
             if (newPlatform) {
               platformId = newPlatform.id;
-              platformMap.set(resource.platform, platformId);
+              platformMap.set(resource.platform, newPlatform.id);
             }
           }
         }

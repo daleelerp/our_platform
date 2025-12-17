@@ -60,7 +60,7 @@ export async function checkMilestoneCompletion(
   status.videosTotal = videos?.length || 0;
 
   if (status.videosTotal > 0) {
-    const videoIds = videos!.map(v => v.id);
+    const videoIds = videos!.map((v: any) => v.id);
     
     const { data: videoProgress } = await supabase
       .from("user_video_progress")
@@ -111,7 +111,7 @@ export async function checkMilestoneCompletion(
   status.quizzesTotal = quizzes?.length || 0;
 
   if (status.quizzesTotal > 0) {
-    const quizIds = quizzes!.map(q => q.id);
+    const quizIds = quizzes!.map((q: any) => q.id);
     
     const { data: quizAttempts } = await supabase
       .from("user_quiz_attempts")
@@ -283,7 +283,7 @@ export async function calculatePathProgress(
     return 0;
   }
 
-  const milestoneIds = milestones.map(m => m.id);
+  const milestoneIds = milestones.map((m: any) => m.id);
   
   // Get all videos and quizzes for all milestones in one query
   const { data: allVideos } = await supabase

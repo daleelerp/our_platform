@@ -53,6 +53,11 @@ type Quiz = {
   passing_score: number;
   content_tier: string | null;
   quiz_questions: any[];
+  time_limit_minutes?: number | null;
+  max_attempts?: number | null;
+  randomize_questions?: boolean;
+  show_correct_answers?: boolean;
+  total_points?: number;
 };
 
 type Enrollment = {
@@ -774,7 +779,14 @@ export function LearningInterface({
                   (selectedQuiz.content_tier || "free") as ContentTier
                 ) ? (
                   <QuizPlayer
-                    quiz={selectedQuiz}
+                    quiz={{
+                      ...selectedQuiz,
+                      time_limit_minutes: (selectedQuiz as any).time_limit_minutes ?? null,
+                      max_attempts: (selectedQuiz as any).max_attempts ?? null,
+                      randomize_questions: (selectedQuiz as any).randomize_questions ?? false,
+                      show_correct_answers: (selectedQuiz as any).show_correct_answers ?? true,
+                      total_points: (selectedQuiz as any).total_points ?? 100,
+                    }}
                     questions={selectedQuiz.quiz_questions}
                     userId={userId}
                     onComplete={async (score, isPassed) => {

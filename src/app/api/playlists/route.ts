@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 
 /**
@@ -8,7 +9,8 @@ import { createClient } from "@/utils/supabase/server";
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
     const { searchParams } = new URL(request.url);
     
     const language = searchParams.get("language") || "en";

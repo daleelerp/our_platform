@@ -162,13 +162,15 @@ export function VideoPlayer({
 
       // Load saved progress if available
       if (userId && videoContentId) {
-        supabase
-          .from("user_video_progress")
-          .select("last_watched_position, is_completed, completion_percentage")
-          .eq("user_id", userId)
-          .eq("video_id", videoContentId)
-          .single()
-          .then(({ data, error }) => {
+        (async () => {
+          try {
+            const { data, error } = await supabase
+              .from("user_video_progress")
+              .select("last_watched_position, is_completed, completion_percentage")
+              .eq("user_id", userId)
+              .eq("video_id", videoContentId)
+              .single();
+            
             if (error) {
               console.debug("Error loading progress:", error);
               return;
@@ -191,7 +193,7 @@ export function VideoPlayer({
                   if (!wasWatchedThisSession) {
                     // Reset completion status - user needs to watch it again to mark as complete
                     // This prevents showing 100% progress before actually watching
-                    supabase
+                    const { error: updateError } = await supabase
                       .from("user_video_progress")
                       .update({
                         is_completed: false,
@@ -199,12 +201,11 @@ export function VideoPlayer({
                         // Keep the completion_percentage so we can resume from where they left off
                       })
                       .eq("user_id", userId)
-                      .eq("video_id", videoContentId)
-                      .then(({ error }) => {
-                        if (error) {
-                          console.debug("Error resetting video completion:", error);
-                        }
-                      });
+                      .eq("video_id", videoContentId);
+                    
+                    if (updateError) {
+                      console.debug("Error resetting video completion:", updateError);
+                    }
                   } else {
                     // Video was watched in this session, so keep completion status
                     setHasTriggeredComplete(true);
@@ -214,10 +215,10 @@ export function VideoPlayer({
                 console.debug("Error seeking to saved position:", e);
               }
             }
-          })
-          .catch((error) => {
+          } catch (error: any) {
             console.debug("Error in progress loading promise:", error);
-          });
+          }
+        })();
       }
     } catch (error) {
       console.error("Error in handleReady:", error);

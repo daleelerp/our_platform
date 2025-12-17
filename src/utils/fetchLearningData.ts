@@ -364,6 +364,14 @@ export async function fetchUserPathProgress(
     .eq("is_active", true);
 
   // Get user's completed milestones
+  // First get milestone IDs for this path
+  const { data: pathMilestones } = await supabase
+    .from("path_milestones")
+    .select("id")
+    .eq("learning_path_id", pathId);
+  
+  const milestoneIds = pathMilestones?.map((m: any) => m.id) || [];
+  
   const { data: progress } = await supabase
     .from("user_milestone_progress")
     .select(`
@@ -371,12 +379,7 @@ export async function fetchUserPathProgress(
       path_milestones (*)
     `)
     .eq("user_id", userId)
-    .in("milestone_id", 
-      supabase
-        .from("path_milestones")
-        .select("id")
-        .eq("learning_path_id", pathId)
-    );
+    .in("milestone_id", milestoneIds);
 
   const completedCount = (progress || []).filter(
     (p: any) => p.status === "completed"

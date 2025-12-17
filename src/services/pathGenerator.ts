@@ -429,8 +429,8 @@ async function searchCourseData(
         estimated_duration_minutes: course.estimated_duration_hours * 60,
         difficulty_level: course.difficulty_level,
         language: course.language,
-        description: course.description,
-        description_ar: course.description_ar,
+        selection_reason: course.description || "",
+        selection_reason_ar: course.description_ar || "",
       };
     }
   } catch (error) {

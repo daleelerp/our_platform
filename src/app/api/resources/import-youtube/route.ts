@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { getAdminSession } from "@/utils/admin-auth";
 import { extractPlaylistId, getPlaylistDetails, getPlaylistItems } from "@/lib/youtube/youtubeService";
@@ -57,7 +58,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = await createClient();
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
 
     // Get or create YouTube platform
     let { data: youtubePlatform } = await supabase
