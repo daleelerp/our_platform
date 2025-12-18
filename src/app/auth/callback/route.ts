@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
+  const redirectPath = requestUrl.searchParams.get("redirect") || "/dashboard";
 
   if (code) {
     const cookieStore = await cookies();
@@ -69,14 +70,17 @@ export async function GET(request: Request) {
       .eq("id", user.id)
       .single();
 
-    // Redirect to onboarding if not completed, otherwise dashboard
+    // Redirect to onboarding if not completed, otherwise to redirect path or dashboard
     if (profile && !profile.onboarding_completed) {
       return NextResponse.redirect(new URL("/onboarding", request.url));
     }
+    
+    // Use redirect path if provided, otherwise dashboard
+    return NextResponse.redirect(new URL(redirectPath, request.url));
   }
 
-  // Redirect to dashboard after successful auth
-  return NextResponse.redirect(new URL("/dashboard", request.url));
+  // Redirect to dashboard after successful auth (or redirect path if provided)
+  return NextResponse.redirect(new URL(redirectPath, request.url));
 }
 
 

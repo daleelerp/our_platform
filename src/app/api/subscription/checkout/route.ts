@@ -6,7 +6,11 @@ import { createClient } from "@/utils/supabase/server";
 const PAYMOB_API_KEY = process.env.PAYMOB_API_KEY;
 const PAYMOB_INTEGRATION_ID = process.env.PAYMOB_INTEGRATION_ID;
 const PAYMOB_IFRAME_ID = process.env.PAYMOB_IFRAME_ID;
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+// Get base URL from environment or use production default
+// In server-side code, we can't use window.location, so we use env var or default
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || process.env.VERCEL_URL 
+  ? `https://${process.env.VERCEL_URL}` 
+  : "https://www.daleel.site";
 
 // Optional: Separate integration IDs for different payment methods
 // If not set, will fall back to PAYMOB_INTEGRATION_ID
