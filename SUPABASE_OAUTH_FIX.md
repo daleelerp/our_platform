@@ -73,3 +73,4 @@ After updating Supabase settings:
 - Make sure both Supabase AND Google OAuth have the production URL whitelisted
 
 
+

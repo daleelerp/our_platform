@@ -70,12 +70,6 @@ export function SalaryRangesSelection({
   });
   const [useCustom, setUseCustom] = useState(false);
 
-  useEffect(() => {
-    if (jobRoleId && selectedRegion && selectedExperience) {
-      loadSalaryRanges();
-    }
-  }, [jobRoleId, selectedRegion, selectedExperience]);
-
   const loadSalaryRanges = async () => {
     if (!jobRoleId) return;
 
@@ -111,6 +105,13 @@ export function SalaryRangesSelection({
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (jobRoleId && selectedRegion && selectedExperience) {
+      loadSalaryRanges();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobRoleId, selectedRegion, selectedExperience]);
 
   const getText = (en: string, ar: string): string => {
     return language === "ar" ? ar : en;
@@ -158,10 +159,10 @@ export function SalaryRangesSelection({
     perYear: language === "ar" ? "سنوياً" : "per year",
     useMarketData: language === "ar" ? "استخدم بيانات السوق" : "Use Market Data",
     enterCustom: language === "ar" ? "أدخل راتب مخصص" : "Enter Custom Salary",
-    back: language === "ar" => "رجوع" : "Back",
-    next: language === "ar" => "التالي" : "Next",
-    noData: language === "ar" => "لا توجد بيانات متاحة" : "No data available",
-    loading: language === "ar" => "جاري التحميل..." : "Loading...",
+    back: language === "ar" ? "رجوع" : "Back",
+    next: language === "ar" ? "التالي" : "Next",
+    noData: language === "ar" ? "لا توجد بيانات متاحة" : "No data available",
+    loading: language === "ar" ? "جاري التحميل..." : "Loading...",
   };
 
   const canProceed = useCustom
@@ -250,7 +251,7 @@ export function SalaryRangesSelection({
                         {t.salaryRange}
                       </p>
                       <p className="text-lg font-bold text-teal-600 mt-1">
-                        {range.salary_min.toLocaleString()} - {range.salary_max.toLocaleString()}{" "}
+                        {Number(range.salary_min).toLocaleString()} - {Number(range.salary_max).toLocaleString()}{" "}
                         {range.salary_currency} {range.salary_period === "monthly" ? t.perMonth : t.perYear}
                       </p>
                     </div>
