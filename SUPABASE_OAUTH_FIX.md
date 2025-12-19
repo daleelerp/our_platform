@@ -72,3 +72,4 @@ After updating Supabase settings:
 - The issue is purely in Supabase/Google OAuth configuration
 - Make sure both Supabase AND Google OAuth have the production URL whitelisted
 
+

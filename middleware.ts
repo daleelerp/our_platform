@@ -109,6 +109,12 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // If user is logged in and tries to access home page, redirect to dashboard
+  // This ensures logged-in users always go to their dashboard when returning to the site
+  if (user && pathname === "/") {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
   return response;
 }
 
