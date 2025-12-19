@@ -394,13 +394,55 @@ export function AdminCrudTable({
                         <ScraperIcon
                           fieldKey={col.key}
                           searchQuery={
-                            formData[col.scraper.searchField || "name"] || ""
+                            (() => {
+                              const searchField = col.scraper?.searchField || "name";
+                              const searchValue = formData[searchField];
+                              
+                              // If searching by job_role_id, we need to get the job role title
+                              if (searchField === "job_role_id" && searchValue) {
+                                // Try to find the job role in dynamicColumnOptions
+                                const jobRoleOption = dynamicColumnOptions.job_role_id?.find(
+                                  (opt) => opt.value === searchValue
+                                );
+                                return jobRoleOption?.label || searchValue;
+                              }
+                              
+                              return searchValue || "";
+                            })()
                           }
                           onScrapeComplete={(value) => {
+                            // For salary scraper, parse the result and set min/max
+                            if (col.scraper?.type === "salary" && typeof value === "string") {
+                              // Parse salary string format: "Beginner: 8,000-12,000 EGP | ..."
+                              // Extract the range for the selected experience level
+                              const experienceLevel = formData.experience_level || "intermediate";
+                              const regex = new RegExp(
+                                `${experienceLevel}:\\s*([\\d,]+)-([\\d,]+)`,
+                                "i"
+                              );
+                              const match = value.match(regex);
+                              if (match) {
+                                const min = parseInt(match[1].replace(/,/g, ""));
+                                const max = parseInt(match[2].replace(/,/g, ""));
+                                if (col.key === "salary_min") {
+                                  handleChange("salary_min", min, "number");
+                                } else if (col.key === "salary_max") {
+                                  handleChange("salary_max", max, "number");
+                                } else {
+                                  // If it's a combined field, set both
+                                  handleChange("salary_min", min, "number");
+                                  handleChange("salary_max", max, "number");
+                                }
+                                return;
+                              }
+                            }
                             handleChange(col.key, value, col.type);
                           }}
                           scraperType={col.scraper.type || "demand_score"}
-                          disabled={!formData[col.scraper.searchField || "name"]}
+                          disabled={
+                            !formData[col.scraper.searchField || "name"] ||
+                            (col.scraper.searchField === "job_role_id" && !formData.job_role_id)
+                          }
                         />
                       )}
                     </div>

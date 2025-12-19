@@ -264,6 +264,12 @@ export default function PlansPage() {
                     </span>
                   </td>
                   <td className="px-4 py-2 text-right space-x-2">
+                    <Link
+                      href={`/admin/plans/${plan.id}/paths`}
+                      className="text-xs px-2 py-1 rounded bg-teal-100 text-teal-700 hover:bg-teal-200 inline-block"
+                    >
+                      Manage Paths
+                    </Link>
                     <button
                       onClick={() => startEdit(plan)}
                       className="text-xs px-2 py-1 rounded bg-slate-100 text-slate-700 hover:bg-slate-200"

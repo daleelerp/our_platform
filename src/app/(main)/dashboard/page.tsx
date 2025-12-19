@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import { DashboardContent } from "@/components/DashboardContent";
+import { calculatePathProgress } from "@/utils/milestoneProgress";
 
 export default async function DashboardPage() {
   const cookieStore = await cookies();
@@ -43,6 +44,43 @@ export default async function DashboardPage() {
     .eq("user_id", user.id)
     .eq("status", "active");
 
+  // Recalculate and update progress for all enrollments
+  // This ensures progress is always up-to-date when viewing the dashboard
+  let finalEnrollments = enrollments || [];
+  if (enrollments && enrollments.length > 0) {
+    finalEnrollments = await Promise.all(
+      enrollments.map(async (enrollment) => {
+        try {
+          // Calculate current progress based on milestone completion
+          const calculatedProgress = await calculatePathProgress(
+            user.id,
+            enrollment.learning_path_id,
+            supabase
+          );
+
+          // Only update if progress has changed (to avoid unnecessary writes)
+          if (Math.abs(calculatedProgress - (enrollment.progress_percentage || 0)) > 0.1) {
+            await supabase
+              .from("path_enrollments")
+              .update({
+                progress_percentage: calculatedProgress,
+              })
+              .eq("id", enrollment.id);
+
+            // Return updated enrollment
+            return { ...enrollment, progress_percentage: calculatedProgress };
+          }
+          
+          return enrollment;
+        } catch (error) {
+          console.error(`Error calculating progress for enrollment ${enrollment.id}:`, error);
+          // Return original enrollment if calculation fails
+          return enrollment;
+        }
+      })
+    );
+  }
+
   // Calculate time spent this week from video progress
   // Get the start of the current week (Sunday at 00:00:00)
   const now = new Date();
@@ -50,34 +88,50 @@ export default async function DashboardPage() {
   startOfWeek.setDate(now.getDate() - now.getDay()); // Go back to Sunday
   startOfWeek.setHours(0, 0, 0, 0);
 
-  // Fetch video progress records that were updated this week
-  const { data: videoProgressThisWeek } = await supabase
+  // Fetch ALL video progress records for the user (not just this week)
+  // We'll filter by date in the calculation
+  const { data: allVideoProgress } = await supabase
     .from("user_video_progress")
-    .select("completion_percentage, total_watch_time_seconds, last_watched_at, first_watched_at")
+    .select("completion_percentage, total_watch_time_seconds, watch_progress_seconds, last_watched_at, first_watched_at")
     .eq("user_id", user.id)
-    .gte("last_watched_at", startOfWeek.toISOString());
+    .not("last_watched_at", "is", null);
 
   // Calculate total hours this week
-  // For videos first watched this week, use total_watch_time_seconds
-  // For videos watched before but updated this week, use a conservative estimate
-  const totalSecondsThisWeek = videoProgressThisWeek?.reduce((sum, progress) => {
-    if (!progress.last_watched_at || new Date(progress.last_watched_at) < startOfWeek) {
+  let totalSecondsThisWeek = 0;
+  
+  if (allVideoProgress && allVideoProgress.length > 0) {
+    totalSecondsThisWeek = allVideoProgress.reduce((sum, progress) => {
+      if (!progress.last_watched_at) return sum;
+      
+      const lastWatched = new Date(progress.last_watched_at);
+      
+      // Only count videos that were watched this week
+      if (lastWatched >= startOfWeek) {
+        const firstWatched = progress.first_watched_at ? new Date(progress.first_watched_at) : null;
+        const totalWatchTime = progress.total_watch_time_seconds || 0;
+        const watchProgress = progress.watch_progress_seconds || 0;
+
+        // If video was first watched this week, use total_watch_time_seconds
+        if (firstWatched && firstWatched >= startOfWeek) {
+          return sum + totalWatchTime;
+        }
+
+        // For videos watched before this week but updated this week,
+        // estimate based on watch_progress_seconds (current position)
+        // This gives a better estimate of time spent this week
+        if (watchProgress > 0) {
+          // Use watch_progress_seconds as an estimate (current position in video)
+          // This is conservative but more accurate than a fixed 5 minutes
+          return sum + Math.min(watchProgress, 1800); // Cap at 30 minutes per video
+        }
+
+        // Fallback: 5 minutes per video watched this week
+        return sum + 300;
+      }
+      
       return sum;
-    }
-
-    const totalWatchTime = progress.total_watch_time_seconds || 0;
-    const firstWatched = progress.first_watched_at ? new Date(progress.first_watched_at) : null;
-
-    // If video was first watched this week, use total_watch_time_seconds
-    if (firstWatched && firstWatched >= startOfWeek) {
-      return sum + totalWatchTime;
-    }
-
-    // For videos watched before this week but updated this week,
-    // use a conservative estimate: assume at least 5 minutes per video watched this week
-    // This accounts for users revisiting/reviewing content
-    return sum + 300; // 5 minutes per video as conservative estimate
-  }, 0) || 0;
+    }, 0);
+  }
 
   // Convert to hours and round to 1 decimal place
   const hoursThisWeek = Math.round((totalSecondsThisWeek / 3600) * 10) / 10;
@@ -117,10 +171,14 @@ export default async function DashboardPage() {
   return (
     <DashboardContent 
       profile={profile}
-      enrollments={enrollments || []}
+      enrollments={finalEnrollments}
       recommendedPaths={recommendedPaths}
       savedPreferences={savedPreferences}
       hoursThisWeek={hoursThisWeek}
     />
   );
 }
+
+// Force dynamic rendering to ensure fresh data on each visit
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;

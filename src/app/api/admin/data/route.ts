@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
     const offset = searchParams.get("offset");
     const filterColumn = searchParams.get("filterColumn");
     const filterValue = searchParams.get("filterValue");
+    const plan_id = searchParams.get("plan_id"); // Special filter for plan_paths
 
     if (!table) {
       return NextResponse.json(
@@ -36,8 +37,13 @@ export async function GET(request: NextRequest) {
 
     const supabase = getAdminSupabaseClient();
 
-    // Build query
-    let query: any = supabase.from(table).select("*");
+    // Build query with joins for specific tables
+    let selectQuery = "*";
+    if (table === "plan_paths") {
+      selectQuery = "*, learning_paths(*)";
+    }
+
+    let query: any = supabase.from(table).select(selectQuery);
 
     if (id) {
       const { data, error } = await query.eq("id", id).single();
@@ -50,7 +56,10 @@ export async function GET(request: NextRequest) {
       }
       return NextResponse.json({ data });
     } else {
-      if (filterColumn && filterValue) {
+      // Special handling for plan_paths with plan_id filter
+      if (table === "plan_paths" && plan_id) {
+        query = query.eq("plan_id", plan_id);
+      } else if (filterColumn && filterValue) {
         query = query.eq(filterColumn, filterValue);
       }
 

@@ -7,6 +7,8 @@ import { useAppStore } from "@/store/useAppStore";
 import { fetchOnboardingOptions } from "@/utils/fetchOnboardingOptions";
 import type { OnboardingOptions } from "@/types/onboarding";
 import { AvatarPicker } from "@/components/AvatarPicker";
+import { JobRolesExplanation } from "@/components/JobRolesExplanation";
+import { SalaryRangesSelection } from "@/components/SalaryRangesSelection";
 
 type OnboardingData = {
   full_name: string;
@@ -33,9 +35,14 @@ type OnboardingData = {
   budget_range: string;
   referral_source: string;
   student_status: string;
+  preferred_job_role_id: string | null;
+  salary_preference_region: string | null;
+  salary_expectation_min: number | null;
+  salary_expectation_max: number | null;
+  salary_expectation_currency: string | null;
 };
 
-const TOTAL_STEPS = 3;
+const TOTAL_STEPS = 5;
 
 export function OnboardingForm({ 
   initialData,
@@ -121,6 +128,11 @@ export function OnboardingForm({
     budget_range: mergedInitialData.budget_range || "",
     referral_source: mergedInitialData.referral_source || "",
     student_status: mergedInitialData.student_status || initialData.student_status || "",
+    preferred_job_role_id: mergedInitialData.preferred_job_role_id || null,
+    salary_preference_region: mergedInitialData.salary_preference_region || null,
+    salary_expectation_min: mergedInitialData.salary_expectation_min || null,
+    salary_expectation_max: mergedInitialData.salary_expectation_max || null,
+    salary_expectation_currency: mergedInitialData.salary_expectation_currency || null,
   });
 
   // Save form data to localStorage whenever it changes
@@ -230,6 +242,11 @@ export function OnboardingForm({
           erp_tool_id: formData.erp_tool && formData.erp_tool !== "explore" ? formData.erp_tool : null,
           erp_explore: formData.erp_tool === "explore",
           career_focus: formData.career_focus,
+          preferred_job_role_id: formData.preferred_job_role_id || null,
+          salary_preference_region: formData.salary_preference_region || null,
+          salary_expectation_min: formData.salary_expectation_min || null,
+          salary_expectation_max: formData.salary_expectation_max || null,
+          salary_expectation_currency: formData.salary_expectation_currency || null,
           onboarding_completed: true,
           updated_at: new Date().toISOString(),
         })
@@ -349,7 +366,10 @@ export function OnboardingForm({
         </div>
         {/* Step indicators */}
         <div className="flex justify-between mt-3">
-          {(language === "ar" ? ["عنك", "الأهداف", "التفضيلات"] : ["About You", "Goals", "Preferences"]).map((label, i) => (
+          {(language === "ar" 
+            ? ["عنك", "الأهداف", "التفضيلات", "الدور الوظيفي", "الراتب"] 
+            : ["About You", "Goals", "Preferences", "Job Role", "Salary"]
+          ).map((label, i) => (
             <div key={i} className="flex flex-col items-center">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all ${
                 step > i + 1 ? "bg-emerald-500 text-white" :
@@ -886,6 +906,67 @@ export function OnboardingForm({
           </div>
         )}
 
+        {/* Step 4: Job Role Selection */}
+        {step === 4 && (
+          <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
+            <JobRolesExplanation
+              onSelect={(jobRoleId) => {
+                setFormData({ ...formData, preferred_job_role_id: jobRoleId });
+              }}
+              selectedJobRoleId={formData.preferred_job_role_id}
+              onNext={() => {
+                setStep(5);
+                setTimeout(() => {
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }, 100);
+              }}
+              onSkip={() => {
+                // Allow skipping, but mark as optional
+                setFormData({ ...formData, preferred_job_role_id: null });
+                setStep(5);
+                setTimeout(() => {
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }, 100);
+              }}
+            />
+          </div>
+        )}
+
+        {/* Step 5: Salary Range Selection */}
+        {step === 5 && (
+          <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
+            <SalaryRangesSelection
+              jobRoleId={formData.preferred_job_role_id}
+              onSelect={(data) => {
+                setFormData({
+                  ...formData,
+                  salary_preference_region: data.region,
+                  salary_expectation_min: data.salaryMin,
+                  salary_expectation_max: data.salaryMax,
+                  salary_expectation_currency: data.currency,
+                });
+              }}
+              onNext={async () => {
+                // Trigger form submission
+                const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
+                await handleSubmit(submitEvent as any);
+              }}
+              onBack={() => {
+                setStep(4);
+                setTimeout(() => {
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }, 100);
+              }}
+              initialData={{
+                region: formData.salary_preference_region || undefined,
+                salaryMin: formData.salary_expectation_min || undefined,
+                salaryMax: formData.salary_expectation_max || undefined,
+                currency: formData.salary_expectation_currency || undefined,
+              }}
+            />
+          </div>
+        )}
+
         {/* Navigation buttons */}
         <div className="flex gap-3 mt-8">
           {step > 1 && (
@@ -907,7 +988,8 @@ export function OnboardingForm({
               {language === "ar" ? "رجوع" : "Back"}
             </button>
           )}
-          {step < TOTAL_STEPS ? (
+          {/* Only show Continue button for steps 1-3, steps 4-5 have their own navigation */}
+          {step < 4 && step < TOTAL_STEPS ? (
             <button
               type="button"
               onClick={() => {
@@ -926,6 +1008,16 @@ export function OnboardingForm({
               className="flex-1 py-3 px-4 bg-emerald-500 text-white rounded-xl font-medium hover:bg-emerald-600 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {language === "ar" ? "متابعة" : "Continue"}
+            </button>
+          ) : step === 5 ? (
+            <button
+              type="submit"
+              disabled={isSubmitting || !canProceed()}
+              className="flex-1 py-3 px-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-medium hover:from-emerald-600 hover:to-teal-600 transition disabled:opacity-50"
+            >
+              {isSubmitting 
+                ? (language === "ar" ? "جاري الإعداد..." : "Setting up...") 
+                : (language === "ar" ? "ابدأ التعلم 🚀" : "Start Learning 🚀")}
             </button>
           ) : (
             <button
