@@ -43,6 +43,45 @@ export default async function DashboardPage() {
     .eq("user_id", user.id)
     .eq("status", "active");
 
+  // Calculate time spent this week from video progress
+  // Get the start of the current week (Sunday at 00:00:00)
+  const now = new Date();
+  const startOfWeek = new Date(now);
+  startOfWeek.setDate(now.getDate() - now.getDay()); // Go back to Sunday
+  startOfWeek.setHours(0, 0, 0, 0);
+
+  // Fetch video progress records that were updated this week
+  const { data: videoProgressThisWeek } = await supabase
+    .from("user_video_progress")
+    .select("completion_percentage, total_watch_time_seconds, last_watched_at, first_watched_at")
+    .eq("user_id", user.id)
+    .gte("last_watched_at", startOfWeek.toISOString());
+
+  // Calculate total hours this week
+  // For videos first watched this week, use total_watch_time_seconds
+  // For videos watched before but updated this week, use a conservative estimate
+  const totalSecondsThisWeek = videoProgressThisWeek?.reduce((sum, progress) => {
+    if (!progress.last_watched_at || new Date(progress.last_watched_at) < startOfWeek) {
+      return sum;
+    }
+
+    const totalWatchTime = progress.total_watch_time_seconds || 0;
+    const firstWatched = progress.first_watched_at ? new Date(progress.first_watched_at) : null;
+
+    // If video was first watched this week, use total_watch_time_seconds
+    if (firstWatched && firstWatched >= startOfWeek) {
+      return sum + totalWatchTime;
+    }
+
+    // For videos watched before this week but updated this week,
+    // use a conservative estimate: assume at least 5 minutes per video watched this week
+    // This accounts for users revisiting/reviewing content
+    return sum + 300; // 5 minutes per video as conservative estimate
+  }, 0) || 0;
+
+  // Convert to hours and round to 1 decimal place
+  const hoursThisWeek = Math.round((totalSecondsThisWeek / 3600) * 10) / 10;
+
   // Fetch saved path finder recommendations
   const { data: savedPreferences } = await supabase
     .from("user_path_preferences")
@@ -81,6 +120,7 @@ export default async function DashboardPage() {
       enrollments={enrollments || []}
       recommendedPaths={recommendedPaths}
       savedPreferences={savedPreferences}
+      hoursThisWeek={hoursThisWeek}
     />
   );
 }

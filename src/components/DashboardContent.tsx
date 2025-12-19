@@ -50,6 +50,7 @@ type Props = {
   enrollments: Enrollment[];
   recommendedPaths: Path[];
   savedPreferences?: SavedPreferences;
+  hoursThisWeek?: number;
 };
 
 const difficultyConfig: Record<string, { labelEn: string; labelAr: string; color: string }> = {
@@ -58,7 +59,7 @@ const difficultyConfig: Record<string, { labelEn: string; labelAr: string; color
   advanced: { labelEn: "Advanced", labelAr: "متقدم", color: "bg-orange-100 text-orange-700" },
 };
 
-export function DashboardContent({ profile, enrollments, recommendedPaths, savedPreferences }: Props) {
+export function DashboardContent({ profile, enrollments, recommendedPaths, savedPreferences, hoursThisWeek = 0 }: Props) {
   const language = useAppStore((state) => state.language);
   const isHydrated = useAppStore((state) => state.isHydrated);
   const { plan, isLoading: subscriptionLoading } = useSubscription();
@@ -199,7 +200,9 @@ export function DashboardContent({ profile, enrollments, recommendedPaths, saved
           {/* Time spent card */}
           <div className="bg-white rounded-xl border border-slate-200 p-6">
             <h3 className="text-sm font-medium text-slate-500 mb-2">{t.timeThisWeek}</h3>
-            <p className="text-3xl font-bold text-slate-900">0h</p>
+            <p className="text-3xl font-bold text-slate-900">
+              {hoursThisWeek > 0 ? `${hoursThisWeek}h` : "0h"}
+            </p>
             <p className="text-sm text-slate-500 mt-1">{t.keepLearning}</p>
           </div>
         </div>
