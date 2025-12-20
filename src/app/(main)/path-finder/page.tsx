@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { PathFinderQuiz } from "@/components/PathFinderQuiz";
+import { filterPathsByPlan } from "@/utils/pathAccess";
 
 export default async function PathFinderPage() {
   const cookieStore = await cookies();
@@ -127,9 +128,13 @@ export default async function PathFinderPage() {
     }
   }
 
+  // Filter paths by user's subscription plan
+  // Only show paths that are in the user's plan
+  const accessiblePaths = await filterPathsByPlan(filteredPaths, supabase, user?.id, undefined);
+
   return (
     <PathFinderQuiz 
-      paths={filteredPaths} 
+      paths={accessiblePaths} 
       erpSystems={erpSystems || []}
       savedPreferences={savedPreferences}
       userId={user?.id || null}

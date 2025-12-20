@@ -75,6 +75,9 @@ export function JobRolesExplanation({ onSelect, selectedJobRoleId, onNext, onSki
       language === "ar"
         ? "اختر الدور الوظيفي الذي تطمح إليه لرؤية المسارات المناسبة لك"
         : "Select your target job role to see relevant learning paths",
+    clarification: language === "ar"
+      ? "💡 هذا يساعدنا في تخصيص تجربتك التعليمية وتقديم توصيات دقيقة للمسارات والشهادات التي تناسب أهدافك المهنية. يمكنك تخطي هذا إذا لم تكن متأكداً بعد."
+      : "💡 This helps us personalize your learning experience and provide accurate recommendations for paths and certifications that match your career goals. You can skip this if you're not sure yet.",
     selectRole: language === "ar" ? "اختر دورك" : "Select Your Role",
     roleDescription: language === "ar" ? "وصف الدور" : "Role Description",
     dailyActivities: language === "ar" ? "الأنشطة اليومية" : "Daily Activities",
@@ -106,6 +109,13 @@ export function JobRolesExplanation({ onSelect, selectedJobRoleId, onNext, onSki
       <div className="text-center mb-8">
         <h2 className="text-2xl font-bold text-slate-900 mb-2">{t.title}</h2>
         <p className="text-slate-600">{t.subtitle}</p>
+      </div>
+
+      {/* Clarification Box */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <p className="text-sm text-blue-800 leading-relaxed">
+          {t.clarification}
+        </p>
       </div>
 
       {jobRoles.length === 0 ? (

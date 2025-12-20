@@ -148,6 +148,9 @@ export function SalaryRangesSelection({
       language === "ar"
         ? "اختر المنطقة ومستوى الخبرة لرؤية نطاقات الرواتب المتوقعة"
         : "Select region and experience level to see expected salary ranges",
+    clarification: language === "ar"
+      ? "💡 نستخدم هذه المعلومات لتقديم رؤى حول إمكاناتك المهنية ومساعدتك في تحديد أهداف واقعية. البيانات مبنية على أبحاث السوق الحالية. يمكنك استخدام بيانات السوق المقترحة أو إدخال توقعاتك الخاصة."
+      : "💡 We use this information to provide insights about your career potential and help you set realistic goals. The data is based on current market research. You can use the suggested market data or enter your own expectations.",
     selectRegion: language === "ar" ? "اختر المنطقة" : "Select Region",
     selectExperience: language === "ar" ? "مستوى الخبرة" : "Experience Level",
     marketData: language === "ar" ? "بيانات السوق" : "Market Data",
@@ -163,6 +166,9 @@ export function SalaryRangesSelection({
     next: language === "ar" ? "التالي" : "Next",
     noData: language === "ar" ? "لا توجد بيانات متاحة" : "No data available",
     loading: language === "ar" ? "جاري التحميل..." : "Loading...",
+    marketDataNote: language === "ar"
+      ? "ملاحظة: هذه البيانات مبنية على أبحاث السوق الحالية وقد تختلف حسب الشركة والموقع والتفاصيل الأخرى."
+      : "Note: This data is based on current market research and may vary by company, location, and other factors.",
   };
 
   const canProceed = useCustom
@@ -174,6 +180,13 @@ export function SalaryRangesSelection({
       <div className="text-center mb-8">
         <h2 className="text-2xl font-bold text-slate-900 mb-2">{t.title}</h2>
         <p className="text-slate-600">{t.subtitle}</p>
+      </div>
+
+      {/* Clarification Box */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <p className="text-sm text-blue-800 leading-relaxed">
+          {t.clarification}
+        </p>
       </div>
 
       {/* Region Selection */}
@@ -229,10 +242,13 @@ export function SalaryRangesSelection({
       ) : salaryRanges.length > 0 ? (
         <div className="bg-slate-50 rounded-xl p-6 space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-slate-900">{t.marketData}</h3>
+            <div>
+              <h3 className="font-semibold text-slate-900">{t.marketData}</h3>
+              <p className="text-xs text-slate-500 mt-1">{t.marketDataNote}</p>
+            </div>
             <button
               onClick={() => setUseCustom(!useCustom)}
-              className="text-sm text-teal-600 hover:text-teal-700"
+              className="text-sm text-teal-600 hover:text-teal-700 whitespace-nowrap ml-4"
             >
               {useCustom ? t.useMarketData : t.enterCustom}
             </button>

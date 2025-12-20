@@ -31,3 +31,4 @@ COMMENT ON COLUMN subscription_plans.payment_type IS 'Payment type: recurring (m
 
 
 
+

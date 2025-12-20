@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import { LearningInterface } from "@/components/LearningInterface";
+import { isPathInUserPlan } from "@/utils/pathAccess";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -39,6 +40,14 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
 
   if (pathError || !path) {
     redirect("/paths");
+  }
+
+  // Validate that path is in user's subscription plan
+  const hasAccess = await isPathInUserPlan(path.id, supabase, user.id, undefined);
+  
+  if (!hasAccess) {
+    // Path is not in user's plan - redirect to path detail page
+    redirect(`/paths/${slug}?error=path_not_in_plan`);
   }
 
   // Check if user is enrolled, if not, enroll them

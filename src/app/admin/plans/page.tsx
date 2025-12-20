@@ -505,10 +505,32 @@ export default function PlansPage() {
 
             {/* Limitations Section */}
             <div className="border-t border-slate-200 pt-4">
-              <h3 className="text-sm font-semibold text-slate-700 mb-3">Limitations</h3>
-              <p className="text-xs text-slate-500 mb-3">
-                Use -1 for unlimited, 0 to disable, or a positive number for the limit
-              </p>
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-700 mb-1">Limitations</h3>
+                  <p className="text-xs text-slate-500">
+                    Use -1 for unlimited, 0 to disable, or a positive number for the limit
+                  </p>
+                </div>
+                {editingPlan?.id && (
+                  <Link
+                    href={`/admin/plans/${editingPlan.id}/paths`}
+                    className="text-xs px-3 py-1.5 rounded bg-teal-100 text-teal-700 hover:bg-teal-200 transition-colors"
+                  >
+                    Manage Paths →
+                  </Link>
+                )}
+              </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                <p className="text-xs text-blue-800">
+                  <strong>Note:</strong> These limits control how many paths/resources users can <em>access</em>, not how many are <em>in the plan</em>. 
+                  {editingPlan?.id ? (
+                    <> To add multiple paths to this plan, use the "Manage Paths" button above. When you add a path to a plan, all its milestones are automatically included.</>
+                  ) : (
+                    <> After saving this plan, you can add multiple paths to it from the plans list. When you add a path to a plan, all its milestones are automatically included.</>
+                  )}
+                </p>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-slate-600 mb-1.5">
@@ -528,6 +550,9 @@ export default function PlansPage() {
                     }
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                   />
+                  <p className="text-xs text-slate-400 mt-1">
+                    Maximum number of learning paths a user can access/enroll in
+                  </p>
                 </div>
 
                 <div>
@@ -548,6 +573,9 @@ export default function PlansPage() {
                     }
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                   />
+                  <p className="text-xs text-slate-400 mt-1">
+                    Maximum number of resources (articles, videos, etc.) a user can view per milestone
+                  </p>
                 </div>
 
                 <div>
@@ -568,6 +596,9 @@ export default function PlansPage() {
                     }
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                   />
+                  <p className="text-xs text-slate-400 mt-1">
+                    Maximum learning hours per month (tracked from video watching and learning activities)
+                  </p>
                 </div>
 
                 <div>
@@ -588,6 +619,9 @@ export default function PlansPage() {
                     }
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                   />
+                  <p className="text-xs text-slate-400 mt-1">
+                    Maximum AI chat requests per month (for AI assistant conversations)
+                  </p>
                 </div>
 
                 <div>
@@ -608,6 +642,9 @@ export default function PlansPage() {
                     }
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                   />
+                  <p className="text-xs text-slate-400 mt-1">
+                    Maximum resource downloads per month (for offline access)
+                  </p>
                 </div>
               </div>
             </div>

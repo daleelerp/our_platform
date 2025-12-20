@@ -2,10 +2,18 @@ import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import { PathsContent } from "@/components/PathsContent";
+import { filterPathsByPlan } from "@/utils/pathAccess";
 
-export default async function PathsPage() {
+type Props = {
+  searchParams?: Promise<{ error?: string }>;
+};
+
+export default async function PathsPage({ searchParams }: Props) {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
+  
+  const resolvedSearchParams = await searchParams;
+  const errorParam = resolvedSearchParams?.error;
 
   const {
     data: { user },
@@ -111,11 +119,25 @@ export default async function PathsPage() {
   // Execute query
   const { data: paths, error: err } = await pathsQuery.order("difficulty_level");
 
+  // Filter paths by user's subscription plan
+  // Only show paths that are in the user's plan
+  const accessiblePaths = paths 
+    ? await filterPathsByPlan(paths, supabase, user?.id, undefined)
+    : [];
+
+  // Handle error messages
+  let errorMessage = err?.message || null;
+  if (errorParam === "path_not_in_plan") {
+    errorMessage = user 
+      ? "This path is not available in your current subscription plan. Please upgrade to access this path."
+      : "This path requires a subscription. Please sign in to view available plans.";
+  }
+
   return (
     <PathsContent 
-      paths={paths || []} 
+      paths={accessiblePaths} 
       isLoggedIn={!!user} 
-      error={err?.message || null}
+      error={errorMessage}
       userProfile={userProfile}
       userId={user?.id || null}
       savedPreferences={savedPreferences}

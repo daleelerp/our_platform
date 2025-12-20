@@ -3,6 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import { DashboardContent } from "@/components/DashboardContent";
 import { calculatePathProgress } from "@/utils/milestoneProgress";
+import { filterPathsByPlan } from "@/utils/pathAccess";
 
 export default async function DashboardPage() {
   const cookieStore = await cookies();
@@ -154,9 +155,12 @@ export default async function DashboardPage() {
       .eq("is_published", true);
     
     // Sort to match the saved order
-    recommendedPaths = savedPreferences.recommended_path_ids
+    const sortedPaths = savedPreferences.recommended_path_ids
       .map((id: string) => savedPaths?.find(p => p.id === id))
       .filter(Boolean) as any[];
+    
+    // Filter by user's plan
+    recommendedPaths = await filterPathsByPlan(sortedPaths, supabase, user.id, undefined);
   } else {
     // Fallback to generic recommendations if no saved preferences
     const { data: availablePaths } = await supabase
@@ -165,7 +169,8 @@ export default async function DashboardPage() {
       .eq("is_published", true)
       .limit(3);
     
-    recommendedPaths = availablePaths || [];
+    // Filter by user's plan
+    recommendedPaths = await filterPathsByPlan(availablePaths || [], supabase, user.id, undefined);
   }
 
   return (

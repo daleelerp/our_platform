@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import { PathDetailContent } from "@/components/PathDetailContent";
+import { isPathInUserPlan } from "@/utils/pathAccess";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -32,6 +33,14 @@ export default async function PathDetailPage({ params }: Props) {
 
   if (error || !path) {
     redirect("/paths");
+  }
+
+  // Validate that path is in user's subscription plan
+  const hasAccess = await isPathInUserPlan(path.id, supabase, user?.id, undefined);
+  
+  if (!hasAccess) {
+    // Path is not in user's plan - redirect to paths page with error message
+    redirect("/paths?error=path_not_in_plan");
   }
 
   // Fetch milestones for this path

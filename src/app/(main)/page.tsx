@@ -27,6 +27,8 @@ export default async function HomePage() {
 
     // If user is already logged in, redirect to dashboard
     if (user) {
+      // redirect() throws a NEXT_REDIRECT error which is expected behavior
+      // This is caught by Next.js to perform the redirect
       redirect("/dashboard");
     }
 
