@@ -8,7 +8,7 @@ type ScraperIconProps = {
   fieldKey: string;
   searchQuery: string;
   onScrapeComplete: (value: any) => void;
-  scraperType?: "demand_score" | "salary" | "demand_level" | "job_count" | "custom";
+  scraperType?: "demand_score" | "salary" | "demand_level" | "job_count" | "custom" | "description" | "text";
   disabled?: boolean;
 };
 

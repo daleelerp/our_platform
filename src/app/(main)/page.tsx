@@ -10,6 +10,7 @@ import { FoundersNote } from "@/components/landing/FoundersNote";
 import { EarlyAccessCTA } from "@/components/landing/EarlyAccessCTA";
 import { PricingSection } from "@/components/landing/PricingSection";
 import { SpecialOffers } from "@/components/landing/SpecialOffers";
+import { CareerResourcesSection } from "@/components/landing/CareerResourcesSection";
 
 export default async function HomePage() {
   let user = null;
@@ -100,6 +101,7 @@ export default async function HomePage() {
       <HowItWorks />
       <ErpSystemsGrid systems={erpSystems || []} />
       <OraclePathsPreview paths={sortedPaths} />
+      <CareerResourcesSection />
       <PricingSection />
       <SpecialOffers />
       <FoundersNote />

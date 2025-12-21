@@ -114,6 +114,8 @@ export default function JobRolesPage() {
           erp_module_id: "",
           min_years_experience: 0,
           typical_years_to_role: null,
+          daily_activities: "",
+          daily_activities_ar: "",
           is_active: true,
         }}
         columns={[
@@ -135,6 +137,46 @@ export default function JobRolesPage() {
           },
           { key: "min_years_experience", label: "Min Years Exp", type: "number" },
           { key: "typical_years_to_role", label: "Years to Role", type: "number" },
+          { 
+            key: "description", 
+            label: "Description (EN)", 
+            type: "textarea",
+            scraper: {
+              enabled: true,
+              type: "description",
+              searchField: "title",
+            },
+          },
+          { 
+            key: "description_ar", 
+            label: "Description (AR)", 
+            type: "textarea",
+            scraper: {
+              enabled: true,
+              type: "description",
+              searchField: "title_ar",
+            },
+          },
+          { 
+            key: "daily_activities", 
+            label: "Daily Activities (EN) - One per line", 
+            type: "array",
+            scraper: {
+              enabled: true,
+              type: "custom",
+              searchField: "title",
+            },
+          },
+          { 
+            key: "daily_activities_ar", 
+            label: "Daily Activities (AR) - One per line", 
+            type: "array",
+            scraper: {
+              enabled: true,
+              type: "custom",
+              searchField: "title_ar",
+            },
+          },
           { key: "is_active", label: "Active", type: "checkbox" },
         ]}
         onFormDataChange={(key, value) => {

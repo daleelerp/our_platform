@@ -37,6 +37,11 @@ export async function POST(request: NextRequest) {
       case "job_count":
         value = await scrapeJobCount(search_query);
         break;
+      case "custom":
+      case "description":
+      case "text":
+        value = await scrapeTextContent(search_query, field_key);
+        break;
       default:
         return NextResponse.json({ error: "Unknown scraper type" }, { status: 400 });
     }
@@ -233,5 +238,47 @@ async function scrapeDemandLevel(searchQuery: string): Promise<string | null> {
 async function scrapeJobCount(searchQuery: string): Promise<number | null> {
   // TODO: Implement job count scraping
   return null;
+}
+
+/**
+ * Scrape text content (descriptions, daily activities, etc.)
+ * Returns text content based on the search query and field context
+ */
+async function scrapeTextContent(searchQuery: string, fieldKey: string): Promise<string | null> {
+  try {
+    // This would integrate with AI APIs (OpenAI, Anthropic, etc.) or web scraping
+    // For now, we'll use a mock implementation that can be replaced with real APIs
+    
+    // Determine what type of content to scrape based on field key
+    const normalizedKey = fieldKey.toLowerCase();
+    const normalizedQuery = searchQuery.toLowerCase();
+    
+    if (normalizedKey.includes("description")) {
+      // Scrape job description or role description
+      // Mock implementation - replace with actual AI/web scraping
+      return `This role focuses on ${normalizedQuery} in ERP systems. Key responsibilities include implementation, configuration, and support of ERP modules.`;
+    }
+    
+    if (normalizedKey.includes("daily_activities") || normalizedKey.includes("activities")) {
+      // Scrape daily activities as a list
+      // Mock implementation - replace with actual AI/web scraping
+      const activities = [
+        `Analyze and configure ${normalizedQuery} modules`,
+        `Collaborate with stakeholders on requirements`,
+        `Test and validate system configurations`,
+        `Provide technical support and troubleshooting`,
+        `Document processes and procedures`,
+        `Train end users on system functionality`
+      ];
+      return activities.join("\n");
+    }
+    
+    // Generic text scraping
+    // Mock implementation - replace with actual AI/web scraping
+    return `Content related to ${searchQuery}. This is a placeholder that should be replaced with actual scraping results.`;
+  } catch (error) {
+    console.error("Error scraping text content:", error);
+    return null;
+  }
 }
 

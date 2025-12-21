@@ -8,14 +8,15 @@ import { Modal } from "./Modal";
 type Column = {
   key: string;
   label: string;
-  type?: "text" | "select" | "checkbox" | "number";
+  type?: "text" | "select" | "checkbox" | "number" | "textarea" | "array";
   options?: { value: string; label: string }[];
   readOnly?: boolean;
   hidden?: boolean;
+  dependsOn?: string; // Field that must be selected before this field is enabled
   scraper?: {
     enabled: boolean;
-    type?: "demand_score" | "salary" | "demand_level" | "job_count" | "custom";
-    searchField?: string; // Field to use as search query (defaults to 'name')
+    type?: "demand_score" | "salary" | "demand_level" | "job_count" | "custom" | "description" | "text";
+    searchField?: string; // Field to use as search query (defaults to 'name' or 'title')
   };
 };
 
@@ -101,8 +102,19 @@ export function AdminCrudTable({
 
   const startEdit = (item: any) => {
     setEditingItem(item);
-    setFormData(item);
     setIsCreating(false);
+    const initialData: Record<string, any> = {};
+    columns.forEach((col) => {
+      if (col.hidden) return;
+      const value = item[col.key];
+      // Convert JSONB arrays to newline-separated text for editing
+      if (col.type === "array" && Array.isArray(value)) {
+        initialData[col.key] = value.join("\n");
+      } else {
+        initialData[col.key] = value ?? defaultValues[col.key] ?? "";
+      }
+    });
+    setFormData(initialData);
     // Trigger callback for all form data to allow dependent dropdowns to initialize
     // Process erp_system_id first if it exists, then others
     if (onFormDataChange) {
@@ -112,9 +124,9 @@ export function AdminCrudTable({
         onFormDataChange("erp_system_id", systemId);
       }
       // Then process all other keys
-      Object.keys(item).forEach((key) => {
+      Object.keys(initialData).forEach((key) => {
         if (key !== "erp_system_id") {
-          onFormDataChange(key, item[key]);
+          onFormDataChange(key, initialData[key]);
         }
       });
     }
@@ -125,12 +137,60 @@ export function AdminCrudTable({
     if (type === "checkbox") {
       v = !!value;
     } else if (type === "number") {
-      v = value === "" ? null : Number(value);
+      if (value === "") {
+        v = null;
+      } else {
+        const numValue = Number(value);
+        // For integer fields (market_demand_score), round to integer
+        // remote_work_percentage is DECIMAL(5,2) so it can have decimals
+        if (key === "market_demand_score") {
+          v = Math.round(numValue);
+        } else {
+          v = numValue;
+        }
+      }
+    } else if (type === "array") {
+      // Convert newline-separated text to array, filter out empty lines
+      if (typeof value === "string") {
+        v = value.split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
+      } else if (Array.isArray(value)) {
+        v = value;
+      } else {
+        v = [];
+      }
     }
-    setFormData((prev) => ({ ...prev, [key]: v }));
+    
+    // Find all columns that depend on this field and reset them
+    const dependentFields = columns
+      .filter((col) => col.dependsOn === key)
+      .map((col) => col.key);
+    
+    setFormData((prev) => {
+      const newData = { ...prev, [key]: v };
+      // Reset dependent fields - use null for number fields, empty string for others
+      dependentFields.forEach((depKey) => {
+        const depCol = columns.find((c) => c.key === depKey);
+        if (depCol?.type === "number") {
+          newData[depKey] = null;
+        } else {
+          newData[depKey] = defaultValues[depKey] ?? "";
+        }
+      });
+      return newData;
+    });
+    
     // Call the callback if provided
     if (onFormDataChange) {
       onFormDataChange(key, v);
+      // Also notify about dependent field resets
+      dependentFields.forEach((depKey) => {
+        const depCol = columns.find((c) => c.key === depKey);
+        if (depCol?.type === "number") {
+          onFormDataChange(depKey, null);
+        } else {
+          onFormDataChange(depKey, defaultValues[depKey] ?? "");
+        }
+      });
     }
   };
 
@@ -145,10 +205,18 @@ export function AdminCrudTable({
         params.set("id", editingItem.id);
       }
 
+      // Clean formData: convert empty strings to null for number fields
+      const cleanedData = { ...formData };
+      columns.forEach((col) => {
+        if (col.type === "number" && cleanedData[col.key] === "") {
+          cleanedData[col.key] = null;
+        }
+      });
+
       const res = await fetch(`/api/admin/data?${params.toString()}`, {
         method: isEdit ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(cleanedData),
       });
 
       const json = await res.json();
@@ -353,14 +421,22 @@ export function AdminCrudTable({
                       onChange={(e) =>
                         handleChange(col.key, e.target.value, col.type)
                       }
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                      disabled={col.key === "erp_module_id" && !formData["erp_system_id"]}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                      disabled={
+                        (col.key === "erp_module_id" && !formData["erp_system_id"]) ||
+                        (col.dependsOn && !formData[col.dependsOn]) ||
+                        (col.key === "job_role_id" && (dynamicColumnOptions[col.key] || col.options || []).length === 0)
+                      }
                     >
                       <option value="">
-                        {col.key === "erp_module_id" && !formData["erp_system_id"]
+                        {col.key === "job_role_id" && (dynamicColumnOptions[col.key] || col.options || []).length === 0
+                          ? "Select Category first..."
+                          : col.dependsOn && !formData[col.dependsOn]
+                          ? `Select ${columns.find((c) => c.key === col.dependsOn)?.label || col.dependsOn} first...`
+                          : col.key === "erp_module_id" && !formData["erp_system_id"]
                           ? "Select ERP System first..."
                           : (dynamicColumnOptions[col.key] || col.options || []).length === 0
-                          ? "No modules available (create modules in /admin/modules)"
+                          ? "No options available"
                           : "Select..."}
                       </option>
                       {(dynamicColumnOptions[col.key] || col.options || []).map((opt) => (
@@ -379,6 +455,63 @@ export function AdminCrudTable({
                         }
                         className="h-4 w-4 text-teal-600 border-slate-300 rounded"
                       />
+                    </div>
+                  ) : col.type === "textarea" || col.type === "array" ? (
+                    <div className="flex items-start gap-1">
+                      <textarea
+                        value={formData[col.key] ?? ""}
+                        onChange={(e) =>
+                          handleChange(col.key, e.target.value, col.type)
+                        }
+                        rows={col.type === "array" ? 6 : 4}
+                        placeholder={col.type === "array" ? "Enter one item per line" : ""}
+                        className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 font-mono text-xs"
+                      />
+                      {col.scraper?.enabled && (
+                        <div className="pt-2">
+                          <ScraperIcon
+                            fieldKey={col.key}
+                            searchQuery={
+                              (() => {
+                                const searchField = col.scraper?.searchField || "title";
+                                const searchValue = formData[searchField];
+                                
+                                // If searching by job_role_id, we need to get the job role title
+                                if (searchField === "job_role_id" && searchValue) {
+                                  const jobRoleOption = dynamicColumnOptions.job_role_id?.find(
+                                    (opt) => opt.value === searchValue
+                                  );
+                                  return jobRoleOption?.label || searchValue;
+                                }
+                                
+                                // For title-based searches, use title or title_ar
+                                if (searchField === "title" || searchField === "title_ar") {
+                                  return formData[searchField] || formData["title"] || formData["title_ar"] || "";
+                                }
+                                
+                                return searchValue || "";
+                              })()
+                            }
+                            onScrapeComplete={(value) => {
+                              if (col.type === "array" && typeof value === "string") {
+                                // For array fields, split by newlines or bullets
+                                const items = value
+                                  .split(/\n|•|[-*]/)
+                                  .map(item => item.trim())
+                                  .filter(item => item.length > 0);
+                                handleChange(col.key, items.join("\n"), col.type);
+                              } else {
+                                handleChange(col.key, value, col.type);
+                              }
+                            }}
+                            scraperType={col.scraper.type || "custom"}
+                            disabled={
+                              !formData[col.scraper.searchField || "title"] ||
+                              (col.scraper.searchField === "job_role_id" && !formData.job_role_id)
+                            }
+                          />
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="flex items-center gap-1">

@@ -34,7 +34,7 @@ export default function TermsOfServicePage() {
           {
             title: "5. سياسة الاسترداد",
             content:
-              "نوفر ضمان استرداد الأموال لمدة 7 أيام من تاريخ الشراء. بعد هذه الفترة، لا يمكن استرداد المدفوعات إلا في حالات استثنائية على أساس كل حالة على حدة.",
+              "لا يوجد استرداد للأموال تحت أي ظرف من الظروف. جميع المدفوعات نهائية وغير قابلة للاسترداد.",
           },
           {
             title: "6. إخلاء المسؤولية",
@@ -95,7 +95,7 @@ export default function TermsOfServicePage() {
           {
             title: "5. Refund Policy",
             content:
-              "We offer a 7-day money-back guarantee from the date of purchase. After this period, refunds are only available in exceptional circumstances on a case-by-case basis.",
+              "There is no refund under any circumstances. All payments are final and non-refundable.",
           },
           {
             title: "6. Disclaimer",

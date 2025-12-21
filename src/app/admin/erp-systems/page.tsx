@@ -39,6 +39,26 @@ export default function AdminErpSystemsPage() {
           { key: "name", label: "Name", type: "text" },
           { key: "vendor", label: "Vendor", type: "text" },
           { 
+            key: "description", 
+            label: "Description (EN)", 
+            type: "textarea",
+            scraper: {
+              enabled: true,
+              type: "description",
+              searchField: "name",
+            },
+          },
+          { 
+            key: "description_ar", 
+            label: "Description (AR)", 
+            type: "textarea",
+            scraper: {
+              enabled: true,
+              type: "description",
+              searchField: "name",
+            },
+          },
+          { 
             key: "avg_salary_range", 
             label: "Salary Range", 
             type: "text",

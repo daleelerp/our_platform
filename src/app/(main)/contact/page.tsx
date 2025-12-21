@@ -46,6 +46,8 @@ export default function ContactPage() {
     required: isArabic ? "مطلوب" : "Required",
     contactInfo: isArabic ? "معلومات الاتصال" : "Contact Information",
     emailUs: isArabic ? "راسلنا على" : "Email us at",
+    address: isArabic ? "العنوان" : "Address",
+    phone: isArabic ? "الهاتف" : "Phone",
     responseTime: isArabic
       ? "نرد عادة خلال 24-48 ساعة"
       : "We typically respond within 24-48 hours",
@@ -248,6 +250,21 @@ export default function ContactPage() {
                     className="text-[#429874] hover:text-[#357a5d] font-medium break-all"
                   >
                     daleel.erp.site@gmail.com
+                  </a>
+                </div>
+                <div className="pt-4 border-t border-slate-200">
+                  <p className="text-sm text-slate-600 mb-1">{t.address}</p>
+                  <p className="text-[#429874] font-medium">
+                    {isArabic ? "القاهرة، مصر" : "Cairo, Egypt"}
+                  </p>
+                </div>
+                <div className="pt-4 border-t border-slate-200">
+                  <p className="text-sm text-slate-600 mb-1">{t.phone}</p>
+                  <a
+                    href="tel:+201008285889"
+                    className="text-[#429874] hover:text-[#357a5d] font-medium"
+                  >
+                    01008285889
                   </a>
                 </div>
                 <div className="pt-4 border-t border-slate-200">

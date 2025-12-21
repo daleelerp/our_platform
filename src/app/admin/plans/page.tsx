@@ -31,6 +31,7 @@ type Plan = {
   is_active: boolean;
   is_popular: boolean;
   sort_order: number;
+  erp_provider_ids?: string[] | null;
 };
 
 type Feature = {
@@ -41,9 +42,18 @@ type Feature = {
   category: string;
 };
 
+type ErpProvider = {
+  id: string;
+  name: string;
+  name_ar: string | null;
+  slug: string;
+  is_active?: boolean;
+};
+
 export default function PlansPage() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [features, setFeatures] = useState<Feature[]>([]);
+  const [erpProviders, setErpProviders] = useState<ErpProvider[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -57,19 +67,24 @@ export default function PlansPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [plansRes, featuresRes] = await Promise.all([
+      const [plansRes, featuresRes, providersRes] = await Promise.all([
         fetch("/api/admin/data?table=subscription_plans"),
         fetch("/api/admin/data?table=subscription_features"),
+        fetch("/api/admin/data?table=erp_providers"),
       ]);
 
       const plansJson = await plansRes.json();
       const featuresJson = await featuresRes.json();
+      const providersJson = await providersRes.json();
 
       if (plansRes.ok && plansJson.data) {
         setPlans(plansJson.data);
       }
       if (featuresRes.ok && featuresJson.data) {
         setFeatures(featuresJson.data);
+      }
+      if (providersRes.ok && providersJson.data) {
+        setErpProviders(providersJson.data.filter((p: ErpProvider) => p.is_active !== false));
       }
     } catch (err) {
       toast.error("Failed to load data");
@@ -106,6 +121,7 @@ export default function PlansPage() {
       is_active: true,
       is_popular: false,
       sort_order: 0,
+      erp_provider_ids: [],
     });
   };
 
@@ -122,6 +138,7 @@ export default function PlansPage() {
         ai_requests: 0,
         downloads: 0,
       },
+      erp_provider_ids: Array.isArray(plan.erp_provider_ids) ? plan.erp_provider_ids : [],
     });
   };
 
@@ -692,6 +709,49 @@ export default function PlansPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* ERP Provider Selection */}
+            <div className="border-t border-slate-200 pt-4">
+              <h3 className="text-sm font-semibold text-slate-700 mb-3">ERP Provider Association</h3>
+              <p className="text-xs text-slate-500 mb-3">
+                Select which ERP provider(s) this plan is associated with. This helps filter plans on the pricing page.
+                Leave empty to show for all providers.
+              </p>
+              <div className="space-y-2">
+                {erpProviders.map((provider) => (
+                  <label
+                    key={provider.id}
+                    className="flex items-center gap-2 p-2 rounded border border-slate-200 hover:bg-slate-50 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={(formData.erp_provider_ids || []).includes(provider.id)}
+                      onChange={(e) => {
+                        const currentProviders = formData.erp_provider_ids || [];
+                        if (e.target.checked) {
+                          setFormData({
+                            ...formData,
+                            erp_provider_ids: [...currentProviders, provider.id],
+                          });
+                        } else {
+                          setFormData({
+                            ...formData,
+                            erp_provider_ids: currentProviders.filter((id) => id !== provider.id),
+                          });
+                        }
+                      }}
+                      className="h-4 w-4 text-teal-600 border-slate-300 rounded"
+                    />
+                    <span className="text-xs text-slate-700">
+                      {provider.name} {provider.name_ar && `(${provider.name_ar})`}
+                    </span>
+                  </label>
+                ))}
+                {erpProviders.length === 0 && (
+                  <p className="text-xs text-slate-400 italic">No ERP providers found. Please add providers first.</p>
+                )}
               </div>
             </div>
 
