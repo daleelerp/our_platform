@@ -43,6 +43,7 @@ type Video = {
   content_tier: string | null;
   video_order: number;
   duration_seconds: number | null;
+  primary_language?: string | null;
 };
 
 type Quiz = {
@@ -103,16 +104,51 @@ export function LearningInterface({
   const language = useAppStore((state) => state.language);
   const router = useRouter();
   const hasReloadedRef = useRef(false);
+  
+  // Filter videos by language preference
+  const filteredVideos = videos.filter((video: any) => {
+    // If user prefers Arabic, show Arabic videos (primary_language = 'ar')
+    // If user prefers English, show English videos (primary_language = 'en')
+    // Also show 'mixed' language videos for both
+    // If primary_language is not set (legacy videos), show them for both languages
+    if (language === "ar") {
+      return !video.primary_language || video.primary_language === "ar" || video.primary_language === "mixed";
+    } else {
+      return !video.primary_language || video.primary_language === "en" || video.primary_language === "mixed";
+    }
+  });
+  
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(
-    videos.length > 0 ? videos[0] : null
+    filteredVideos.length > 0 ? filteredVideos[0] : null
   );
   const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
   const [selectedResource, setSelectedResource] = useState<LearningResource | null>(
-    resources.length > 0 && videos.length === 0 ? resources[0] : null
+    resources.length > 0 && filteredVideos.length === 0 ? resources[0] : null
   );
   const [activeTab, setActiveTab] = useState<"videos" | "quiz" | "resources">(
-    videos.length > 0 ? "videos" : resources.length > 0 ? "resources" : quizzes.length > 0 ? "quiz" : "videos"
+    filteredVideos.length > 0 ? "videos" : resources.length > 0 ? "resources" : quizzes.length > 0 ? "quiz" : "videos"
   );
+  
+  // Update selected video when language changes
+  useEffect(() => {
+    if (filteredVideos.length > 0) {
+      // If current selected video is not in filtered list, select first filtered video
+      if (!selectedVideo || !filteredVideos.find(v => v.id === selectedVideo.id)) {
+        setSelectedVideo(filteredVideos[0]);
+        setActiveTab("videos");
+      }
+    } else {
+      // No videos available in current language
+      setSelectedVideo(null);
+      if (resources.length > 0) {
+        setActiveTab("resources");
+        setSelectedResource(resources[0]);
+      } else if (quizzes.length > 0) {
+        setActiveTab("quiz");
+        setSelectedQuiz(quizzes[0]);
+      }
+    }
+  }, [language, filteredVideos, selectedVideo, resources, quizzes]);
   // Track which videos have been played in the current session
   const [playedVideos, setPlayedVideos] = useState<Set<string>>(new Set());
   // Track current progress for videos being watched (updates in real-time)
@@ -317,8 +353,8 @@ export function LearningInterface({
     currentMilestone.description_ar
   );
 
-  // Filter videos, quizzes, and resources by tier access
-  const accessibleVideos = videos.filter((video) => {
+  // Filter videos by both language and tier access
+  const accessibleVideos = filteredVideos.filter((video) => {
     if (!video.content_tier) return true;
     return hasAccessToTier(userTier, video.content_tier as ContentTier);
   });
@@ -338,7 +374,7 @@ export function LearningInterface({
     return true;
   });
 
-  const lockedVideos = videos.filter((video) => {
+  const lockedVideos = filteredVideos.filter((video) => {
     if (!video.content_tier) return false;
     return !hasAccessToTier(userTier, video.content_tier as ContentTier);
   });
@@ -516,12 +552,12 @@ export function LearningInterface({
                   <div className="text-4xl mb-2">📹</div>
                   <p className="text-sm text-slate-500">
                     {language === "ar" 
-                      ? "لا توجد فيديوهات متاحة بعد" 
+                      ? "لا يوجد فيديو بالعربية في الوقت الحالي" 
                       : "No videos available yet"}
                   </p>
                   <p className="text-xs text-slate-400 mt-1">
                     {language === "ar"
-                      ? "سيتم إضافة المحتوى قريباً"
+                      ? "سيتم إضافة المحتوى العربي قريباً"
                       : "Content will be added soon"}
                   </p>
                 </div>
@@ -730,15 +766,17 @@ export function LearningInterface({
             )}
 
             {/* Empty State - No Video Selected */}
-            {activeTab === "videos" && !selectedVideo && videos.length === 0 && (
+            {activeTab === "videos" && !selectedVideo && filteredVideos.length === 0 && (
               <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
                 <div className="text-6xl mb-4">🎥</div>
                 <h3 className="text-xl font-semibold text-slate-900 mb-2">
-                  {language === "ar" ? "لا توجد فيديوهات متاحة" : "No Videos Available"}
+                  {language === "ar" ? "لا يوجد فيديو بالعربية في الوقت الحالي" : "No Videos Available"}
                 </h3>
                 <p className="text-slate-600 mb-4">
                   {language === "ar"
-                    ? "لم يتم إضافة فيديوهات لهذه المرحلة بعد. سيتم إضافة المحتوى قريباً."
+                    ? videos.length > 0
+                      ? "لا يوجد فيديو بالعربية لهذه المرحلة في الوقت الحالي. سيتم إضافة المحتوى العربي قريباً."
+                      : "لم يتم إضافة فيديوهات لهذه المرحلة بعد. سيتم إضافة المحتوى قريباً."
                     : "No videos have been added to this milestone yet. Content will be added soon."}
                 </p>
                 <div className="mt-6 p-4 bg-slate-50 rounded-lg">
@@ -756,8 +794,21 @@ export function LearningInterface({
               </div>
             )}
 
-            {/* Empty State - No Video Selected but videos exist */}
-            {activeTab === "videos" && !selectedVideo && videos.length > 0 && (
+            {/* Empty State - No Video Selected but videos exist (filtered out by language) */}
+            {activeTab === "videos" && !selectedVideo && videos.length > 0 && filteredVideos.length === 0 && language === "ar" && (
+              <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
+                <div className="text-4xl mb-4">📹</div>
+                <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                  لا يوجد فيديو بالعربية في الوقت الحالي
+                </h3>
+                <p className="text-slate-600">
+                  لا يوجد فيديو بالعربية لهذه المرحلة في الوقت الحالي. سيتم إضافة المحتوى العربي قريباً.
+                </p>
+              </div>
+            )}
+            
+            {/* Empty State - No Video Selected but filtered videos exist */}
+            {activeTab === "videos" && !selectedVideo && filteredVideos.length > 0 && (
               <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
                 <div className="text-4xl mb-4">▶️</div>
                 <h3 className="text-lg font-semibold text-slate-900 mb-2">

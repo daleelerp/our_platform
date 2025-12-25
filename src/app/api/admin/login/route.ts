@@ -115,10 +115,10 @@ export async function POST(request: NextRequest) {
       })
       .eq("id", adminCred.id);
 
-    // Create admin session - 1 hour duration
+    // Create admin session - 1 day duration
     const sessionToken = crypto.randomUUID();
     const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 1); // 1 hour session
+    expiresAt.setDate(expiresAt.getDate() + 1); // 1 day session
 
     // Store session in database for security
     const { error: sessionError } = await supabase
@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 60 * 60, // 1 hour (3600 seconds)
+      maxAge: 60 * 60 * 24, // 1 day (86400 seconds)
       path: "/",
     });
 
@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
       httpOnly: false, // Allow client-side access for display
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 60 * 60, // 1 hour
+      maxAge: 60 * 60 * 24, // 1 day (86400 seconds)
       path: "/",
     });
 

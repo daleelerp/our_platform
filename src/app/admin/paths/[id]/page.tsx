@@ -43,7 +43,9 @@ type VideoContent = {
   youtube_url: string;
   youtube_video_id: string;
   title: string;
+  title_ar?: string | null;
   content_tier: string | null;
+  primary_language?: string | null;
 };
 
 type NewMilestone = {
@@ -109,6 +111,8 @@ export default function EditPathPage() {
       {
         youtube_url: string;
         title: string;
+        title_ar: string;
+        language: "en" | "ar";
       }
     >
   >({});
@@ -439,6 +443,11 @@ export default function EditPathPage() {
       return;
     }
 
+    if (!videoData.language) {
+      alert("Please select a language (English or Arabic)");
+      return;
+    }
+
     const youtubeId = parseYouTubeId(videoData.youtube_url);
     if (!youtubeId) {
       alert("Could not detect YouTube video ID from URL");
@@ -452,9 +461,10 @@ export default function EditPathPage() {
         body: JSON.stringify({
           youtube_video_id: youtubeId,
           youtube_url: videoData.youtube_url,
-          title: videoData.title,
+          title: videoData.language === "en" ? videoData.title : "",
+          title_ar: videoData.language === "ar" ? videoData.title : (videoData.title_ar || ""),
           milestone_id: milestoneId,
-          primary_language: "en",
+          primary_language: videoData.language,
           is_active: true,
         }),
       });
@@ -470,7 +480,7 @@ export default function EditPathPage() {
       }));
       setNewVideo((prev) => ({
         ...prev,
-        [milestoneId]: { youtube_url: "", title: "" },
+        [milestoneId]: { youtube_url: "", title: "", title_ar: "", language: "en" },
       }));
     } catch (err: any) {
       console.error(err);
@@ -1132,14 +1142,19 @@ export default function EditPathPage() {
                       Existing videos
                     </div>
                     <div className="space-y-2">
-                      {videosByMilestone[m.id].map((v) => (
+                      {videosByMilestone[m.id].map((v: any) => (
                         <div
                           key={v.id}
                           className="flex items-center justify-between text-sm"
                         >
                           <div className="flex-1">
-                            <div className="font-medium text-slate-800">
-                              {v.title}
+                            <div className="flex items-center gap-2">
+                              <div className="font-medium text-slate-800">
+                                {v.title || v.title_ar || "Untitled"}
+                              </div>
+                              <span className="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-600">
+                                {v.primary_language === "ar" ? "AR" : v.primary_language === "en" ? "EN" : "Mixed"}
+                              </span>
                             </div>
                             <a
                               href={v.youtube_url}
@@ -1172,27 +1187,49 @@ export default function EditPathPage() {
                 {/* Add new video */}
                 <div className="mt-2 border-t border-slate-100 pt-3">
                   <div className="text-xs font-medium text-slate-500 mb-1">
-                    Add YouTube video
+                    Add YouTube video (AR or EN)
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 items-center">
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        placeholder="YouTube URL"
+                        value={newVideo[m.id]?.youtube_url || ""}
+                        onChange={(e) =>
+                          setNewVideo((prev) => ({
+                            ...prev,
+                            [m.id]: {
+                              youtube_url: e.target.value,
+                              title: prev[m.id]?.title || "",
+                              title_ar: prev[m.id]?.title_ar || "",
+                              language: prev[m.id]?.language || "en",
+                            },
+                          }))
+                        }
+                        className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      />
+                      <select
+                        value={newVideo[m.id]?.language || "en"}
+                        onChange={(e) =>
+                          setNewVideo((prev) => ({
+                            ...prev,
+                            [m.id]: {
+                              youtube_url: prev[m.id]?.youtube_url || "",
+                              title: prev[m.id]?.title || "",
+                              title_ar: prev[m.id]?.title_ar || "",
+                              language: e.target.value as "en" | "ar",
+                            },
+                          }))
+                        }
+                        className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      >
+                        <option value="en">English (EN)</option>
+                        <option value="ar">Arabic (AR)</option>
+                      </select>
+                    </div>
                     <input
                       type="text"
-                      placeholder="YouTube URL"
-                      value={newVideo[m.id]?.youtube_url || ""}
-                      onChange={(e) =>
-                        setNewVideo((prev) => ({
-                          ...prev,
-                          [m.id]: {
-                            youtube_url: e.target.value,
-                            title: prev[m.id]?.title || "",
-                          },
-                        }))
-                      }
-                      className="md:col-span-2 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Video title"
+                      placeholder={newVideo[m.id]?.language === "ar" ? "Video title (Arabic)" : "Video title (English)"}
                       value={newVideo[m.id]?.title || ""}
                       onChange={(e) =>
                         setNewVideo((prev) => ({
@@ -1200,10 +1237,12 @@ export default function EditPathPage() {
                           [m.id]: {
                             youtube_url: prev[m.id]?.youtube_url || "",
                             title: e.target.value,
+                            title_ar: prev[m.id]?.title_ar || "",
+                            language: prev[m.id]?.language || "en",
                           },
                         }))
                       }
-                      className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                     />
                   </div>
                   <div className="mt-2">
@@ -1212,7 +1251,7 @@ export default function EditPathPage() {
                       onClick={() => handleAddVideo(m.id)}
                       className="text-xs px-3 py-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
                     >
-                      Add Video
+                      Add Video ({newVideo[m.id]?.language === "ar" ? "AR" : "EN"})
                     </button>
                   </div>
                 </div>
