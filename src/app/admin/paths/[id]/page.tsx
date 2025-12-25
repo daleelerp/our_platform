@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { RichTextEditor } from "@/components/RichTextEditor";
 
 type LearningPath = {
   id: string;
@@ -39,6 +40,10 @@ type MilestoneResource = {
   resource_id: string;
   resource_title: string;
   url: string;
+  resource_type?: string;
+  description?: string;
+  description_ar?: string;
+  title_ar?: string;
 };
 
 type LearningResource = {
@@ -193,6 +198,15 @@ export default function EditPathPage() {
     Record<string, { query: string; source: string; isScraping: boolean }>
   >({});
 
+  const [editingArticleId, setEditingArticleId] = useState<string | null>(null);
+  const [editingArticle, setEditingArticle] = useState<{
+    title: string;
+    title_ar: string;
+    description: string;
+    description_ar: string;
+    url: string;
+  } | null>(null);
+
   useEffect(() => {
     const loadData = async () => {
       if (!pathId) return;
@@ -278,11 +292,35 @@ export default function EditPathPage() {
             );
             const resourcesJson = await resourcesRes.json();
             if (resourcesRes.ok) {
-              resourcesMap[m.id] = (resourcesJson.data || []).map((r: any) => ({
+              // Also fetch full resource details for articles
+              const resourceDetails = await Promise.all(
+                (resourcesJson.data || []).map(async (r: any) => {
+                  if (r.resource_type === "article") {
+                    const detailRes = await fetch(
+                      `/api/admin/data?table=learning_resources&id=${encodeURIComponent(r.resource_id)}`
+                    );
+                    const detailJson = await detailRes.json();
+                    if (detailRes.ok && detailJson.data) {
+                      return {
+                        ...r,
+                        description: detailJson.data.description || "",
+                        description_ar: detailJson.data.description_ar || "",
+                        title_ar: detailJson.data.title_ar || "",
+                      };
+                    }
+                  }
+                  return r;
+                })
+              );
+              resourcesMap[m.id] = resourceDetails.map((r: any) => ({
                 id: r.id,
                 resource_id: r.resource_id,
                 resource_title: r.resource_title || r.title || "Untitled",
                 url: r.url,
+                resource_type: r.resource_type,
+                description: r.description || "",
+                description_ar: r.description_ar || "",
+                title_ar: r.title_ar || "",
               }));
             } else {
               resourcesMap[m.id] = [];
@@ -970,6 +1008,123 @@ export default function EditPathPage() {
       console.error(err);
       alert(err.message || "Failed to add article");
     }
+  };
+
+  const handleEditArticle = async (resourceId: string) => {
+    try {
+      const res = await fetch(
+        `/api/admin/data?table=learning_resources&id=${encodeURIComponent(resourceId)}`
+      );
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || "Failed to load article");
+      }
+
+      setEditingArticleId(resourceId);
+      setEditingArticle({
+        title: json.data.title || "",
+        title_ar: json.data.title_ar || "",
+        description: json.data.description || "",
+        description_ar: json.data.description_ar || "",
+        url: json.data.url || "",
+      });
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Failed to load article");
+    }
+  };
+
+  const handleUpdateArticle = async () => {
+    if (!editingArticleId || !editingArticle) {
+      return;
+    }
+
+    if (!editingArticle.title.trim()) {
+      alert("Please provide a title");
+      return;
+    }
+
+    try {
+      const res = await fetch(
+        `/api/admin/data?table=learning_resources&id=${encodeURIComponent(editingArticleId)}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: editingArticle.title.trim(),
+            title_ar: editingArticle.title_ar.trim() || null,
+            description: editingArticle.description.trim() || null,
+            description_ar: editingArticle.description_ar.trim() || null,
+            url: editingArticle.url.trim() || "",
+          }),
+        }
+      );
+
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || "Failed to update article");
+      }
+
+      // Reload data
+      const loadData = async () => {
+        const milestones = Object.keys(resourcesByMilestone);
+        for (const milestoneId of milestones) {
+          const resourcesRes = await fetch(
+            `/api/admin/data?table=milestone_resources_view&filterColumn=milestone_id&filterValue=${encodeURIComponent(
+              milestoneId
+            )}&limit=100`
+          );
+          const resourcesJson = await resourcesRes.json();
+          if (resourcesRes.ok) {
+            const resourceDetails = await Promise.all(
+              (resourcesJson.data || []).map(async (r: any) => {
+                if (r.resource_type === "article" && r.resource_id === editingArticleId) {
+                  const detailRes = await fetch(
+                    `/api/admin/data?table=learning_resources&id=${encodeURIComponent(r.resource_id)}`
+                  );
+                  const detailJson = await detailRes.json();
+                  if (detailRes.ok && detailJson.data) {
+                    return {
+                      ...r,
+                      description: detailJson.data.description || "",
+                      description_ar: detailJson.data.description_ar || "",
+                      title_ar: detailJson.data.title_ar || "",
+                    };
+                  }
+                }
+                return r;
+              })
+            );
+            setResourcesByMilestone((prev) => ({
+              ...prev,
+              [milestoneId]: resourceDetails.map((r: any) => ({
+                id: r.id,
+                resource_id: r.resource_id,
+                resource_title: r.resource_title || r.title || "Untitled",
+                url: r.url,
+                resource_type: r.resource_type,
+                description: r.description || "",
+                description_ar: r.description_ar || "",
+                title_ar: r.title_ar || "",
+              })),
+            }));
+          }
+        }
+      };
+      await loadData();
+
+      setEditingArticleId(null);
+      setEditingArticle(null);
+      alert("Article updated successfully!");
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Failed to update article");
+    }
+  };
+
+  const handleCancelEditArticle = () => {
+    setEditingArticleId(null);
+    setEditingArticle(null);
   };
 
   if (loading) {
@@ -2032,28 +2187,48 @@ export default function EditPathPage() {
                       {resourcesByMilestone[m.id].map((r) => (
                         <div
                           key={r.id}
-                          className="flex items-center justify-between text-xs"
+                          className="flex items-center justify-between text-xs p-2 border border-slate-200 rounded-lg"
                         >
                           <div className="flex-1">
-                            <div className="font-medium text-slate-800">
-                              {r.resource_title}
+                            <div className="flex items-center gap-2">
+                              <div className="font-medium text-slate-800">
+                                {r.resource_title}
+                              </div>
+                              {r.resource_type === "article" && (
+                                <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded">
+                                  Article
+                                </span>
+                              )}
                             </div>
-                            <a
-                              href={r.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-[11px] text-teal-600 hover:text-teal-700 break-all"
-                            >
-                              {r.url}
-                            </a>
+                            {r.url && (
+                              <a
+                                href={r.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-[11px] text-teal-600 hover:text-teal-700 break-all"
+                              >
+                                {r.url}
+                              </a>
+                            )}
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteResource(m.id, r.id)}
-                            className="ml-3 text-[11px] text-red-600 hover:text-red-700"
-                          >
-                            Remove
-                          </button>
+                          <div className="flex gap-2">
+                            {r.resource_type === "article" && (
+                              <button
+                                type="button"
+                                onClick={() => handleEditArticle(r.resource_id)}
+                                className="text-[11px] text-blue-600 hover:text-blue-700"
+                              >
+                                Edit
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteResource(m.id, r.id)}
+                              className="text-[11px] text-red-600 hover:text-red-700"
+                            >
+                              Remove
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -2169,16 +2344,15 @@ export default function EditPathPage() {
                         <label className="text-xs font-medium text-slate-600 mb-1 block">
                           Article Content (English) *
                         </label>
-                        <textarea
-                          placeholder="Write the full article content here..."
+                        <RichTextEditor
                           value={newArticle[m.id]?.description || ""}
-                          onChange={(e) =>
+                          onChange={(value) =>
                             setNewArticle((prev) => ({
                               ...prev,
                               [m.id]: {
                                 title: prev[m.id]?.title || "",
                                 title_ar: prev[m.id]?.title_ar || "",
-                                description: e.target.value,
+                                description: value,
                                 description_ar: prev[m.id]?.description_ar || "",
                                 url: prev[m.id]?.url || "",
                                 platform: prev[m.id]?.platform || "",
@@ -2187,28 +2361,28 @@ export default function EditPathPage() {
                               },
                             }))
                           }
+                          placeholder="Write the full article content here..."
                           rows={12}
-                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                          className="text-xs"
                         />
                         <p className="text-[10px] text-slate-400 mt-1">
-                          This is where you write the full article content, not just a description
+                          Use the toolbar above to format your text (bold, italic, headings, lists, links)
                         </p>
                       </div>
                       <div>
                         <label className="text-xs font-medium text-slate-600 mb-1 block">
                           Article Content (Arabic)
                         </label>
-                        <textarea
-                          placeholder="اكتب محتوى المقال الكامل هنا..."
+                        <RichTextEditor
                           value={newArticle[m.id]?.description_ar || ""}
-                          onChange={(e) =>
+                          onChange={(value) =>
                             setNewArticle((prev) => ({
                               ...prev,
                               [m.id]: {
                                 title: prev[m.id]?.title || "",
                                 title_ar: prev[m.id]?.title_ar || "",
                                 description: prev[m.id]?.description || "",
-                                description_ar: e.target.value,
+                                description_ar: value,
                                 url: prev[m.id]?.url || "",
                                 platform: prev[m.id]?.platform || "",
                                 language: prev[m.id]?.language || "en",
@@ -2216,11 +2390,12 @@ export default function EditPathPage() {
                               },
                             }))
                           }
+                          placeholder="اكتب محتوى المقال الكامل هنا..."
                           rows={12}
-                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                          className="text-xs"
                         />
                         <p className="text-[10px] text-slate-400 mt-1">
-                          هذا هو المكان الذي تكتب فيه محتوى المقال الكامل، وليس مجرد وصف
+                          استخدم شريط الأدوات أعلاه لتنسيق النص (عريض، مائل، عناوين، قوائم، روابط)
                         </p>
                       </div>
                     </div>
@@ -2651,6 +2826,137 @@ export default function EditPathPage() {
           </div>
         )}
       </div>
+
+      {/* Edit Article Modal */}
+      {editingArticle && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-slate-200">
+              <h2 className="text-lg font-semibold text-slate-900">Edit Article</h2>
+              <button
+                onClick={handleCancelEditArticle}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-medium text-slate-600 mb-1 block">
+                    Article Title (English) *
+                  </label>
+                  <input
+                    type="text"
+                    value={editingArticle.title}
+                    onChange={(e) =>
+                      setEditingArticle((prev) =>
+                        prev ? { ...prev, title: e.target.value } : null
+                      )
+                    }
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-600 mb-1 block">
+                    Article Title (Arabic)
+                  </label>
+                  <input
+                    type="text"
+                    value={editingArticle.title_ar}
+                    onChange={(e) =>
+                      setEditingArticle((prev) =>
+                        prev ? { ...prev, title_ar: e.target.value } : null
+                      )
+                    }
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-slate-600 mb-1 block">
+                  Article Content (English) *
+                </label>
+                <RichTextEditor
+                  value={editingArticle.description}
+                  onChange={(value) =>
+                    setEditingArticle((prev) =>
+                      prev ? { ...prev, description: value } : null
+                    )
+                  }
+                  placeholder="Write the full article content here..."
+                  rows={12}
+                  className="text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-slate-600 mb-1 block">
+                  Article Content (Arabic)
+                </label>
+                <RichTextEditor
+                  value={editingArticle.description_ar}
+                  onChange={(value) =>
+                    setEditingArticle((prev) =>
+                      prev ? { ...prev, description_ar: value } : null
+                    )
+                  }
+                  placeholder="اكتب محتوى المقال الكامل هنا..."
+                  rows={12}
+                  className="text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-slate-600 mb-1 block">
+                  Article Link (for download or visit) - Optional
+                </label>
+                <input
+                  type="url"
+                  value={editingArticle.url}
+                  onChange={(e) =>
+                    setEditingArticle((prev) =>
+                      prev ? { ...prev, url: e.target.value } : null
+                    )
+                  }
+                  placeholder="https://example.com/article or file download link"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-200">
+              <button
+                onClick={handleCancelEditArticle}
+                className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUpdateArticle}
+                className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

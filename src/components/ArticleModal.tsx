@@ -5,6 +5,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { logResourceInteraction } from "@/utils/fetchLearningData";
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
+import { markdownToHtml } from "@/utils/markdown";
 
 type Props = {
   resource: LearningResource;
@@ -143,8 +144,11 @@ export function ArticleModal({
             <>
               <div className="prose prose-sm max-w-none mb-6">
                 <div 
-                  className="text-slate-700 leading-relaxed whitespace-pre-wrap"
-                  dangerouslySetInnerHTML={{ __html: description.replace(/\n/g, '<br />') }}
+                  className="text-slate-700 leading-relaxed"
+                  dangerouslySetInnerHTML={{ __html: markdownToHtml(description) }}
+                  style={{
+                    lineHeight: "1.8",
+                  }}
                 />
               </div>
               
