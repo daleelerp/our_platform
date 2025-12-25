@@ -121,9 +121,6 @@ export function ArticleModal({
         <div className="flex items-center justify-between p-6 border-b border-slate-200">
           <div>
             <h2 className="text-xl font-semibold text-slate-900">{title}</h2>
-            {description && (
-              <p className="text-sm text-slate-600 mt-1">{description}</p>
-            )}
           </div>
           <button
             onClick={handleClose}
