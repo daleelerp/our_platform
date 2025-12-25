@@ -35,10 +35,14 @@ export function ArticleModal({
   };
 
   const title = getText(resource.title, resource.title_ar);
-  // Get description - prefer current language, fallback to any available
-  const description = language === "ar" && resource.description_ar
-    ? resource.description_ar
-    : resource.description || resource.description_ar || "";
+  // Get description - check multiple possible locations
+  // Resources from Supabase may have description directly or nested in learning_resources
+  const resourceDesc = (resource as any).learning_resources?.description || resource.description;
+  const resourceDescAr = (resource as any).learning_resources?.description_ar || resource.description_ar;
+  
+  const description = language === "ar" && resourceDescAr
+    ? resourceDescAr
+    : resourceDesc || resourceDescAr || "";
 
   // Track article viewing
   useEffect(() => {

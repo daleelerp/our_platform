@@ -294,35 +294,16 @@ export default function EditPathPage() {
             );
             const resourcesJson = await resourcesRes.json();
             if (resourcesRes.ok) {
-              // Also fetch full resource details for articles
-              const resourceDetails = await Promise.all(
-                (resourcesJson.data || []).map(async (r: any) => {
-                  if (r.resource_type === "article") {
-                    const detailRes = await fetch(
-                      `/api/admin/data?table=learning_resources&id=${encodeURIComponent(r.resource_id)}`
-                    );
-                    const detailJson = await detailRes.json();
-                    if (detailRes.ok && detailJson.data) {
-                      return {
-                        ...r,
-                        description: detailJson.data.description || "",
-                        description_ar: detailJson.data.description_ar || "",
-                        title_ar: detailJson.data.title_ar || "",
-                      };
-                    }
-                  }
-                  return r;
-                })
-              );
-              resourcesMap[m.id] = resourceDetails.map((r: any) => ({
+              // The view now includes description fields, so we can use them directly
+              resourcesMap[m.id] = (resourcesJson.data || []).map((r: any) => ({
                 id: r.id,
                 resource_id: r.resource_id,
-                resource_title: r.resource_title || r.title || "Untitled",
-                url: r.url,
+                resource_title: r.resource_title || "Untitled",
+                resource_title_ar: r.resource_title_ar || "",
+                url: r.url || "",
                 resource_type: r.resource_type,
                 description: r.description || "",
                 description_ar: r.description_ar || "",
-                title_ar: r.title_ar || "",
               }));
             } else {
               resourcesMap[m.id] = [];
@@ -1087,36 +1068,18 @@ export default function EditPathPage() {
           );
           const resourcesJson = await resourcesRes.json();
           if (resourcesRes.ok) {
-            const resourceDetails = await Promise.all(
-              (resourcesJson.data || []).map(async (r: any) => {
-                if (r.resource_type === "article" && r.resource_id === editingArticleId) {
-                  const detailRes = await fetch(
-                    `/api/admin/data?table=learning_resources&id=${encodeURIComponent(r.resource_id)}`
-                  );
-                  const detailJson = await detailRes.json();
-                  if (detailRes.ok && detailJson.data) {
-                    return {
-                      ...r,
-                      description: detailJson.data.description || "",
-                      description_ar: detailJson.data.description_ar || "",
-                      title_ar: detailJson.data.title_ar || "",
-                    };
-                  }
-                }
-                return r;
-              })
-            );
+            // The view now includes description fields, so we can use them directly
             setResourcesByMilestone((prev) => ({
               ...prev,
-              [milestoneId]: resourceDetails.map((r: any) => ({
+              [milestoneId]: (resourcesJson.data || []).map((r: any) => ({
                 id: r.id,
                 resource_id: r.resource_id,
-                resource_title: r.resource_title || r.title || "Untitled",
-                url: r.url,
+                resource_title: r.resource_title || "Untitled",
+                resource_title_ar: r.resource_title_ar || "",
+                url: r.url || "",
                 resource_type: r.resource_type,
                 description: r.description || "",
                 description_ar: r.description_ar || "",
-                title_ar: r.title_ar || "",
               })),
             }));
           }
