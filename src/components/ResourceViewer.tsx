@@ -92,25 +92,37 @@ export function ResourceViewer({ resource, userId, milestoneId, onComplete }: Pr
               <p className="text-slate-600 text-sm mb-4">{description}</p>
             )}
           </div>
-          <div className="border border-slate-200 rounded-lg overflow-hidden">
-            <iframe
-              src={resource.url}
-              className="w-full"
-              style={{ minHeight: "600px" }}
-              title={title}
-              sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
-            />
-          </div>
-          <div className="mt-4 pt-4 border-t border-slate-200">
-            <a
-              href={resource.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-teal-600 hover:text-teal-700 text-sm font-medium"
-            >
-              {language === "ar" ? "فتح في نافذة جديدة" : "Open in new window"}
-            </a>
-          </div>
+          {resource.url ? (
+            <>
+              <div className="border border-slate-200 rounded-lg overflow-hidden">
+                <iframe
+                  src={resource.url}
+                  className="w-full"
+                  style={{ minHeight: "600px" }}
+                  title={title}
+                  sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+                />
+              </div>
+              <div className="mt-4 pt-4 border-t border-slate-200">
+                <a
+                  href={resource.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-teal-600 hover:text-teal-700 text-sm font-medium"
+                >
+                  {language === "ar" ? "فتح في نافذة جديدة" : "Open in new window"}
+                </a>
+              </div>
+            </>
+          ) : (
+            <div className="border border-slate-200 rounded-lg p-8 text-center">
+              <p className="text-slate-600">
+                {language === "ar" 
+                  ? "هذا المقال لا يحتوي على رابط. سيتم إضافة المحتوى قريباً." 
+                  : "This article doesn't have a URL. Content will be added soon."}
+              </p>
+            </div>
+          )}
         </div>
       );
     }

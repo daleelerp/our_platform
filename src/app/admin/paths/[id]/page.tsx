@@ -921,8 +921,8 @@ export default function EditPathPage() {
 
   const handleAddArticle = async (milestoneId: string) => {
     const articleData = newArticle[milestoneId];
-    if (!articleData || !articleData.title.trim() || !articleData.url.trim()) {
-      alert("Please provide both title and URL");
+    if (!articleData || !articleData.title.trim()) {
+      alert("Please provide at least a title");
       return;
     }
 
@@ -936,7 +936,7 @@ export default function EditPathPage() {
           title_ar: articleData.title_ar.trim() || null,
           description: articleData.description.trim() || null,
           description_ar: articleData.description_ar.trim() || null,
-          url: articleData.url.trim(),
+          url: articleData.url.trim() || "",
           resource_type: "article",
           language: articleData.language || "en",
           is_free: articleData.is_free !== false,
@@ -2155,7 +2155,7 @@ export default function EditPathPage() {
                     </div>
                     <input
                       type="url"
-                      placeholder="Article URL"
+                      placeholder="Article URL (optional)"
                       value={newArticle[m.id]?.url || ""}
                       onChange={(e) =>
                         setNewArticle((prev) => ({

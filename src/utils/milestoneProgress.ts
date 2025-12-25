@@ -68,28 +68,11 @@ export async function checkMilestoneCompletion(
       .eq("user_id", userId)
       .in("video_id", videoIds);
 
-    // Only count videos as completed if they were watched recently (within last 10 minutes)
-    // This prevents showing 100% progress for videos that were completed in a previous session
-    // Videos need to be actively watched to count as completed
-    // The 10-minute window allows for reasonable navigation while preventing stale completions
-    const tenMinutesAgo = new Date();
-    tenMinutesAgo.setMinutes(tenMinutesAgo.getMinutes() - 10);
-    
+    // Count videos as completed if they are marked as completed or have >= 90% completion
+    // Once a video is completed, it stays completed (no time restriction)
     const completedVideos = (videoProgress || []).filter((vp: any) => {
-      // Video must be marked as completed
-      const isCompleted = vp.is_completed || (vp.completion_percentage >= 90);
-      if (!isCompleted) return false;
-      
-      // Check if video was watched recently (within last 10 minutes)
-      // This ensures videos are only counted as completed if they were actively watched
-      // When a page loads after a break, old completions won't count, forcing users to watch videos again
-      if (vp.last_watched_at) {
-        const lastWatched = new Date(vp.last_watched_at);
-        return lastWatched >= tenMinutesAgo;
-      }
-      
-      // If no last_watched_at timestamp, don't count as completed
-      return false;
+      // Video must be marked as completed or have >= 90% completion
+      return vp.is_completed || (vp.completion_percentage >= 90);
     });
     
     status.videosCompleted = completedVideos.length;
@@ -138,21 +121,41 @@ export async function checkMilestoneCompletion(
     }
   }
 
-  // 3. Check Articles/Text Content (if exists in future)
-  // For now, we'll check if there's a text_content or article table
-  // This is a placeholder for future implementation
-  const { data: articles } = await supabase
-    .from("text_content")
-    .select("id")
-    .eq("milestone_id", milestoneId)
-    .eq("is_active", true)
-    .maybeSingle(); // Use maybeSingle since table might not exist
+  // 3. Check Articles from learning_resources via milestone_resources
+  const { data: milestoneResources } = await supabase
+    .from("milestone_resources")
+    .select(`
+      resource_id,
+      learning_resources!inner(id, resource_type, is_active)
+    `)
+    .eq("milestone_id", milestoneId);
 
-  if (articles) {
-    // If articles table exists, check completion
-    // This will be implemented when articles are added
-    status.articlesTotal = 1; // Placeholder
-    status.articlesCompleted = 0; // Placeholder
+  const articleResources = (milestoneResources || [])
+    .filter((mr: any) => mr.learning_resources?.resource_type === "article" && mr.learning_resources?.is_active)
+    .map((mr: any) => mr.resource_id);
+
+  status.articlesTotal = articleResources.length;
+
+  if (status.articlesTotal > 0) {
+    // Check user_resource_interactions for completed articles
+    const { data: articleInteractions } = await supabase
+      .from("user_resource_interactions")
+      .select("resource_id, interaction_type, updated_at")
+      .eq("user_id", userId)
+      .in("resource_id", articleResources)
+      .eq("interaction_type", "completed");
+
+    // Count articles that were completed (no time restriction for articles)
+    const completedArticleIds = new Set(
+      (articleInteractions || []).map((ai: any) => ai.resource_id)
+    );
+    status.articlesCompleted = completedArticleIds.size;
+
+    if (status.articlesCompleted < status.articlesTotal) {
+      status.missingRequirements.push(
+        `${status.articlesTotal - status.articlesCompleted} article(s) not completed`
+      );
+    }
   }
 
   // 4. Check External Tests (via external_test_results table)
