@@ -1022,13 +1022,22 @@ export default function EditPathPage() {
         throw new Error(json.error || "Failed to load article");
       }
 
+      // Ensure we have the description fields
+      const articleData = json.data || {};
+      console.log("Loading article for edit:", {
+        id: resourceId,
+        title: articleData.title,
+        description: articleData.description,
+        description_ar: articleData.description_ar,
+      });
+
       setEditingArticleId(resourceId);
       setEditingArticle({
-        title: json.data.title || "",
-        title_ar: json.data.title_ar || "",
-        description: json.data.description || "",
-        description_ar: json.data.description_ar || "",
-        url: json.data.url || "",
+        title: articleData.title || "",
+        title_ar: articleData.title_ar || "",
+        description: articleData.description || "",
+        description_ar: articleData.description_ar || "",
+        url: articleData.url || "",
       });
     } catch (err: any) {
       console.error(err);
@@ -2938,7 +2947,7 @@ export default function EditPathPage() {
                   Article Content (English) *
                 </label>
                 <RichTextEditor
-                  value={editingArticle.description}
+                  value={editingArticle.description || ""}
                   onChange={(value) =>
                     setEditingArticle((prev) =>
                       prev ? { ...prev, description: value } : null
@@ -2948,6 +2957,11 @@ export default function EditPathPage() {
                   rows={12}
                   className="text-xs"
                 />
+                {!editingArticle.description && (
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    This field is currently empty. Add your article content here.
+                  </p>
+                )}
               </div>
 
               <div>
@@ -2955,7 +2969,7 @@ export default function EditPathPage() {
                   Article Content (Arabic)
                 </label>
                 <RichTextEditor
-                  value={editingArticle.description_ar}
+                  value={editingArticle.description_ar || ""}
                   onChange={(value) =>
                     setEditingArticle((prev) =>
                       prev ? { ...prev, description_ar: value } : null
@@ -2965,6 +2979,11 @@ export default function EditPathPage() {
                   rows={12}
                   className="text-xs"
                 />
+                {!editingArticle.description_ar && (
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    هذا الحقل فارغ حالياً. أضف محتوى المقال هنا.
+                  </p>
+                )}
               </div>
 
               <div>
