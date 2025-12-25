@@ -24,7 +24,8 @@ export function markdownToHtml(markdown: string): string {
 
   // Lists
   html = html.replace(/^- (.*$)/gim, "<li>$1</li>");
-  html = html.replace(/(<li>.*<\/li>)/s, "<ul>$1</ul>");
+  // Wrap consecutive list items in ul tags
+  html = html.replace(/(<li>.*?<\/li>(?:\s*<li>.*?<\/li>)*)/g, "<ul>$1</ul>");
 
   // Line breaks
   html = html.replace(/\n/g, "<br />");
