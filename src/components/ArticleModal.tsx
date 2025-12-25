@@ -77,10 +77,10 @@ export function ArticleModal({
 
   // Mark as completed when modal is closed after viewing
   const handleClose = async () => {
-    if (userId && resource.id && hasScrolled) {
+    if (userId && resource.id) {
       const timeSpent = Math.round((Date.now() - startTime) / 1000 / 60); // minutes
       
-      // Mark as completed
+      // Mark as completed (always mark if user viewed the article)
       await logResourceInteraction(userId, resource.id, "completed", {
         progress_percentage: 100,
         time_spent_minutes: timeSpent,
@@ -138,7 +138,53 @@ export function ArticleModal({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
-          {resource.url ? (
+          {/* Display written content if available */}
+          {description && description.trim() ? (
+            <>
+              <div className="prose prose-sm max-w-none mb-6">
+                <div 
+                  className="text-slate-700 leading-relaxed whitespace-pre-wrap"
+                  dangerouslySetInnerHTML={{ __html: description.replace(/\n/g, '<br />') }}
+                />
+              </div>
+              
+              {/* Download/Visit Link */}
+              {resource.url && resource.url.trim() && (
+                <div className="mb-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-slate-900 mb-1">
+                        {language === "ar" ? "رابط إضافي" : "Additional Link"}
+                      </p>
+                      <p className="text-xs text-slate-600">
+                        {language === "ar" 
+                          ? "يمكنك تحميل المقال أو زيارة المصدر الأصلي"
+                          : "Download the article or visit the original source"}
+                      </p>
+                    </div>
+                    <a
+                      href={resource.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm font-medium"
+                    >
+                      {language === "ar" ? "تحميل/زيارة" : "Download/Visit"}
+                    </a>
+                  </div>
+                </div>
+              )}
+              
+              <div className="flex items-center justify-end pt-4 border-t border-slate-200">
+                <button
+                  onClick={handleClose}
+                  className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
+                >
+                  {language === "ar" ? "تم القراءة" : "Mark as Read"}
+                </button>
+              </div>
+            </>
+          ) : resource.url && resource.url.trim() ? (
+            /* Fallback to iframe if no written content */
             <>
               <div className="border border-slate-200 rounded-lg overflow-hidden mb-4">
                 <iframe
@@ -170,8 +216,8 @@ export function ArticleModal({
             <div className="border border-slate-200 rounded-lg p-8 text-center">
               <p className="text-slate-600">
                 {language === "ar"
-                  ? "هذا المقال لا يحتوي على رابط. سيتم إضافة المحتوى قريباً."
-                  : "This article doesn't have a URL. Content will be added soon."}
+                  ? "هذا المقال لا يحتوي على محتوى بعد. سيتم إضافة المحتوى قريباً."
+                  : "This article doesn't have content yet. Content will be added soon."}
               </p>
               <button
                 onClick={handleClose}

@@ -619,15 +619,22 @@ export function LearningInterface({
                             >
                               {resourceTitle}
                             </p>
-                            <p className="text-xs text-slate-500 mt-1">
-                              {resource.resource_type === "video" 
-                                ? (language === "ar" ? "فيديو" : "Video")
-                                : resource.resource_type === "article"
-                                ? (language === "ar" ? "مقال" : "Article")
-                                : resource.resource_type === "test"
-                                ? (language === "ar" ? "اختبار" : "Test")
-                                : resource.resource_type}
-                            </p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <p className="text-xs text-slate-500">
+                                {resource.resource_type === "video" 
+                                  ? (language === "ar" ? "فيديو" : "Video")
+                                  : resource.resource_type === "article"
+                                  ? (language === "ar" ? "مقال" : "Article")
+                                  : resource.resource_type === "test"
+                                  ? (language === "ar" ? "اختبار" : "Test")
+                                  : resource.resource_type}
+                              </p>
+                              {(resource.resource_type === "article" || resource.resource_type === "video") && (
+                                <span className="text-[10px] px-1.5 py-0.5 bg-teal-100 text-teal-700 rounded">
+                                  {language === "ar" ? "مطلوب" : "Required"}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </button>

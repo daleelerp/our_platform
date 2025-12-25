@@ -2153,52 +2153,14 @@ export default function EditPathPage() {
                         className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                       />
                     </div>
-                    <input
-                      type="url"
-                      placeholder="Article URL (optional)"
-                      value={newArticle[m.id]?.url || ""}
-                      onChange={(e) =>
-                        setNewArticle((prev) => ({
-                          ...prev,
-                          [m.id]: {
-                            title: prev[m.id]?.title || "",
-                            title_ar: prev[m.id]?.title_ar || "",
-                            description: prev[m.id]?.description || "",
-                            description_ar: prev[m.id]?.description_ar || "",
-                            url: e.target.value,
-                            platform: prev[m.id]?.platform || "",
-                            language: prev[m.id]?.language || "en",
-                            is_free: prev[m.id]?.is_free !== false,
-                          },
-                        }))
-                      }
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                    />
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      <textarea
-                        placeholder="Description (English, optional)"
-                        value={newArticle[m.id]?.description || ""}
-                        onChange={(e) =>
-                          setNewArticle((prev) => ({
-                            ...prev,
-                            [m.id]: {
-                              title: prev[m.id]?.title || "",
-                              title_ar: prev[m.id]?.title_ar || "",
-                              description: e.target.value,
-                              description_ar: prev[m.id]?.description_ar || "",
-                              url: prev[m.id]?.url || "",
-                              platform: prev[m.id]?.platform || "",
-                              language: prev[m.id]?.language || "en",
-                              is_free: prev[m.id]?.is_free !== false,
-                            },
-                          }))
-                        }
-                        rows={2}
-                        className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                      />
-                      <textarea
-                        placeholder="Description (Arabic, optional)"
-                        value={newArticle[m.id]?.description_ar || ""}
+                    <div>
+                      <label className="text-xs font-medium text-slate-600 mb-1 block">
+                        Article Link (for download or visit) - Optional
+                      </label>
+                      <input
+                        type="url"
+                        placeholder="https://example.com/article or file download link"
+                        value={newArticle[m.id]?.url || ""}
                         onChange={(e) =>
                           setNewArticle((prev) => ({
                             ...prev,
@@ -2206,17 +2168,73 @@ export default function EditPathPage() {
                               title: prev[m.id]?.title || "",
                               title_ar: prev[m.id]?.title_ar || "",
                               description: prev[m.id]?.description || "",
-                              description_ar: e.target.value,
-                              url: prev[m.id]?.url || "",
+                              description_ar: prev[m.id]?.description_ar || "",
+                              url: e.target.value,
                               platform: prev[m.id]?.platform || "",
                               language: prev[m.id]?.language || "en",
                               is_free: prev[m.id]?.is_free !== false,
                             },
                           }))
                         }
-                        rows={2}
-                        className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                       />
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        Add a link to download the article as PDF or visit external source
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <div>
+                        <label className="text-xs font-medium text-slate-600 mb-1 block">
+                          Article Content (English) *
+                        </label>
+                        <textarea
+                          placeholder="Write the article content here..."
+                          value={newArticle[m.id]?.description || ""}
+                          onChange={(e) =>
+                            setNewArticle((prev) => ({
+                              ...prev,
+                              [m.id]: {
+                                title: prev[m.id]?.title || "",
+                                title_ar: prev[m.id]?.title_ar || "",
+                                description: e.target.value,
+                                description_ar: prev[m.id]?.description_ar || "",
+                                url: prev[m.id]?.url || "",
+                                platform: prev[m.id]?.platform || "",
+                                language: prev[m.id]?.language || "en",
+                                is_free: prev[m.id]?.is_free !== false,
+                              },
+                            }))
+                          }
+                          rows={8}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-slate-600 mb-1 block">
+                          Article Content (Arabic)
+                        </label>
+                        <textarea
+                          placeholder="اكتب محتوى المقال هنا..."
+                          value={newArticle[m.id]?.description_ar || ""}
+                          onChange={(e) =>
+                            setNewArticle((prev) => ({
+                              ...prev,
+                              [m.id]: {
+                                title: prev[m.id]?.title || "",
+                                title_ar: prev[m.id]?.title_ar || "",
+                                description: prev[m.id]?.description || "",
+                                description_ar: e.target.value,
+                                url: prev[m.id]?.url || "",
+                                platform: prev[m.id]?.platform || "",
+                                language: prev[m.id]?.language || "en",
+                                is_free: prev[m.id]?.is_free !== false,
+                              },
+                            }))
+                          }
+                          rows={8}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                        />
+                      </div>
                     </div>
                     <div className="flex gap-2 items-center">
                       <select
