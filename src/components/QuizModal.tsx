@@ -19,6 +19,11 @@ type Quiz = {
   content_tier?: string | null;
 };
 
+// Helper function to convert undefined to null
+const toNull = <T,>(value: T | null | undefined): T | null => {
+  return value === undefined ? null : value;
+};
+
 type QuizQuestion = {
   id: string;
   question_type: string;
@@ -105,14 +110,28 @@ export function QuizModal({
         <div className="flex-1 overflow-y-auto p-6">
           <QuizPlayer
             quiz={{
-              ...quiz,
+              id: quiz.id,
+              title: quiz.title,
+              title_ar: toNull(quiz.title_ar),
+              passing_score: quiz.passing_score,
               time_limit_minutes: quiz.time_limit_minutes ?? null,
               max_attempts: quiz.max_attempts ?? null,
               randomize_questions: quiz.randomize_questions ?? false,
               show_correct_answers: quiz.show_correct_answers ?? true,
               total_points: quiz.total_points ?? 100,
             }}
-            questions={questions}
+            questions={questions.map(q => ({
+              id: q.id,
+              question_type: q.question_type,
+              question_text: q.question_text,
+              question_text_ar: toNull(q.question_text_ar),
+              options: q.options ?? null,
+              correct_answers: q.correct_answers,
+              explanation: toNull(q.explanation),
+              explanation_ar: toNull(q.explanation_ar),
+              points: q.points ?? 1,
+              question_order: q.question_order,
+            }))}
             userId={userId}
             onComplete={(score, isPassed) => {
               if (onComplete) {
