@@ -35,7 +35,10 @@ export function ArticleModal({
   };
 
   const title = getText(resource.title, resource.title_ar);
-  const description = getText(resource.description, resource.description_ar);
+  // Get description - prefer current language, fallback to any available
+  const description = language === "ar" && resource.description_ar
+    ? resource.description_ar
+    : resource.description || resource.description_ar || "";
 
   // Track article viewing
   useEffect(() => {

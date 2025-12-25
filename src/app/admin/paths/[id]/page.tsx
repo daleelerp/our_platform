@@ -207,6 +207,8 @@ export default function EditPathPage() {
     url: string;
   } | null>(null);
 
+  const [isAddArticleModalOpen, setIsAddArticleModalOpen] = useState<Record<string, boolean>>({});
+
   useEffect(() => {
     const loadData = async () => {
       if (!pathId) return;
@@ -2278,12 +2280,59 @@ export default function EditPathPage() {
                   </p>
                 </div>
 
-                {/* Add Article Manually */}
+                {/* Add Article Manually - Button */}
                 <div className="mt-3 border-t border-slate-100 pt-3">
-                  <div className="text-xs font-medium text-slate-500 mb-2">
-                    Add Article Manually
-                  </div>
-                  <div className="space-y-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddArticleModalOpen((prev) => ({ ...prev, [m.id]: true }))}
+                    className="w-full px-3 py-2 bg-teal-600 text-white text-xs rounded-lg hover:bg-teal-700 transition-colors"
+                  >
+                    + Add Article Manually
+                  </button>
+                </div>
+
+                {/* Add Article Modal */}
+                {isAddArticleModalOpen[m.id] && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+                    <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+                      {/* Header */}
+                      <div className="flex items-center justify-between p-6 border-b border-slate-200">
+                        <h2 className="text-lg font-semibold text-slate-900">Add Article Manually</h2>
+                        <button
+                          onClick={() => {
+                            setIsAddArticleModalOpen((prev) => ({ ...prev, [m.id]: false }));
+                            setNewArticle((prev) => ({
+                              ...prev,
+                              [m.id]: {
+                                title: "",
+                                title_ar: "",
+                                description: "",
+                                description_ar: "",
+                                url: "",
+                                platform: "",
+                                language: "en",
+                                is_free: true,
+                              },
+                            }));
+                          }}
+                          className="text-slate-400 hover:text-slate-600 transition-colors"
+                        >
+                          <svg
+                            className="w-6 h-6"
+                            fill="none"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+
+                      {/* Content */}
+                      <div className="flex-1 overflow-y-auto p-6 space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                       <div>
                         <label className="text-xs font-medium text-slate-600 mb-1 block">
@@ -2480,71 +2529,68 @@ export default function EditPathPage() {
                         </label>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleAddArticle(m.id)}
-                      className="text-xs px-3 py-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
-                    >
-                      Add Article
-                    </button>
-                  </div>
-                </div>
+                      </div>
 
-                {/* Scrape Articles */}
-                <div className="mt-3 border-t border-slate-100 pt-3">
-                  <div className="text-xs font-medium text-slate-500 mb-1">
-                    Scrape Articles (Oracle Docs, Medium, etc.)
-                  </div>
-                  <div className="space-y-2">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                      <input
-                        type="text"
-                        placeholder="Search query (e.g., 'Oracle GL setup')"
-                        value={scrapingArticle[m.id]?.query || ""}
-                        onChange={(e) =>
-                          setScrapingArticle((prev) => ({
-                            ...prev,
-                            [m.id]: {
-                              query: e.target.value,
-                              source: prev[m.id]?.source || "oracle_docs",
-                              isScraping: false,
-                            },
-                          }))
-                        }
-                        className="md:col-span-2 px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                        disabled={scrapingArticle[m.id]?.isScraping}
-                      />
-                      <select
-                        value={scrapingArticle[m.id]?.source || "oracle_docs"}
-                        onChange={(e) =>
-                          setScrapingArticle((prev) => ({
-                            ...prev,
-                            [m.id]: {
-                              query: prev[m.id]?.query || "",
-                              source: e.target.value,
-                              isScraping: false,
-                            },
-                          }))
-                        }
-                        className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                        disabled={scrapingArticle[m.id]?.isScraping}
-                      >
-                        <option value="oracle_docs">Oracle Docs</option>
-                        <option value="medium">Medium</option>
-                      </select>
+                      {/* Footer */}
+                      <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-200">
+                        <button
+                          onClick={() => {
+                            setIsAddArticleModalOpen((prev) => ({ ...prev, [m.id]: false }));
+                            setNewArticle((prev) => ({
+                              ...prev,
+                              [m.id]: {
+                                title: "",
+                                title_ar: "",
+                                description: "",
+                                description_ar: "",
+                                url: "",
+                                platform: "",
+                                language: "en",
+                                is_free: true,
+                              },
+                            }));
+                          }}
+                          className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors text-sm"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await handleAddArticle(m.id);
+                            setIsAddArticleModalOpen((prev) => ({ ...prev, [m.id]: false }));
+                          }}
+                          className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm"
+                        >
+                          Add Article
+                        </button>
+                      </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleScrapeArticle(m.id)}
-                      disabled={scrapingArticle[m.id]?.isScraping}
-                      className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {scrapingArticle[m.id]?.isScraping ? "Scraping..." : "Scrape & Add Article"}
-                    </button>
-                    <p className="text-[10px] text-slate-400">
-                      This will search for articles and automatically add the first result to this milestone.
-                    </p>
                   </div>
+                )}
+
+                {/* Scrape Articles - Button */}
+                <div className="mt-3 border-t border-slate-100 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const query = prompt("Enter search query (e.g., 'Oracle GL setup'):");
+                      if (query) {
+                        setScrapingArticle((prev) => ({
+                          ...prev,
+                          [m.id]: {
+                            query: query,
+                            source: prev[m.id]?.source || "oracle_docs",
+                            isScraping: false,
+                          },
+                        }));
+                        handleScrapeArticle(m.id);
+                      }
+                    }}
+                    className="w-full px-3 py-2 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    + Scrape Articles (Oracle Docs, Medium)
+                  </button>
                 </div>
 
                 {/* Existing quizzes */}

@@ -146,7 +146,16 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
         .select(`
           *,
           learning_resources (
-            *,
+            id,
+            title,
+            title_ar,
+            description,
+            description_ar,
+            url,
+            resource_type,
+            language,
+            is_free,
+            is_active,
             resource_platforms (*)
           )
         `)
