@@ -131,10 +131,18 @@ export function LearningInterface({
   
   // Update selected video when language changes
   useEffect(() => {
-    if (filteredVideos.length > 0) {
+    const currentFilteredVideos = videos.filter((video: any) => {
+      if (language === "ar") {
+        return !video.primary_language || video.primary_language === "ar" || video.primary_language === "mixed";
+      } else {
+        return !video.primary_language || video.primary_language === "en" || video.primary_language === "mixed";
+      }
+    });
+
+    if (currentFilteredVideos.length > 0) {
       // If current selected video is not in filtered list, select first filtered video
-      if (!selectedVideo || !filteredVideos.find(v => v.id === selectedVideo.id)) {
-        setSelectedVideo(filteredVideos[0]);
+      if (!selectedVideo || !currentFilteredVideos.find((v: any) => v.id === selectedVideo.id)) {
+        setSelectedVideo(currentFilteredVideos[0]);
         setActiveTab("videos");
       }
     } else {
@@ -148,7 +156,7 @@ export function LearningInterface({
         setSelectedQuiz(quizzes[0]);
       }
     }
-  }, [language, filteredVideos, selectedVideo, resources, quizzes]);
+  }, [language, videos, selectedVideo, resources, quizzes]);
   // Track which videos have been played in the current session
   const [playedVideos, setPlayedVideos] = useState<Set<string>>(new Set());
   // Track current progress for videos being watched (updates in real-time)
