@@ -59,6 +59,20 @@ type VideoContent = {
   primary_language?: string | null;
 };
 
+type Quiz = {
+  id: string;
+  title: string;
+  title_ar: string | null;
+  quiz_type: string;
+  passing_score: number;
+  description: string | null;
+  description_ar: string | null;
+  time_limit_minutes: number | null;
+  max_attempts: number | null;
+  is_required: boolean;
+  is_active: boolean;
+};
+
 type NewMilestone = {
   title: string;
   title_ar: string;
@@ -93,6 +107,9 @@ export default function EditPathPage() {
   >({});
   const [resourcesByMilestone, setResourcesByMilestone] = useState<
     Record<string, MilestoneResource[]>
+  >({});
+  const [quizzesByMilestone, setQuizzesByMilestone] = useState<
+    Record<string, Quiz[]>
   >({});
 
   const [newMilestone, setNewMilestone] = useState<NewMilestone>({
@@ -137,6 +154,43 @@ export default function EditPathPage() {
         resource_id: string;
       }
     >
+  >({});
+
+  const [newQuiz, setNewQuiz] = useState<
+    Record<
+      string,
+      {
+        title: string;
+        title_ar: string;
+        description: string;
+        description_ar: string;
+        quiz_type: string;
+        passing_score: number | "";
+        time_limit_minutes: number | "";
+        max_attempts: number | "";
+        is_required: boolean;
+      }
+    >
+  >({});
+
+  const [newArticle, setNewArticle] = useState<
+    Record<
+      string,
+      {
+        title: string;
+        title_ar: string;
+        description: string;
+        description_ar: string;
+        url: string;
+        platform: string;
+        language: string;
+        is_free: boolean;
+      }
+    >
+  >({});
+
+  const [scrapingArticle, setScrapingArticle] = useState<
+    Record<string, { query: string; source: string; isScraping: boolean }>
   >({});
 
   useEffect(() => {
@@ -193,9 +247,10 @@ export default function EditPathPage() {
           );
         }
 
-        // Fetch videos and resources for each milestone
+        // Fetch videos, resources, and quizzes for each milestone
         const videosMap: Record<string, VideoContent[]> = {};
         const resourcesMap: Record<string, MilestoneResource[]> = {};
+        const quizzesMap: Record<string, Quiz[]> = {};
         await Promise.all(
           ms.map(async (m) => {
             const videosRes = await fetch(
@@ -232,10 +287,29 @@ export default function EditPathPage() {
             } else {
               resourcesMap[m.id] = [];
             }
+
+            // Fetch quizzes for this milestone
+            const quizzesRes = await fetch(
+              `/api/admin/data?table=quizzes&filterColumn=milestone_id&filterValue=${encodeURIComponent(
+                m.id
+              )}&limit=100`
+            );
+            const quizzesJson = await quizzesRes.json();
+            if (quizzesRes.ok) {
+              quizzesMap[m.id] = quizzesJson.data || [];
+            } else {
+              console.error(
+                "Failed to load quizzes for milestone",
+                m.id,
+                quizzesJson.error
+              );
+              quizzesMap[m.id] = [];
+            }
           })
         );
         setVideosByMilestone(videosMap);
         setResourcesByMilestone(resourcesMap);
+        setQuizzesByMilestone(quizzesMap);
       } catch (err: any) {
         console.error(err);
         setError(err.message || "Failed to load data");
@@ -335,6 +409,7 @@ export default function EditPathPage() {
       );
       setVideosByMilestone((prev) => ({ ...prev, [created.id]: [] }));
       setResourcesByMilestone((prev) => ({ ...prev, [created.id]: [] }));
+      setQuizzesByMilestone((prev) => ({ ...prev, [created.id]: [] }));
       setNewMilestone({
         title: "",
         title_ar: "",
@@ -654,6 +729,246 @@ export default function EditPathPage() {
     } catch (err: any) {
       console.error(err);
       alert(err.message || "Failed to delete video");
+    }
+  };
+
+  const handleAddQuiz = async (milestoneId: string) => {
+    const quizData = newQuiz[milestoneId];
+    if (!quizData || !quizData.title.trim()) {
+      alert("Please provide a quiz title");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/admin/data?table=quizzes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          milestone_id: milestoneId,
+          title: quizData.title.trim(),
+          title_ar: quizData.title_ar.trim() || null,
+          description: quizData.description.trim() || null,
+          description_ar: quizData.description_ar.trim() || null,
+          quiz_type: quizData.quiz_type || "checkpoint",
+          passing_score: quizData.passing_score ? Number(quizData.passing_score) : 70.0,
+          time_limit_minutes: quizData.time_limit_minutes ? Number(quizData.time_limit_minutes) : null,
+          max_attempts: quizData.max_attempts ? Number(quizData.max_attempts) : null,
+          is_required: quizData.is_required || false,
+          is_active: true,
+        }),
+      });
+
+      const json = await response.json();
+      if (!response.ok) {
+        throw new Error(json.error || "Failed to add quiz");
+      }
+
+      setQuizzesByMilestone((prev) => ({
+        ...prev,
+        [milestoneId]: [...(prev[milestoneId] || []), json.data],
+      }));
+      setNewQuiz((prev) => ({
+        ...prev,
+        [milestoneId]: {
+          title: "",
+          title_ar: "",
+          description: "",
+          description_ar: "",
+          quiz_type: "checkpoint",
+          passing_score: 70,
+          time_limit_minutes: "",
+          max_attempts: "",
+          is_required: false,
+        },
+      }));
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Failed to add quiz");
+    }
+  };
+
+  const handleDeleteQuiz = async (milestoneId: string, quizId: string) => {
+    if (!confirm("Are you sure you want to delete this quiz? This will also delete all questions in this quiz.")) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `/api/admin/data?table=quizzes&id=${encodeURIComponent(quizId)}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      const json = await response.json();
+      if (!response.ok) {
+        throw new Error(json.error || "Failed to delete quiz");
+      }
+
+      setQuizzesByMilestone((prev) => ({
+        ...prev,
+        [milestoneId]: (prev[milestoneId] || []).filter(
+          (q) => q.id !== quizId
+        ),
+      }));
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Failed to delete quiz");
+    }
+  };
+
+  const handleScrapeArticle = async (milestoneId: string) => {
+    const scrapeData = scrapingArticle[milestoneId];
+    if (!scrapeData || !scrapeData.query.trim()) {
+      alert("Please enter a search query");
+      return;
+    }
+
+    setScrapingArticle((prev) => ({
+      ...prev,
+      [milestoneId]: { ...prev[milestoneId]!, isScraping: true },
+    }));
+
+    try {
+      const response = await fetch("/api/admin/scrape", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          job_type: scrapeData.source === "oracle_docs" ? "oracle_docs" : "youtube",
+          search_query: scrapeData.query,
+        }),
+      });
+
+      const json = await response.json();
+      if (!response.ok) {
+        throw new Error(json.error || "Failed to scrape articles");
+      }
+
+      // Wait a bit for scraping to complete, then check staging
+      setTimeout(async () => {
+        const stagingRes = await fetch(
+          `/api/admin/data?table=scraped_resources_staging&filterColumn=scrape_job_id&filterValue=${encodeURIComponent(
+            json.job_id
+          )}&limit=20`
+        );
+        const stagingJson = await stagingRes.json();
+
+        if (stagingRes.ok && stagingJson.data && stagingJson.data.length > 0) {
+          // Filter for articles/documentation
+          const articles = stagingJson.data.filter(
+            (r: any) => r.resource_type === "article" || r.resource_type === "documentation"
+          );
+
+          if (articles.length > 0) {
+            // Auto-add first article
+            await handleAddScrapedArticle(milestoneId, articles[0]);
+            alert(`Found ${articles.length} article(s). Added the first one.`);
+          } else {
+            alert("No articles found. Try a different search query.");
+          }
+        } else {
+          alert("Scraping completed but no articles found. Try a different search query.");
+        }
+      }, 2000);
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Failed to scrape articles");
+    } finally {
+      setScrapingArticle((prev) => ({
+        ...prev,
+        [milestoneId]: { ...prev[milestoneId]!, isScraping: false },
+      }));
+    }
+  };
+
+  const handleAddScrapedArticle = async (milestoneId: string, scrapedData: any) => {
+    try {
+      // First create the resource
+      const resourceRes = await fetch("/api/admin/data?table=learning_resources", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: scrapedData.title,
+          title_ar: null,
+          description: scrapedData.description || null,
+          description_ar: null,
+          url: scrapedData.url,
+          resource_type: "article",
+          language: scrapedData.language || "en",
+          is_free: true,
+          is_active: true,
+        }),
+      });
+
+      const resourceJson = await resourceRes.json();
+      if (!resourceRes.ok) {
+        throw new Error(resourceJson.error || "Failed to create article resource");
+      }
+
+      // Then link it to milestone
+      await handleAddResource(milestoneId, resourceJson.data.id);
+      
+      // Clear scraping state
+      setScrapingArticle((prev) => ({
+        ...prev,
+        [milestoneId]: { query: "", source: "oracle_docs", isScraping: false },
+      }));
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Failed to add scraped article");
+    }
+  };
+
+  const handleAddArticle = async (milestoneId: string) => {
+    const articleData = newArticle[milestoneId];
+    if (!articleData || !articleData.title.trim() || !articleData.url.trim()) {
+      alert("Please provide both title and URL");
+      return;
+    }
+
+    try {
+      // First create the resource
+      const resourceRes = await fetch("/api/admin/data?table=learning_resources", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: articleData.title.trim(),
+          title_ar: articleData.title_ar.trim() || null,
+          description: articleData.description.trim() || null,
+          description_ar: articleData.description_ar.trim() || null,
+          url: articleData.url.trim(),
+          resource_type: "article",
+          language: articleData.language || "en",
+          is_free: articleData.is_free !== false,
+          is_active: true,
+        }),
+      });
+
+      const resourceJson = await resourceRes.json();
+      if (!resourceRes.ok) {
+        throw new Error(resourceJson.error || "Failed to create article");
+      }
+
+      // Then link it to milestone
+      await handleAddResource(milestoneId, resourceJson.data.id);
+      
+      // Clear form
+      setNewArticle((prev) => ({
+        ...prev,
+        [milestoneId]: {
+          title: "",
+          title_ar: "",
+          description: "",
+          description_ar: "",
+          url: "",
+          platform: "",
+          language: "en",
+          is_free: true,
+        },
+      }));
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Failed to add article");
     }
   };
 
@@ -1786,6 +2101,512 @@ export default function EditPathPage() {
                   <p className="mt-1 text-[11px] text-slate-400">
                     The list shows all resources from the Resources admin page.
                   </p>
+                </div>
+
+                {/* Add Article Manually */}
+                <div className="mt-3 border-t border-slate-100 pt-3">
+                  <div className="text-xs font-medium text-slate-500 mb-1">
+                    Add Article Manually
+                  </div>
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        placeholder="Article title (English)"
+                        value={newArticle[m.id]?.title || ""}
+                        onChange={(e) =>
+                          setNewArticle((prev) => ({
+                            ...prev,
+                            [m.id]: {
+                              title: e.target.value,
+                              title_ar: prev[m.id]?.title_ar || "",
+                              description: prev[m.id]?.description || "",
+                              description_ar: prev[m.id]?.description_ar || "",
+                              url: prev[m.id]?.url || "",
+                              platform: prev[m.id]?.platform || "",
+                              language: prev[m.id]?.language || "en",
+                              is_free: prev[m.id]?.is_free !== false,
+                            },
+                          }))
+                        }
+                        className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Article title (Arabic)"
+                        value={newArticle[m.id]?.title_ar || ""}
+                        onChange={(e) =>
+                          setNewArticle((prev) => ({
+                            ...prev,
+                            [m.id]: {
+                              title: prev[m.id]?.title || "",
+                              title_ar: e.target.value,
+                              description: prev[m.id]?.description || "",
+                              description_ar: prev[m.id]?.description_ar || "",
+                              url: prev[m.id]?.url || "",
+                              platform: prev[m.id]?.platform || "",
+                              language: prev[m.id]?.language || "en",
+                              is_free: prev[m.id]?.is_free !== false,
+                            },
+                          }))
+                        }
+                        className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      />
+                    </div>
+                    <input
+                      type="url"
+                      placeholder="Article URL"
+                      value={newArticle[m.id]?.url || ""}
+                      onChange={(e) =>
+                        setNewArticle((prev) => ({
+                          ...prev,
+                          [m.id]: {
+                            title: prev[m.id]?.title || "",
+                            title_ar: prev[m.id]?.title_ar || "",
+                            description: prev[m.id]?.description || "",
+                            description_ar: prev[m.id]?.description_ar || "",
+                            url: e.target.value,
+                            platform: prev[m.id]?.platform || "",
+                            language: prev[m.id]?.language || "en",
+                            is_free: prev[m.id]?.is_free !== false,
+                          },
+                        }))
+                      }
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                    />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <textarea
+                        placeholder="Description (English, optional)"
+                        value={newArticle[m.id]?.description || ""}
+                        onChange={(e) =>
+                          setNewArticle((prev) => ({
+                            ...prev,
+                            [m.id]: {
+                              title: prev[m.id]?.title || "",
+                              title_ar: prev[m.id]?.title_ar || "",
+                              description: e.target.value,
+                              description_ar: prev[m.id]?.description_ar || "",
+                              url: prev[m.id]?.url || "",
+                              platform: prev[m.id]?.platform || "",
+                              language: prev[m.id]?.language || "en",
+                              is_free: prev[m.id]?.is_free !== false,
+                            },
+                          }))
+                        }
+                        rows={2}
+                        className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      />
+                      <textarea
+                        placeholder="Description (Arabic, optional)"
+                        value={newArticle[m.id]?.description_ar || ""}
+                        onChange={(e) =>
+                          setNewArticle((prev) => ({
+                            ...prev,
+                            [m.id]: {
+                              title: prev[m.id]?.title || "",
+                              title_ar: prev[m.id]?.title_ar || "",
+                              description: prev[m.id]?.description || "",
+                              description_ar: e.target.value,
+                              url: prev[m.id]?.url || "",
+                              platform: prev[m.id]?.platform || "",
+                              language: prev[m.id]?.language || "en",
+                              is_free: prev[m.id]?.is_free !== false,
+                            },
+                          }))
+                        }
+                        rows={2}
+                        className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      />
+                    </div>
+                    <div className="flex gap-2 items-center">
+                      <select
+                        value={newArticle[m.id]?.language || "en"}
+                        onChange={(e) =>
+                          setNewArticle((prev) => ({
+                            ...prev,
+                            [m.id]: {
+                              title: prev[m.id]?.title || "",
+                              title_ar: prev[m.id]?.title_ar || "",
+                              description: prev[m.id]?.description || "",
+                              description_ar: prev[m.id]?.description_ar || "",
+                              url: prev[m.id]?.url || "",
+                              platform: prev[m.id]?.platform || "",
+                              language: e.target.value,
+                              is_free: prev[m.id]?.is_free !== false,
+                            },
+                          }))
+                        }
+                        className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      >
+                        <option value="en">English</option>
+                        <option value="ar">Arabic</option>
+                        <option value="both">Both</option>
+                      </select>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id={`article_free_${m.id}`}
+                          checked={newArticle[m.id]?.is_free !== false}
+                          onChange={(e) =>
+                            setNewArticle((prev) => ({
+                              ...prev,
+                              [m.id]: {
+                                title: prev[m.id]?.title || "",
+                                title_ar: prev[m.id]?.title_ar || "",
+                                description: prev[m.id]?.description || "",
+                                description_ar: prev[m.id]?.description_ar || "",
+                                url: prev[m.id]?.url || "",
+                                platform: prev[m.id]?.platform || "",
+                                language: prev[m.id]?.language || "en",
+                                is_free: e.target.checked,
+                              },
+                            }))
+                          }
+                          className="w-4 h-4 text-teal-600 border-slate-300 rounded focus:ring-teal-500"
+                        />
+                        <label htmlFor={`article_free_${m.id}`} className="text-xs text-slate-600">
+                          Free
+                        </label>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleAddArticle(m.id)}
+                      className="text-xs px-3 py-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
+                    >
+                      Add Article
+                    </button>
+                  </div>
+                </div>
+
+                {/* Scrape Articles */}
+                <div className="mt-3 border-t border-slate-100 pt-3">
+                  <div className="text-xs font-medium text-slate-500 mb-1">
+                    Scrape Articles (Oracle Docs, Medium, etc.)
+                  </div>
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                      <input
+                        type="text"
+                        placeholder="Search query (e.g., 'Oracle GL setup')"
+                        value={scrapingArticle[m.id]?.query || ""}
+                        onChange={(e) =>
+                          setScrapingArticle((prev) => ({
+                            ...prev,
+                            [m.id]: {
+                              query: e.target.value,
+                              source: prev[m.id]?.source || "oracle_docs",
+                              isScraping: false,
+                            },
+                          }))
+                        }
+                        className="md:col-span-2 px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                        disabled={scrapingArticle[m.id]?.isScraping}
+                      />
+                      <select
+                        value={scrapingArticle[m.id]?.source || "oracle_docs"}
+                        onChange={(e) =>
+                          setScrapingArticle((prev) => ({
+                            ...prev,
+                            [m.id]: {
+                              query: prev[m.id]?.query || "",
+                              source: e.target.value,
+                              isScraping: false,
+                            },
+                          }))
+                        }
+                        className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                        disabled={scrapingArticle[m.id]?.isScraping}
+                      >
+                        <option value="oracle_docs">Oracle Docs</option>
+                        <option value="medium">Medium</option>
+                      </select>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleScrapeArticle(m.id)}
+                      disabled={scrapingArticle[m.id]?.isScraping}
+                      className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {scrapingArticle[m.id]?.isScraping ? "Scraping..." : "Scrape & Add Article"}
+                    </button>
+                    <p className="text-[10px] text-slate-400">
+                      This will search for articles and automatically add the first result to this milestone.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Existing quizzes */}
+                <div className="mt-4">
+                  <div className="text-xs font-medium text-slate-500 mb-1">
+                    Quizzes/Tests
+                  </div>
+                  {(quizzesByMilestone[m.id] || []).length > 0 ? (
+                    <div className="space-y-2">
+                      {quizzesByMilestone[m.id].map((q) => (
+                        <div
+                          key={q.id}
+                          className="flex items-center justify-between text-xs p-2 bg-slate-50 rounded border border-slate-200"
+                        >
+                          <div className="flex-1">
+                            <div className="font-medium text-slate-800">
+                              {q.title || q.title_ar || "Untitled Quiz"}
+                            </div>
+                            <div className="text-[11px] text-slate-500 mt-0.5">
+                              Type: {q.quiz_type} | Passing: {q.passing_score}% | 
+                              {q.is_required ? " Required" : " Optional"}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteQuiz(m.id, q.id)}
+                            className="ml-3 text-[11px] text-red-600 hover:text-red-700"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-400">
+                      No quizzes added yet for this milestone.
+                    </p>
+                  )}
+                </div>
+
+                {/* Add new quiz */}
+                <div className="mt-3 border-t border-slate-100 pt-3">
+                  <div className="text-xs font-medium text-slate-500 mb-1">
+                    Add Quiz/Test
+                  </div>
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        placeholder="Quiz title (English)"
+                        value={newQuiz[m.id]?.title || ""}
+                        onChange={(e) =>
+                          setNewQuiz((prev) => ({
+                            ...prev,
+                            [m.id]: {
+                              title: e.target.value,
+                              title_ar: prev[m.id]?.title_ar || "",
+                              description: prev[m.id]?.description || "",
+                              description_ar: prev[m.id]?.description_ar || "",
+                              quiz_type: prev[m.id]?.quiz_type || "checkpoint",
+                              passing_score: prev[m.id]?.passing_score || 70,
+                              time_limit_minutes: prev[m.id]?.time_limit_minutes || "",
+                              max_attempts: prev[m.id]?.max_attempts || "",
+                              is_required: prev[m.id]?.is_required || false,
+                            },
+                          }))
+                        }
+                        className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Quiz title (Arabic)"
+                        value={newQuiz[m.id]?.title_ar || ""}
+                        onChange={(e) =>
+                          setNewQuiz((prev) => ({
+                            ...prev,
+                            [m.id]: {
+                              title: prev[m.id]?.title || "",
+                              title_ar: e.target.value,
+                              description: prev[m.id]?.description || "",
+                              description_ar: prev[m.id]?.description_ar || "",
+                              quiz_type: prev[m.id]?.quiz_type || "checkpoint",
+                              passing_score: prev[m.id]?.passing_score || 70,
+                              time_limit_minutes: prev[m.id]?.time_limit_minutes || "",
+                              max_attempts: prev[m.id]?.max_attempts || "",
+                              is_required: prev[m.id]?.is_required || false,
+                            },
+                          }))
+                        }
+                        className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                      <select
+                        value={newQuiz[m.id]?.quiz_type || "checkpoint"}
+                        onChange={(e) =>
+                          setNewQuiz((prev) => ({
+                            ...prev,
+                            [m.id]: {
+                              title: prev[m.id]?.title || "",
+                              title_ar: prev[m.id]?.title_ar || "",
+                              description: prev[m.id]?.description || "",
+                              description_ar: prev[m.id]?.description_ar || "",
+                              quiz_type: e.target.value,
+                              passing_score: prev[m.id]?.passing_score || 70,
+                              time_limit_minutes: prev[m.id]?.time_limit_minutes || "",
+                              max_attempts: prev[m.id]?.max_attempts || "",
+                              is_required: prev[m.id]?.is_required || false,
+                            },
+                          }))
+                        }
+                        className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      >
+                        <option value="checkpoint">Checkpoint</option>
+                        <option value="practice">Practice</option>
+                        <option value="final">Final</option>
+                      </select>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        placeholder="Passing score (%)"
+                        value={newQuiz[m.id]?.passing_score || ""}
+                        onChange={(e) =>
+                          setNewQuiz((prev) => ({
+                            ...prev,
+                            [m.id]: {
+                              title: prev[m.id]?.title || "",
+                              title_ar: prev[m.id]?.title_ar || "",
+                              description: prev[m.id]?.description || "",
+                              description_ar: prev[m.id]?.description_ar || "",
+                              quiz_type: prev[m.id]?.quiz_type || "checkpoint",
+                              passing_score: e.target.value ? Number(e.target.value) : "",
+                              time_limit_minutes: prev[m.id]?.time_limit_minutes || "",
+                              max_attempts: prev[m.id]?.max_attempts || "",
+                              is_required: prev[m.id]?.is_required || false,
+                            },
+                          }))
+                        }
+                        className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      />
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id={`quiz_required_${m.id}`}
+                          checked={newQuiz[m.id]?.is_required || false}
+                          onChange={(e) =>
+                            setNewQuiz((prev) => ({
+                              ...prev,
+                              [m.id]: {
+                                title: prev[m.id]?.title || "",
+                                title_ar: prev[m.id]?.title_ar || "",
+                                description: prev[m.id]?.description || "",
+                                description_ar: prev[m.id]?.description_ar || "",
+                                quiz_type: prev[m.id]?.quiz_type || "checkpoint",
+                                passing_score: prev[m.id]?.passing_score || 70,
+                                time_limit_minutes: prev[m.id]?.time_limit_minutes || "",
+                                max_attempts: prev[m.id]?.max_attempts || "",
+                                is_required: e.target.checked,
+                              },
+                            }))
+                          }
+                          className="w-4 h-4 text-teal-600 border-slate-300 rounded focus:ring-teal-500"
+                        />
+                        <label htmlFor={`quiz_required_${m.id}`} className="text-xs text-slate-600">
+                          Required
+                        </label>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="Time limit (minutes, optional)"
+                        value={newQuiz[m.id]?.time_limit_minutes || ""}
+                        onChange={(e) =>
+                          setNewQuiz((prev) => ({
+                            ...prev,
+                            [m.id]: {
+                              title: prev[m.id]?.title || "",
+                              title_ar: prev[m.id]?.title_ar || "",
+                              description: prev[m.id]?.description || "",
+                              description_ar: prev[m.id]?.description_ar || "",
+                              quiz_type: prev[m.id]?.quiz_type || "checkpoint",
+                              passing_score: prev[m.id]?.passing_score || 70,
+                              time_limit_minutes: e.target.value ? Number(e.target.value) : "",
+                              max_attempts: prev[m.id]?.max_attempts || "",
+                              is_required: prev[m.id]?.is_required || false,
+                            },
+                          }))
+                        }
+                        className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      />
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="Max attempts (optional)"
+                        value={newQuiz[m.id]?.max_attempts || ""}
+                        onChange={(e) =>
+                          setNewQuiz((prev) => ({
+                            ...prev,
+                            [m.id]: {
+                              title: prev[m.id]?.title || "",
+                              title_ar: prev[m.id]?.title_ar || "",
+                              description: prev[m.id]?.description || "",
+                              description_ar: prev[m.id]?.description_ar || "",
+                              quiz_type: prev[m.id]?.quiz_type || "checkpoint",
+                              passing_score: prev[m.id]?.passing_score || 70,
+                              time_limit_minutes: prev[m.id]?.time_limit_minutes || "",
+                              max_attempts: e.target.value ? Number(e.target.value) : "",
+                              is_required: prev[m.id]?.is_required || false,
+                            },
+                          }))
+                        }
+                        className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <textarea
+                        placeholder="Description (English, optional)"
+                        value={newQuiz[m.id]?.description || ""}
+                        onChange={(e) =>
+                          setNewQuiz((prev) => ({
+                            ...prev,
+                            [m.id]: {
+                              title: prev[m.id]?.title || "",
+                              title_ar: prev[m.id]?.title_ar || "",
+                              description: e.target.value,
+                              description_ar: prev[m.id]?.description_ar || "",
+                              quiz_type: prev[m.id]?.quiz_type || "checkpoint",
+                              passing_score: prev[m.id]?.passing_score || 70,
+                              time_limit_minutes: prev[m.id]?.time_limit_minutes || "",
+                              max_attempts: prev[m.id]?.max_attempts || "",
+                              is_required: prev[m.id]?.is_required || false,
+                            },
+                          }))
+                        }
+                        rows={2}
+                        className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      />
+                      <textarea
+                        placeholder="Description (Arabic, optional)"
+                        value={newQuiz[m.id]?.description_ar || ""}
+                        onChange={(e) =>
+                          setNewQuiz((prev) => ({
+                            ...prev,
+                            [m.id]: {
+                              title: prev[m.id]?.title || "",
+                              title_ar: prev[m.id]?.title_ar || "",
+                              description: prev[m.id]?.description || "",
+                              description_ar: e.target.value,
+                              quiz_type: prev[m.id]?.quiz_type || "checkpoint",
+                              passing_score: prev[m.id]?.passing_score || 70,
+                              time_limit_minutes: prev[m.id]?.time_limit_minutes || "",
+                              max_attempts: prev[m.id]?.max_attempts || "",
+                              is_required: prev[m.id]?.is_required || false,
+                            },
+                          }))
+                        }
+                        rows={2}
+                        className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      />
+                    </div>
+                    <div className="mt-2">
+                      <button
+                        type="button"
+                        onClick={() => handleAddQuiz(m.id)}
+                        className="text-xs px-3 py-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
+                      >
+                        Add Quiz
+                      </button>
+                    </div>
+                  </div>
                 </div>
                   </>
                 )}
