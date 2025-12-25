@@ -184,34 +184,41 @@ export function ArticleModal({
               </div>
             </>
           ) : resource.url && resource.url.trim() ? (
-            /* Fallback to iframe if no written content */
-            <>
-              <div className="border border-slate-200 rounded-lg overflow-hidden mb-4">
-                <iframe
-                  src={resource.url}
-                  className="w-full"
-                  style={{ minHeight: "600px" }}
-                  title={title}
-                  sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
-                />
+            /* If no written content but has URL, show link to visit/download */
+            <div className="space-y-4">
+              <div className="border border-slate-200 rounded-lg p-8 text-center bg-slate-50">
+                <div className="text-4xl mb-4">📄</div>
+                <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                  {language === "ar" ? "مقال خارجي" : "External Article"}
+                </h3>
+                <p className="text-slate-600 mb-6">
+                  {language === "ar"
+                    ? "هذا المقال متاح على رابط خارجي. اضغط على الزر أدناه لفتحه أو تحميله."
+                    : "This article is available on an external link. Click the button below to open or download it."}
+                </p>
+                <div className="flex items-center justify-center gap-3">
+                  <a
+                    href={resource.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors font-medium"
+                  >
+                    {language === "ar" ? "فتح/تحميل المقال" : "Open/Download Article"}
+                  </a>
+                  <button
+                    onClick={handleClose}
+                    className="px-6 py-3 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors font-medium"
+                  >
+                    {language === "ar" ? "إغلاق" : "Close"}
+                  </button>
+                </div>
+                <p className="text-xs text-slate-500 mt-4">
+                  {language === "ar"
+                    ? "سيتم فتح الرابط في نافذة جديدة"
+                    : "The link will open in a new window"}
+                </p>
               </div>
-              <div className="flex items-center justify-between pt-4 border-t border-slate-200">
-                <a
-                  href={resource.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-teal-600 hover:text-teal-700 text-sm font-medium"
-                >
-                  {language === "ar" ? "فتح في نافذة جديدة" : "Open in new window"}
-                </a>
-                <button
-                  onClick={handleClose}
-                  className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
-                >
-                  {language === "ar" ? "تم القراءة" : "Mark as Read"}
-                </button>
-              </div>
-            </>
+            </div>
           ) : (
             <div className="border border-slate-200 rounded-lg p-8 text-center">
               <p className="text-slate-600">
