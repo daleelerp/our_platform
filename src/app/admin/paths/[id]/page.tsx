@@ -20,7 +20,18 @@ type LearningPath = {
 type Milestone = {
   id: string;
   title: string;
+  title_ar: string | null;
+  description: string | null;
+  description_ar: string | null;
   milestone_number: number;
+  estimated_hours: number | null;
+  learning_objectives: string[] | null;
+  learning_objectives_ar: string[] | null;
+  checkpoint_type: string | null;
+  checkpoint_description: string | null;
+  checkpoint_description_ar: string | null;
+  job_skills_unlocked: string[] | null;
+  is_optional: boolean;
 };
 
 type MilestoneResource = {
@@ -99,6 +110,9 @@ export default function EditPathPage() {
     job_skills_unlocked: [],
     is_optional: false,
   });
+
+  const [editingMilestoneId, setEditingMilestoneId] = useState<string | null>(null);
+  const [editingMilestone, setEditingMilestone] = useState<NewMilestone | null>(null);
 
   const [allResources, setAllResources] = useState<LearningResource[]>([]);
   const [resourceSearch, setResourceSearch] = useState<
@@ -339,6 +353,131 @@ export default function EditPathPage() {
     } catch (err: any) {
       console.error(err);
       alert(err.message || "Failed to add milestone");
+    }
+  };
+
+  const handleEditMilestone = (milestone: Milestone) => {
+    setEditingMilestoneId(milestone.id);
+    setEditingMilestone({
+      title: milestone.title || "",
+      title_ar: milestone.title_ar || "",
+      description: milestone.description || "",
+      description_ar: milestone.description_ar || "",
+      milestone_number: milestone.milestone_number,
+      estimated_hours: milestone.estimated_hours || "",
+      learning_objectives: milestone.learning_objectives || [],
+      learning_objectives_ar: milestone.learning_objectives_ar || [],
+      checkpoint_type: milestone.checkpoint_type || "quiz",
+      checkpoint_description: milestone.checkpoint_description || "",
+      checkpoint_description_ar: milestone.checkpoint_description_ar || "",
+      job_skills_unlocked: milestone.job_skills_unlocked || [],
+      is_optional: milestone.is_optional || false,
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMilestoneId(null);
+    setEditingMilestone(null);
+  };
+
+  const handleUpdateMilestone = async (milestoneId: string) => {
+    if (!editingMilestone) return;
+    if (!editingMilestone.title.trim() || !editingMilestone.milestone_number) {
+      alert("Please enter a title and milestone number.");
+      return;
+    }
+
+    try {
+      const res = await fetch(
+        `/api/admin/data?table=path_milestones&id=${encodeURIComponent(milestoneId)}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: editingMilestone.title.trim(),
+            title_ar: editingMilestone.title_ar.trim() || null,
+            description: editingMilestone.description.trim() || null,
+            description_ar: editingMilestone.description_ar.trim() || null,
+            milestone_number: Number(editingMilestone.milestone_number),
+            estimated_hours: editingMilestone.estimated_hours
+              ? Number(editingMilestone.estimated_hours)
+              : null,
+            learning_objectives: editingMilestone.learning_objectives.length > 0
+              ? editingMilestone.learning_objectives
+              : null,
+            learning_objectives_ar: editingMilestone.learning_objectives_ar.length > 0
+              ? editingMilestone.learning_objectives_ar
+              : null,
+            checkpoint_type: editingMilestone.checkpoint_type || null,
+            checkpoint_description: editingMilestone.checkpoint_description.trim() || null,
+            checkpoint_description_ar: editingMilestone.checkpoint_description_ar.trim() || null,
+            job_skills_unlocked: editingMilestone.job_skills_unlocked.length > 0
+              ? editingMilestone.job_skills_unlocked
+              : null,
+            is_optional: editingMilestone.is_optional || false,
+          }),
+        }
+      );
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || "Failed to update milestone");
+      }
+
+      // Reload milestones
+      const milestonesRes = await fetch(
+        `/api/admin/data?table=path_milestones&filterColumn=learning_path_id&filterValue=${encodeURIComponent(
+          pathId!
+        )}&limit=100`
+      );
+      const milestonesJson = await milestonesRes.json();
+      if (milestonesRes.ok) {
+        const ms: Milestone[] = (milestonesJson.data || []).sort(
+          (a: Milestone, b: Milestone) =>
+            (a.milestone_number || 0) - (b.milestone_number || 0)
+        );
+        setMilestones(ms);
+      }
+
+      setEditingMilestoneId(null);
+      setEditingMilestone(null);
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Failed to update milestone");
+    }
+  };
+
+  const handleDeleteMilestone = async (milestoneId: string) => {
+    if (!confirm("Are you sure you want to delete this milestone? This will also delete all associated videos and resources.")) {
+      return;
+    }
+
+    try {
+      const res = await fetch(
+        `/api/admin/data?table=path_milestones&id=${encodeURIComponent(milestoneId)}`,
+        {
+          method: "DELETE",
+        }
+      );
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || "Failed to delete milestone");
+      }
+
+      // Remove from state
+      setMilestones((prev) => prev.filter((m) => m.id !== milestoneId));
+      setVideosByMilestone((prev) => {
+        const updated = { ...prev };
+        delete updated[milestoneId];
+        return updated;
+      });
+      setResourcesByMilestone((prev) => {
+        const updated = { ...prev };
+        delete updated[milestoneId];
+        return updated;
+      });
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Failed to delete milestone");
     }
   };
 
@@ -1124,16 +1263,328 @@ export default function EditPathPage() {
                 key={m.id}
                 className="border border-slate-200 rounded-lg p-4"
               >
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <div className="text-xs text-slate-500">
-                      Milestone {m.milestone_number}
+                {editingMilestoneId === m.id && editingMilestone ? (
+                  // Edit Form
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-slate-700">Edit Milestone</h3>
+                      <button
+                        onClick={handleCancelEdit}
+                        className="text-xs text-slate-500 hover:text-slate-700"
+                      >
+                        Cancel
+                      </button>
                     </div>
-                    <div className="font-medium text-slate-900">
-                      {m.title}
+                    
+                    {/* Same form structure as new milestone */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                          Title (English) *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={editingMilestone.title}
+                          onChange={(e) =>
+                            setEditingMilestone((prev) =>
+                              prev ? { ...prev, title: e.target.value } : null
+                            )
+                          }
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                          Title (Arabic)
+                        </label>
+                        <input
+                          type="text"
+                          value={editingMilestone.title_ar}
+                          onChange={(e) =>
+                            setEditingMilestone((prev) =>
+                              prev ? { ...prev, title_ar: e.target.value } : null
+                            )
+                          }
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                          Milestone number *
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          required
+                          value={editingMilestone.milestone_number}
+                          onChange={(e) =>
+                            setEditingMilestone((prev) =>
+                              prev
+                                ? {
+                                    ...prev,
+                                    milestone_number: e.target.value
+                                      ? Number(e.target.value)
+                                      : "",
+                                  }
+                                : null
+                            )
+                          }
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                          Description (English)
+                        </label>
+                        <textarea
+                          value={editingMilestone.description}
+                          onChange={(e) =>
+                            setEditingMilestone((prev) =>
+                              prev ? { ...prev, description: e.target.value } : null
+                            )
+                          }
+                          rows={2}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                          Description (Arabic)
+                        </label>
+                        <textarea
+                          value={editingMilestone.description_ar}
+                          onChange={(e) =>
+                            setEditingMilestone((prev) =>
+                              prev ? { ...prev, description_ar: e.target.value } : null
+                            )
+                          }
+                          rows={2}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                          Estimated hours
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={editingMilestone.estimated_hours}
+                          onChange={(e) =>
+                            setEditingMilestone((prev) =>
+                              prev
+                                ? {
+                                    ...prev,
+                                    estimated_hours: e.target.value
+                                      ? Number(e.target.value)
+                                      : "",
+                                  }
+                                : null
+                            )
+                          }
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                        />
+                      </div>
+                      <div className="flex items-start pt-6">
+                        <input
+                          type="checkbox"
+                          id={`edit_is_optional_${m.id}`}
+                          checked={editingMilestone.is_optional}
+                          onChange={(e) =>
+                            setEditingMilestone((prev) =>
+                              prev ? { ...prev, is_optional: e.target.checked } : null
+                            )
+                          }
+                          className="w-4 h-4 text-teal-600 border-slate-300 rounded focus:ring-teal-500 mt-0.5"
+                        />
+                        <label
+                          htmlFor={`edit_is_optional_${m.id}`}
+                          className="ml-2 text-xs font-medium text-slate-700"
+                        >
+                          Optional milestone
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                          Learning Objectives (English)
+                        </label>
+                        <textarea
+                          value={editingMilestone.learning_objectives.join("\n")}
+                          onChange={(e) =>
+                            setEditingMilestone((prev) =>
+                              prev
+                                ? {
+                                    ...prev,
+                                    learning_objectives: e.target.value
+                                      .split("\n")
+                                      .filter((line) => line.trim()),
+                                  }
+                                : null
+                            )
+                          }
+                          rows={3}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                          Learning Objectives (Arabic)
+                        </label>
+                        <textarea
+                          value={editingMilestone.learning_objectives_ar.join("\n")}
+                          onChange={(e) =>
+                            setEditingMilestone((prev) =>
+                              prev
+                                ? {
+                                    ...prev,
+                                    learning_objectives_ar: e.target.value
+                                      .split("\n")
+                                      .filter((line) => line.trim()),
+                                  }
+                                : null
+                            )
+                          }
+                          rows={3}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="border-t border-slate-200 pt-3">
+                      <p className="text-[10px] font-medium text-slate-600 mb-2">Checkpoint</p>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                            Type
+                          </label>
+                          <select
+                            value={editingMilestone.checkpoint_type}
+                            onChange={(e) =>
+                              setEditingMilestone((prev) =>
+                                prev ? { ...prev, checkpoint_type: e.target.value } : null
+                              )
+                            }
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                          >
+                            <option value="">None</option>
+                            <option value="quiz">Quiz</option>
+                            <option value="project">Project</option>
+                            <option value="certification">Certification</option>
+                            <option value="peer_review">Peer Review</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                            Description (English)
+                          </label>
+                          <input
+                            type="text"
+                            value={editingMilestone.checkpoint_description}
+                            onChange={(e) =>
+                              setEditingMilestone((prev) =>
+                                prev ? { ...prev, checkpoint_description: e.target.value } : null
+                              )
+                            }
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                            Description (Arabic)
+                          </label>
+                          <input
+                            type="text"
+                            value={editingMilestone.checkpoint_description_ar}
+                            onChange={(e) =>
+                              setEditingMilestone((prev) =>
+                                prev
+                                  ? { ...prev, checkpoint_description_ar: e.target.value }
+                                  : null
+                              )
+                            }
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-slate-200 pt-3">
+                      <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                        Job Skills Unlocked
+                      </label>
+                      <textarea
+                        value={editingMilestone.job_skills_unlocked.join("\n")}
+                        onChange={(e) =>
+                          setEditingMilestone((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  job_skills_unlocked: e.target.value
+                                    .split("\n")
+                                    .filter((line) => line.trim()),
+                                }
+                              : null
+                          )
+                        }
+                        rows={2}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      />
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={handleCancelEdit}
+                        className="px-4 py-2 bg-slate-100 text-slate-700 text-sm rounded-lg hover:bg-slate-200"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateMilestone(m.id)}
+                        className="px-4 py-2 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700"
+                      >
+                        Save Changes
+                      </button>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  // Display Mode
+                  <>
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <div className="text-xs text-slate-500">
+                          Milestone {m.milestone_number}
+                        </div>
+                        <div className="font-medium text-slate-900">
+                          {m.title}
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleEditMilestone(m)}
+                          className="text-xs px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteMilestone(m.id)}
+                          className="text-xs px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
 
                 {/* Existing videos */}
                 {(videosByMilestone[m.id] || []).length > 0 ? (
@@ -1336,6 +1787,8 @@ export default function EditPathPage() {
                     The list shows all resources from the Resources admin page.
                   </p>
                 </div>
+                  </>
+                )}
               </div>
             ))}
           </div>
