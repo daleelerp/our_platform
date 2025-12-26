@@ -6,8 +6,6 @@ import { useAppStore } from "@/store/useAppStore";
 import { VideoPlayer } from "./VideoPlayer";
 import { QuizPlayer } from "./Quiz/QuizPlayer";
 import { ResourceViewer } from "./ResourceViewer";
-import { ArticleModal } from "./ArticleModal";
-import { QuizModal } from "./QuizModal";
 import { ContentTierBadge } from "./ContentTierBadge";
 import { LockedContent } from "./LockedContent";
 import { getContentTierFromBudget, hasAccessToTier, type ContentTier } from "@/utils/contentTiers";
@@ -131,10 +129,6 @@ export function LearningInterface({
     filteredVideos.length > 0 ? "videos" : resources.length > 0 ? "resources" : quizzes.length > 0 ? "quiz" : "videos"
   );
   
-  // Modal states
-  const [isArticleModalOpen, setIsArticleModalOpen] = useState(false);
-  const [isQuizModalOpen, setIsQuizModalOpen] = useState(false);
-  
   // Update selected video when language changes
   useEffect(() => {
     const currentFilteredVideos = videos.filter((video: any) => {
@@ -178,7 +172,21 @@ export function LearningInterface({
     videoProgress.map((vp) => [vp.video_id, vp])
   );
 
-  const getText = (en: string | null, ar: string | null): string => {
+  const getText = (en: string | null, ar: string | null, resourceLanguage?: 'en' | 'ar' | 'both'): string => {
+    // If resource language is specified, respect it
+    if (resourceLanguage) {
+      if (resourceLanguage === "en") {
+        return en || "";
+      }
+      if (resourceLanguage === "ar") {
+        return ar || "";
+      }
+      if (resourceLanguage === "both") {
+        if (language === "ar" && ar) return ar;
+        return en || "";
+      }
+    }
+    // Fallback: use user's language preference
     if (language === "ar" && ar) return ar;
     return en || "";
   };
@@ -587,21 +595,16 @@ export function LearningInterface({
                 <div className="space-y-2">
                   {accessibleResources.map((resource) => {
                     const isSelected = selectedResource?.id === resource.id;
-                    const resourceTitle = getText(resource.title, resource.title_ar);
+                    const resourceTitle = getText(resource.title, resource.title_ar, resource.language);
 
                     return (
                       <button
                         key={resource.id}
                         onClick={() => {
-                          if (resource.resource_type === "article") {
-                            setSelectedResource(resource);
-                            setIsArticleModalOpen(true);
-                          } else {
-                            setSelectedResource(resource);
-                            setActiveTab("resources");
-                            setSelectedVideo(null);
-                            setSelectedQuiz(null);
-                          }
+                          setSelectedResource(resource);
+                          setActiveTab("resources");
+                          setSelectedVideo(null);
+                          setSelectedQuiz(null);
                         }}
                         className={`w-full text-left p-3 rounded-lg border transition-colors ${
                           isSelected
@@ -619,22 +622,15 @@ export function LearningInterface({
                             >
                               {resourceTitle}
                             </p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <p className="text-xs text-slate-500">
-                                {resource.resource_type === "video" 
-                                  ? (language === "ar" ? "فيديو" : "Video")
-                                  : resource.resource_type === "article"
-                                  ? (language === "ar" ? "مقال" : "Article")
-                                  : resource.resource_type === "test"
-                                  ? (language === "ar" ? "اختبار" : "Test")
-                                  : resource.resource_type}
-                              </p>
-                              {(resource.resource_type === "article" || resource.resource_type === "video") && (
-                                <span className="text-[10px] px-1.5 py-0.5 bg-teal-100 text-teal-700 rounded">
-                                  {language === "ar" ? "مطلوب" : "Required"}
-                                </span>
-                              )}
-                            </div>
+                            <p className="text-xs text-slate-500 mt-1">
+                              {resource.resource_type === "video" 
+                                ? (language === "ar" ? "فيديو" : "Video")
+                                : resource.resource_type === "article"
+                                ? (language === "ar" ? "مقال" : "Article")
+                                : resource.resource_type === "test"
+                                ? (language === "ar" ? "اختبار" : "Test")
+                                : resource.resource_type}
+                            </p>
                           </div>
                         </div>
                       </button>
@@ -660,7 +656,9 @@ export function LearningInterface({
                         key={quiz.id}
                         onClick={() => {
                           setSelectedQuiz(quiz);
-                          setIsQuizModalOpen(true);
+                          setActiveTab("quiz");
+                          setSelectedVideo(null);
+                          setSelectedResource(null);
                         }}
                         className={`w-full text-left p-3 rounded-lg border transition-colors ${
                           isSelected
@@ -846,8 +844,86 @@ export function LearningInterface({
               </div>
             )}
 
-            {/* Resource Viewer - Only for non-article resources */}
-            {activeTab === "resources" && selectedResource && selectedResource.resource_type !== "article" && (
+            {/* Quiz Player */}
+            {activeTab === "quiz" && selectedQuiz && (
+              <div>
+                {hasAccessToTier(
+                  userTier,
+                  (selectedQuiz.content_tier || "free") as ContentTier
+                ) ? (
+                  <QuizPlayer
+                    quiz={{
+                      ...selectedQuiz,
+                      time_limit_minutes: (selectedQuiz as any).time_limit_minutes ?? null,
+                      max_attempts: (selectedQuiz as any).max_attempts ?? null,
+                      randomize_questions: (selectedQuiz as any).randomize_questions ?? false,
+                      show_correct_answers: (selectedQuiz as any).show_correct_answers ?? true,
+                      total_points: (selectedQuiz as any).total_points ?? 100,
+                    }}
+                    questions={selectedQuiz.quiz_questions}
+                    userId={userId}
+                    onComplete={async (score, isPassed) => {
+                      // Check if milestone should be marked as completed after quiz
+                      if (currentMilestone && isPassed) {
+                        const completionStatus = await checkMilestoneCompletion(userId, currentMilestone.id);
+                        await updateMilestoneProgress(userId, currentMilestone.id, completionStatus);
+                        
+                        // Always update progress to reflect current state
+                        const overallProgress = await calculatePathProgress(userId, path.id);
+                        const currentProgress = enrollment.progress_percentage || 0;
+                        
+                        // Update if progress changed or milestone is completed
+                        if (overallProgress !== currentProgress || completionStatus.isCompleted) {
+                          const updateData: any = {
+                            progress_percentage: overallProgress,
+                            last_activity_at: new Date().toISOString(),
+                          };
+
+                          if (completionStatus.isCompleted) {
+                            // Find next milestone
+                            const nextMilestone = milestones.find(
+                              (m) => m.milestone_number > currentMilestone.milestone_number
+                            );
+                            
+                            if (nextMilestone) {
+                              updateData.current_milestone_number = nextMilestone.milestone_number;
+                            } else {
+                              updateData.current_milestone_number = milestones.length;
+                              updateData.status = "completed";
+                              updateData.completed_at = new Date().toISOString();
+                            }
+                          }
+
+                          await supabase
+                            .from("path_enrollments")
+                            .update(updateData)
+                            .eq("id", enrollment.id);
+                          
+                          // Update local enrollment object
+                          enrollment.progress_percentage = overallProgress;
+                          
+                          // Refresh to show updated progress
+                          if (completionStatus.isCompleted) {
+                            // Use router.push instead of reload to avoid infinite loops
+                            const targetMilestone = updateData.current_milestone_number || currentMilestone.milestone_number;
+                            router.push(`/paths/${path.slug}/learn?milestone=${targetMilestone}`);
+                          }
+                        }
+                      }
+                    }}
+                  />
+                ) : (
+                  <LockedContent
+                    requiredTier={selectedQuiz.content_tier as ContentTier}
+                    currentTier={userTier}
+                    contentType="quiz"
+                  />
+                )}
+              </div>
+            )}
+
+            {/* Resource Viewer */}
+            {activeTab === "resources" && selectedResource && (
               <ResourceViewer
                 resource={selectedResource}
                 userId={userId}
@@ -950,84 +1026,6 @@ export function LearningInterface({
           </div>
         </div>
       </div>
-
-      {/* Article Modal */}
-      {selectedResource && selectedResource.resource_type === "article" && (
-        <ArticleModal
-          resource={selectedResource}
-          userId={userId}
-          milestoneId={currentMilestone?.id}
-          isOpen={isArticleModalOpen}
-          onClose={() => {
-            setIsArticleModalOpen(false);
-            setSelectedResource(null);
-          }}
-          onComplete={handleVideoComplete}
-        />
-      )}
-
-      {/* Quiz Modal */}
-      {selectedQuiz && (
-        <QuizModal
-          quiz={selectedQuiz}
-          questions={selectedQuiz.quiz_questions}
-          userId={userId}
-          isOpen={isQuizModalOpen}
-          onClose={() => {
-            setIsQuizModalOpen(false);
-            setSelectedQuiz(null);
-          }}
-          onComplete={async (score, isPassed) => {
-            // Check if milestone should be marked as completed after quiz
-            if (currentMilestone && isPassed) {
-              const completionStatus = await checkMilestoneCompletion(userId, currentMilestone.id);
-              await updateMilestoneProgress(userId, currentMilestone.id, completionStatus);
-              
-              // Always update progress to reflect current state
-              const overallProgress = await calculatePathProgress(userId, path.id);
-              const currentProgress = enrollment.progress_percentage || 0;
-              
-              // Update if progress changed or milestone is completed
-              if (overallProgress !== currentProgress || completionStatus.isCompleted) {
-                const updateData: any = {
-                  progress_percentage: overallProgress,
-                  last_activity_at: new Date().toISOString(),
-                };
-
-                if (completionStatus.isCompleted) {
-                  // Find next milestone
-                  const nextMilestone = milestones.find(
-                    (m) => m.milestone_number > currentMilestone.milestone_number
-                  );
-                  
-                  if (nextMilestone) {
-                    updateData.current_milestone_number = nextMilestone.milestone_number;
-                  } else {
-                    updateData.current_milestone_number = milestones.length;
-                    updateData.status = "completed";
-                    updateData.completed_at = new Date().toISOString();
-                  }
-                }
-
-                await supabase
-                  .from("path_enrollments")
-                  .update(updateData)
-                  .eq("id", enrollment.id);
-                
-                // Update local enrollment object
-                enrollment.progress_percentage = overallProgress;
-                
-                // Refresh to show updated progress
-                if (completionStatus.isCompleted) {
-                  // Use router.push instead of reload to avoid infinite loops
-                  const targetMilestone = updateData.current_milestone_number || currentMilestone.milestone_number;
-                  router.push(`/paths/${path.slug}/learn?milestone=${targetMilestone}`);
-                }
-              }
-            }
-          }}
-        />
-      )}
     </div>
   );
 }
