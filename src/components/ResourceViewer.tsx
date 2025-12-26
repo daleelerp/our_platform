@@ -323,6 +323,12 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
       });
       const articleContent = description && description.trim() ? formatArticleContent(description) : [];
       console.log("Article Content Elements:", articleContent.length);
+      console.log("Article Content Elements Details:", articleContent.map((el, idx) => ({
+        index: idx,
+        type: el?.type,
+        key: el?.key,
+        props: el?.props?.children ? (typeof el.props.children === 'string' ? el.props.children.substring(0, 50) : 'complex') : 'no children'
+      })));
 
       return (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
@@ -354,7 +360,11 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
           <div className="px-8 py-8">
             {articleContent && articleContent.length > 0 ? (
               <div className="article-content max-w-4xl mx-auto">
-                {articleContent}
+                {articleContent.map((element, index) => (
+                  <React.Fragment key={element?.key || `article-content-${index}`}>
+                    {element}
+                  </React.Fragment>
+                ))}
               </div>
             ) : (
               <div className="text-center py-12">
