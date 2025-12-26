@@ -117,6 +117,33 @@ export function LearningInterface({
       return !video.primary_language || video.primary_language === "en" || video.primary_language === "mixed";
     }
   });
+
+  // Filter resources by language preference
+  const filteredResources = resources.filter((resource) => {
+    // Check if resource has content in the selected language
+    const hasContentInLanguage = (resource.language === "both") || 
+      (language === "ar" && (resource.language === "ar" || !resource.language)) ||
+      (language === "en" && (resource.language === "en" || !resource.language));
+    
+    if (!hasContentInLanguage) return false;
+    
+    // Check if resource actually has content (title or description) in the selected language
+    if (resource.language === "en") {
+      return !!(resource.title || resource.description);
+    }
+    if (resource.language === "ar") {
+      return !!(resource.title_ar || resource.description_ar);
+    }
+    if (resource.language === "both") {
+      if (language === "ar") {
+        return !!(resource.title_ar || resource.description_ar);
+      } else {
+        return !!(resource.title || resource.description);
+      }
+    }
+    // Legacy resources without language field - show if they have content
+    return !!(resource.title || resource.title_ar || resource.description || resource.description_ar);
+  });
   
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(
     filteredVideos.length > 0 ? filteredVideos[0] : null
@@ -415,33 +442,6 @@ export function LearningInterface({
   const accessibleQuizzes = quizzes.filter((quiz) => {
     if (!quiz.content_tier) return true;
     return hasAccessToTier(userTier, quiz.content_tier as ContentTier);
-  });
-
-  // Filter resources by language preference
-  const filteredResources = resources.filter((resource) => {
-    // Check if resource has content in the selected language
-    const hasContentInLanguage = (resource.language === "both") || 
-      (language === "ar" && (resource.language === "ar" || !resource.language)) ||
-      (language === "en" && (resource.language === "en" || !resource.language));
-    
-    if (!hasContentInLanguage) return false;
-    
-    // Check if resource actually has content (title or description) in the selected language
-    if (resource.language === "en") {
-      return !!(resource.title || resource.description);
-    }
-    if (resource.language === "ar") {
-      return !!(resource.title_ar || resource.description_ar);
-    }
-    if (resource.language === "both") {
-      if (language === "ar") {
-        return !!(resource.title_ar || resource.description_ar);
-      } else {
-        return !!(resource.title || resource.description);
-      }
-    }
-    // Legacy resources without language field - show if they have content
-    return !!(resource.title || resource.title_ar || resource.description || resource.description_ar);
   });
 
   const accessibleResources = filteredResources.filter((resource) => {
