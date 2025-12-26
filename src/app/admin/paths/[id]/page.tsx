@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { RichTextEditor } from "@/components/RichTextEditor";
 
 type LearningPath = {
   id: string;
@@ -40,10 +39,6 @@ type MilestoneResource = {
   resource_id: string;
   resource_title: string;
   url: string;
-  resource_type?: string;
-  description?: string;
-  description_ar?: string;
-  title_ar?: string;
 };
 
 type LearningResource = {
@@ -198,17 +193,6 @@ export default function EditPathPage() {
     Record<string, { query: string; source: string; isScraping: boolean }>
   >({});
 
-  const [editingArticleId, setEditingArticleId] = useState<string | null>(null);
-  const [editingArticle, setEditingArticle] = useState<{
-    title: string;
-    title_ar: string;
-    description: string;
-    description_ar: string;
-    url: string;
-  } | null>(null);
-
-  const [isAddArticleModalOpen, setIsAddArticleModalOpen] = useState<Record<string, boolean>>({});
-
   useEffect(() => {
     const loadData = async () => {
       if (!pathId) return;
@@ -294,16 +278,11 @@ export default function EditPathPage() {
             );
             const resourcesJson = await resourcesRes.json();
             if (resourcesRes.ok) {
-              // The view now includes description fields, so we can use them directly
               resourcesMap[m.id] = (resourcesJson.data || []).map((r: any) => ({
                 id: r.id,
                 resource_id: r.resource_id,
-                resource_title: r.resource_title || "Untitled",
-                resource_title_ar: r.resource_title_ar || "",
-                url: r.url || "",
-                resource_type: r.resource_type,
-                description: r.description || "",
-                description_ar: r.description_ar || "",
+                resource_title: r.resource_title || r.title || "Untitled",
+                url: r.url,
               }));
             } else {
               resourcesMap[m.id] = [];
@@ -991,114 +970,6 @@ export default function EditPathPage() {
       console.error(err);
       alert(err.message || "Failed to add article");
     }
-  };
-
-  const handleEditArticle = async (resourceId: string) => {
-    try {
-      const res = await fetch(
-        `/api/admin/data?table=learning_resources&id=${encodeURIComponent(resourceId)}`
-      );
-      const json = await res.json();
-      if (!res.ok) {
-        throw new Error(json.error || "Failed to load article");
-      }
-
-      // Ensure we have the description fields
-      const articleData = json.data || {};
-      console.log("Loading article for edit:", {
-        id: resourceId,
-        title: articleData.title,
-        description: articleData.description,
-        description_ar: articleData.description_ar,
-      });
-
-      setEditingArticleId(resourceId);
-      setEditingArticle({
-        title: articleData.title || "",
-        title_ar: articleData.title_ar || "",
-        description: articleData.description || "",
-        description_ar: articleData.description_ar || "",
-        url: articleData.url || "",
-      });
-    } catch (err: any) {
-      console.error(err);
-      alert(err.message || "Failed to load article");
-    }
-  };
-
-  const handleUpdateArticle = async () => {
-    if (!editingArticleId || !editingArticle) {
-      return;
-    }
-
-    if (!editingArticle.title.trim()) {
-      alert("Please provide a title");
-      return;
-    }
-
-    try {
-      const res = await fetch(
-        `/api/admin/data?table=learning_resources&id=${encodeURIComponent(editingArticleId)}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: editingArticle.title.trim(),
-            title_ar: editingArticle.title_ar.trim() || null,
-            description: editingArticle.description.trim() || null,
-            description_ar: editingArticle.description_ar.trim() || null,
-            url: editingArticle.url.trim() || "",
-          }),
-        }
-      );
-
-      const json = await res.json();
-      if (!res.ok) {
-        throw new Error(json.error || "Failed to update article");
-      }
-
-      // Reload data
-      const loadData = async () => {
-        const milestones = Object.keys(resourcesByMilestone);
-        for (const milestoneId of milestones) {
-          const resourcesRes = await fetch(
-            `/api/admin/data?table=milestone_resources_view&filterColumn=milestone_id&filterValue=${encodeURIComponent(
-              milestoneId
-            )}&limit=100`
-          );
-          const resourcesJson = await resourcesRes.json();
-          if (resourcesRes.ok) {
-            // The view now includes description fields, so we can use them directly
-            setResourcesByMilestone((prev) => ({
-              ...prev,
-              [milestoneId]: (resourcesJson.data || []).map((r: any) => ({
-                id: r.id,
-                resource_id: r.resource_id,
-                resource_title: r.resource_title || "Untitled",
-                resource_title_ar: r.resource_title_ar || "",
-                url: r.url || "",
-                resource_type: r.resource_type,
-                description: r.description || "",
-                description_ar: r.description_ar || "",
-              })),
-            }));
-          }
-        }
-      };
-      await loadData();
-
-      setEditingArticleId(null);
-      setEditingArticle(null);
-      alert("Article updated successfully!");
-    } catch (err: any) {
-      console.error(err);
-      alert(err.message || "Failed to update article");
-    }
-  };
-
-  const handleCancelEditArticle = () => {
-    setEditingArticleId(null);
-    setEditingArticle(null);
   };
 
   if (loading) {
@@ -2161,48 +2032,28 @@ export default function EditPathPage() {
                       {resourcesByMilestone[m.id].map((r) => (
                         <div
                           key={r.id}
-                          className="flex items-center justify-between text-xs p-2 border border-slate-200 rounded-lg"
+                          className="flex items-center justify-between text-xs"
                         >
                           <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <div className="font-medium text-slate-800">
-                                {r.resource_title}
-                              </div>
-                              {r.resource_type === "article" && (
-                                <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded">
-                                  Article
-                                </span>
-                              )}
+                            <div className="font-medium text-slate-800">
+                              {r.resource_title}
                             </div>
-                            {r.url && (
-                              <a
-                                href={r.url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-[11px] text-teal-600 hover:text-teal-700 break-all"
-                              >
-                                {r.url}
-                              </a>
-                            )}
-                          </div>
-                          <div className="flex gap-2">
-                            {r.resource_type === "article" && (
-                              <button
-                                type="button"
-                                onClick={() => handleEditArticle(r.resource_id)}
-                                className="text-[11px] text-blue-600 hover:text-blue-700"
-                              >
-                                Edit
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteResource(m.id, r.id)}
-                              className="text-[11px] text-red-600 hover:text-red-700"
+                            <a
+                              href={r.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-[11px] text-teal-600 hover:text-teal-700 break-all"
                             >
-                              Remove
-                            </button>
+                              {r.url}
+                            </a>
                           </div>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteResource(m.id, r.id)}
+                            className="ml-3 text-[11px] text-red-600 hover:text-red-700"
+                          >
+                            Remove
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -2252,183 +2103,102 @@ export default function EditPathPage() {
                   </p>
                 </div>
 
-                {/* Add Article Manually - Button */}
+                {/* Add Article Manually */}
                 <div className="mt-3 border-t border-slate-100 pt-3">
-                  <button
-                    type="button"
-                    onClick={() => setIsAddArticleModalOpen((prev) => ({ ...prev, [m.id]: true }))}
-                    className="w-full px-3 py-2 bg-teal-600 text-white text-xs rounded-lg hover:bg-teal-700 transition-colors"
-                  >
-                    + Add Article Manually
-                  </button>
-                </div>
-
-                {/* Add Article Modal */}
-                {isAddArticleModalOpen[m.id] && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-                    <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
-                      {/* Header */}
-                      <div className="flex items-center justify-between p-6 border-b border-slate-200">
-                        <h2 className="text-lg font-semibold text-slate-900">Add Article Manually</h2>
-                        <button
-                          onClick={() => {
-                            setIsAddArticleModalOpen((prev) => ({ ...prev, [m.id]: false }));
-                            setNewArticle((prev) => ({
-                              ...prev,
-                              [m.id]: {
-                                title: "",
-                                title_ar: "",
-                                description: "",
-                                description_ar: "",
-                                url: "",
-                                platform: "",
-                                language: "en",
-                                is_free: true,
-                              },
-                            }));
-                          }}
-                          className="text-slate-400 hover:text-slate-600 transition-colors"
-                        >
-                          <svg
-                            className="w-6 h-6"
-                            fill="none"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </div>
-
-                      {/* Content */}
-                      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                  <div className="text-xs font-medium text-slate-500 mb-1">
+                    Add Article Manually
+                  </div>
+                  <div className="space-y-2">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      <div>
-                        <label className="text-xs font-medium text-slate-600 mb-1 block">
-                          Article Title (English) *
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Article title (English)"
-                          value={newArticle[m.id]?.title || ""}
-                          onChange={(e) =>
-                            setNewArticle((prev) => ({
-                              ...prev,
-                              [m.id]: {
-                                title: e.target.value,
-                                title_ar: prev[m.id]?.title_ar || "",
-                                description: prev[m.id]?.description || "",
-                                description_ar: prev[m.id]?.description_ar || "",
-                                url: prev[m.id]?.url || "",
-                                platform: prev[m.id]?.platform || "",
-                                language: prev[m.id]?.language || "en",
-                                is_free: prev[m.id]?.is_free !== false,
-                              },
-                            }))
-                          }
-                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs font-medium text-slate-600 mb-1 block">
-                          Article Title (Arabic)
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="عنوان المقال (عربي)"
-                          value={newArticle[m.id]?.title_ar || ""}
-                          onChange={(e) =>
-                            setNewArticle((prev) => ({
-                              ...prev,
-                              [m.id]: {
-                                title: prev[m.id]?.title || "",
-                                title_ar: e.target.value,
-                                description: prev[m.id]?.description || "",
-                                description_ar: prev[m.id]?.description_ar || "",
-                                url: prev[m.id]?.url || "",
-                                platform: prev[m.id]?.platform || "",
-                                language: prev[m.id]?.language || "en",
-                                is_free: prev[m.id]?.is_free !== false,
-                              },
-                            }))
-                          }
-                          className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                        />
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div>
-                        <label className="text-xs font-medium text-slate-600 mb-1 block">
-                          Article Content (English) *
-                        </label>
-                        <RichTextEditor
-                          value={newArticle[m.id]?.description || ""}
-                          onChange={(value) =>
-                            setNewArticle((prev) => ({
-                              ...prev,
-                              [m.id]: {
-                                title: prev[m.id]?.title || "",
-                                title_ar: prev[m.id]?.title_ar || "",
-                                description: value,
-                                description_ar: prev[m.id]?.description_ar || "",
-                                url: prev[m.id]?.url || "",
-                                platform: prev[m.id]?.platform || "",
-                                language: prev[m.id]?.language || "en",
-                                is_free: prev[m.id]?.is_free !== false,
-                              },
-                            }))
-                          }
-                          placeholder="Write the full article content here..."
-                          rows={12}
-                          className="text-xs"
-                        />
-                        <p className="text-[10px] text-slate-400 mt-1">
-                          Use the toolbar above to format your text (bold, italic, headings, lists, links)
-                        </p>
-                      </div>
-                      <div>
-                        <label className="text-xs font-medium text-slate-600 mb-1 block">
-                          Article Content (Arabic)
-                        </label>
-                        <RichTextEditor
-                          value={newArticle[m.id]?.description_ar || ""}
-                          onChange={(value) =>
-                            setNewArticle((prev) => ({
-                              ...prev,
-                              [m.id]: {
-                                title: prev[m.id]?.title || "",
-                                title_ar: prev[m.id]?.title_ar || "",
-                                description: prev[m.id]?.description || "",
-                                description_ar: value,
-                                url: prev[m.id]?.url || "",
-                                platform: prev[m.id]?.platform || "",
-                                language: prev[m.id]?.language || "en",
-                                is_free: prev[m.id]?.is_free !== false,
-                              },
-                            }))
-                          }
-                          placeholder="اكتب محتوى المقال الكامل هنا..."
-                          rows={12}
-                          className="text-xs"
-                        />
-                        <p className="text-[10px] text-slate-400 mt-1">
-                          استخدم شريط الأدوات أعلاه لتنسيق النص (عريض، مائل، عناوين، قوائم، روابط)
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <label className="text-xs font-medium text-slate-600 mb-1 block">
-                        Article Link (for download or visit) - Optional
-                      </label>
                       <input
-                        type="url"
-                        placeholder="https://example.com/article or file download link"
-                        value={newArticle[m.id]?.url || ""}
+                        type="text"
+                        placeholder="Article title (English)"
+                        value={newArticle[m.id]?.title || ""}
+                        onChange={(e) =>
+                          setNewArticle((prev) => ({
+                            ...prev,
+                            [m.id]: {
+                              title: e.target.value,
+                              title_ar: prev[m.id]?.title_ar || "",
+                              description: prev[m.id]?.description || "",
+                              description_ar: prev[m.id]?.description_ar || "",
+                              url: prev[m.id]?.url || "",
+                              platform: prev[m.id]?.platform || "",
+                              language: prev[m.id]?.language || "en",
+                              is_free: prev[m.id]?.is_free !== false,
+                            },
+                          }))
+                        }
+                        className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Article title (Arabic)"
+                        value={newArticle[m.id]?.title_ar || ""}
+                        onChange={(e) =>
+                          setNewArticle((prev) => ({
+                            ...prev,
+                            [m.id]: {
+                              title: prev[m.id]?.title || "",
+                              title_ar: e.target.value,
+                              description: prev[m.id]?.description || "",
+                              description_ar: prev[m.id]?.description_ar || "",
+                              url: prev[m.id]?.url || "",
+                              platform: prev[m.id]?.platform || "",
+                              language: prev[m.id]?.language || "en",
+                              is_free: prev[m.id]?.is_free !== false,
+                            },
+                          }))
+                        }
+                        className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      />
+                    </div>
+                    <input
+                      type="url"
+                      placeholder="Article URL (optional)"
+                      value={newArticle[m.id]?.url || ""}
+                      onChange={(e) =>
+                        setNewArticle((prev) => ({
+                          ...prev,
+                          [m.id]: {
+                            title: prev[m.id]?.title || "",
+                            title_ar: prev[m.id]?.title_ar || "",
+                            description: prev[m.id]?.description || "",
+                            description_ar: prev[m.id]?.description_ar || "",
+                            url: e.target.value,
+                            platform: prev[m.id]?.platform || "",
+                            language: prev[m.id]?.language || "en",
+                            is_free: prev[m.id]?.is_free !== false,
+                          },
+                        }))
+                      }
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                    />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <textarea
+                        placeholder="Description (English, optional)"
+                        value={newArticle[m.id]?.description || ""}
+                        onChange={(e) =>
+                          setNewArticle((prev) => ({
+                            ...prev,
+                            [m.id]: {
+                              title: prev[m.id]?.title || "",
+                              title_ar: prev[m.id]?.title_ar || "",
+                              description: e.target.value,
+                              description_ar: prev[m.id]?.description_ar || "",
+                              url: prev[m.id]?.url || "",
+                              platform: prev[m.id]?.platform || "",
+                              language: prev[m.id]?.language || "en",
+                              is_free: prev[m.id]?.is_free !== false,
+                            },
+                          }))
+                        }
+                        rows={2}
+                        className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                      />
+                      <textarea
+                        placeholder="Description (Arabic, optional)"
+                        value={newArticle[m.id]?.description_ar || ""}
                         onChange={(e) =>
                           setNewArticle((prev) => ({
                             ...prev,
@@ -2436,19 +2206,17 @@ export default function EditPathPage() {
                               title: prev[m.id]?.title || "",
                               title_ar: prev[m.id]?.title_ar || "",
                               description: prev[m.id]?.description || "",
-                              description_ar: prev[m.id]?.description_ar || "",
-                              url: e.target.value,
+                              description_ar: e.target.value,
+                              url: prev[m.id]?.url || "",
                               platform: prev[m.id]?.platform || "",
                               language: prev[m.id]?.language || "en",
                               is_free: prev[m.id]?.is_free !== false,
                             },
                           }))
                         }
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                        rows={2}
+                        className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                       />
-                      <p className="text-[10px] text-slate-400 mt-1">
-                        Add a link to download the article as PDF or visit external source (optional)
-                      </p>
                     </div>
                     <div className="flex gap-2 items-center">
                       <select
@@ -2501,68 +2269,71 @@ export default function EditPathPage() {
                         </label>
                       </div>
                     </div>
-                      </div>
-
-                      {/* Footer */}
-                      <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-200">
-                        <button
-                          onClick={() => {
-                            setIsAddArticleModalOpen((prev) => ({ ...prev, [m.id]: false }));
-                            setNewArticle((prev) => ({
-                              ...prev,
-                              [m.id]: {
-                                title: "",
-                                title_ar: "",
-                                description: "",
-                                description_ar: "",
-                                url: "",
-                                platform: "",
-                                language: "en",
-                                is_free: true,
-                              },
-                            }));
-                          }}
-                          className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors text-sm"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            await handleAddArticle(m.id);
-                            setIsAddArticleModalOpen((prev) => ({ ...prev, [m.id]: false }));
-                          }}
-                          className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm"
-                        >
-                          Add Article
-                        </button>
-                      </div>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleAddArticle(m.id)}
+                      className="text-xs px-3 py-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
+                    >
+                      Add Article
+                    </button>
                   </div>
-                )}
+                </div>
 
-                {/* Scrape Articles - Button */}
+                {/* Scrape Articles */}
                 <div className="mt-3 border-t border-slate-100 pt-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const query = prompt("Enter search query (e.g., 'Oracle GL setup'):");
-                      if (query) {
-                        setScrapingArticle((prev) => ({
-                          ...prev,
-                          [m.id]: {
-                            query: query,
-                            source: prev[m.id]?.source || "oracle_docs",
-                            isScraping: false,
-                          },
-                        }));
-                        handleScrapeArticle(m.id);
-                      }
-                    }}
-                    className="w-full px-3 py-2 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    + Scrape Articles (Oracle Docs, Medium)
-                  </button>
+                  <div className="text-xs font-medium text-slate-500 mb-1">
+                    Scrape Articles (Oracle Docs, Medium, etc.)
+                  </div>
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                      <input
+                        type="text"
+                        placeholder="Search query (e.g., 'Oracle GL setup')"
+                        value={scrapingArticle[m.id]?.query || ""}
+                        onChange={(e) =>
+                          setScrapingArticle((prev) => ({
+                            ...prev,
+                            [m.id]: {
+                              query: e.target.value,
+                              source: prev[m.id]?.source || "oracle_docs",
+                              isScraping: false,
+                            },
+                          }))
+                        }
+                        className="md:col-span-2 px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                        disabled={scrapingArticle[m.id]?.isScraping}
+                      />
+                      <select
+                        value={scrapingArticle[m.id]?.source || "oracle_docs"}
+                        onChange={(e) =>
+                          setScrapingArticle((prev) => ({
+                            ...prev,
+                            [m.id]: {
+                              query: prev[m.id]?.query || "",
+                              source: e.target.value,
+                              isScraping: false,
+                            },
+                          }))
+                        }
+                        className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                        disabled={scrapingArticle[m.id]?.isScraping}
+                      >
+                        <option value="oracle_docs">Oracle Docs</option>
+                        <option value="medium">Medium</option>
+                      </select>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleScrapeArticle(m.id)}
+                      disabled={scrapingArticle[m.id]?.isScraping}
+                      className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {scrapingArticle[m.id]?.isScraping ? "Scraping..." : "Scrape & Add Article"}
+                    </button>
+                    <p className="text-[10px] text-slate-400">
+                      This will search for articles and automatically add the first result to this milestone.
+                    </p>
+                  </div>
                 </div>
 
                 {/* Existing quizzes */}
@@ -2844,147 +2615,6 @@ export default function EditPathPage() {
           </div>
         )}
       </div>
-
-      {/* Edit Article Modal */}
-      {editingArticle && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
-            {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-slate-200">
-              <h2 className="text-lg font-semibold text-slate-900">Edit Article</h2>
-              <button
-                onClick={handleCancelEditArticle}
-                className="text-slate-400 hover:text-slate-600 transition-colors"
-              >
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-medium text-slate-600 mb-1 block">
-                    Article Title (English) *
-                  </label>
-                  <input
-                    type="text"
-                    value={editingArticle.title}
-                    onChange={(e) =>
-                      setEditingArticle((prev) =>
-                        prev ? { ...prev, title: e.target.value } : null
-                      )
-                    }
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-slate-600 mb-1 block">
-                    Article Title (Arabic)
-                  </label>
-                  <input
-                    type="text"
-                    value={editingArticle.title_ar}
-                    onChange={(e) =>
-                      setEditingArticle((prev) =>
-                        prev ? { ...prev, title_ar: e.target.value } : null
-                      )
-                    }
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-slate-600 mb-1 block">
-                  Article Content (English) *
-                </label>
-                <RichTextEditor
-                  value={editingArticle.description || ""}
-                  onChange={(value) =>
-                    setEditingArticle((prev) =>
-                      prev ? { ...prev, description: value } : null
-                    )
-                  }
-                  placeholder="Write the full article content here..."
-                  rows={12}
-                  className="text-xs"
-                />
-                {!editingArticle.description && (
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    This field is currently empty. Add your article content here.
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-slate-600 mb-1 block">
-                  Article Content (Arabic)
-                </label>
-                <RichTextEditor
-                  value={editingArticle.description_ar || ""}
-                  onChange={(value) =>
-                    setEditingArticle((prev) =>
-                      prev ? { ...prev, description_ar: value } : null
-                    )
-                  }
-                  placeholder="اكتب محتوى المقال الكامل هنا..."
-                  rows={12}
-                  className="text-xs"
-                />
-                {!editingArticle.description_ar && (
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    هذا الحقل فارغ حالياً. أضف محتوى المقال هنا.
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-slate-600 mb-1 block">
-                  Article Link (for download or visit) - Optional
-                </label>
-                <input
-                  type="url"
-                  value={editingArticle.url}
-                  onChange={(e) =>
-                    setEditingArticle((prev) =>
-                      prev ? { ...prev, url: e.target.value } : null
-                    )
-                  }
-                  placeholder="https://example.com/article or file download link"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                />
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-200">
-              <button
-                onClick={handleCancelEditArticle}
-                className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors text-sm"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleUpdateArticle}
-                className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm"
-              >
-                Save Changes
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

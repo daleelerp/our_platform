@@ -2,7 +2,6 @@ import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import { LearningInterface } from "@/components/LearningInterface";
-import { isPathInUserPlan } from "@/utils/pathAccess";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -40,14 +39,6 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
 
   if (pathError || !path) {
     redirect("/paths");
-  }
-
-  // Validate that path is in user's subscription plan
-  const hasAccess = await isPathInUserPlan(path.id, supabase, user.id, undefined);
-  
-  if (!hasAccess) {
-    // Path is not in user's plan - redirect to path detail page
-    redirect(`/paths/${slug}?error=path_not_in_plan`);
   }
 
   // Check if user is enrolled, if not, enroll them
@@ -139,83 +130,8 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
         .eq("is_active", true)
     : { data: null };
 
-  // Fetch resources for current milestone
-  const { data: milestoneResources } = currentMilestone
-    ? await supabase
-        .from("milestone_resources")
-        .select(`
-          *,
-          learning_resources (
-            id,
-            title,
-            title_ar,
-            description,
-            description_ar,
-            url,
-            resource_type,
-            language,
-            is_free,
-            is_active,
-            resource_platforms (*)
-          )
-        `)
-        .eq("milestone_id", currentMilestone.id)
-        .order("resource_order")
-    : { data: null };
-
-  // Extract learning resources from milestone_resources
-  const resources = milestoneResources
-    ? milestoneResources
-        .map((mr: any) => mr.learning_resources)
-        .filter((lr: any) => lr && lr.is_active)
-    : [];
-
-  // Check and update milestone progress for milestones with no content
-  // Mark milestones with no content as completed automatically
-  if (milestones && milestones.length > 0) {
-    for (const milestone of milestones) {
-      // Check if milestone has any content
-      const { data: milestoneVideos } = await supabase
-        .from("video_content")
-        .select("id")
-        .eq("milestone_id", milestone.id)
-        .eq("is_active", true)
-        .limit(1);
-
-      const { data: milestoneQuizzes } = await supabase
-        .from("quizzes")
-        .select("id")
-        .eq("milestone_id", milestone.id)
-        .eq("is_active", true)
-        .limit(1);
-
-      const { data: milestoneResources } = await supabase
-        .from("milestone_resources")
-        .select("id")
-        .eq("milestone_id", milestone.id)
-        .limit(1);
-
-      const hasContent = (milestoneVideos && milestoneVideos.length > 0) || 
-                        (milestoneQuizzes && milestoneQuizzes.length > 0) ||
-                        (milestoneResources && milestoneResources.length > 0);
-
-      // If milestone has no content, mark it as completed
-      if (!hasContent) {
-        await supabase
-          .from("user_milestone_progress")
-          .upsert({
-            user_id: user.id,
-            milestone_id: milestone.id,
-            status: "completed",
-            progress_percentage: 100,
-            completed_at: new Date().toISOString(),
-            started_at: new Date().toISOString(),
-          }, {
-            onConflict: "user_id,milestone_id",
-          });
-      }
-    }
-  }
+  // Check and update milestone progress based on actual completion
+  // This will be handled by the LearningInterface component using the milestoneProgress utility
 
   // Fetch user profile for content tier (already fetched above, but need budget info)
   const { data: userProfileWithBudget } = await supabase
@@ -264,7 +180,6 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
       currentMilestone={currentMilestone}
       videos={videos || []}
       quizzes={quizzes || []}
-      resources={resources || []}
       enrollment={enrollment}
       videoProgress={videoProgress || []}
       milestoneProgress={milestoneProgress}

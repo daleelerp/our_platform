@@ -51,3 +51,4 @@ ALTER COLUMN avg_salary_range TYPE VARCHAR(200);
 
 
 
+

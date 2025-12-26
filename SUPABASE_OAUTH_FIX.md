@@ -80,3 +80,4 @@ After updating Supabase settings:
 
 
 
+
