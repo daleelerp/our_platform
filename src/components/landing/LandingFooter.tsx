@@ -33,9 +33,9 @@ export function LandingFooter() {
             <h4 className="font-semibold text-slate-900 mb-4">{t("footer.product")}</h4>
             <ul className="space-y-2">
               <li>
-                <a href="#how-it-works" className="text-slate-600 hover:text-[#429874] transition">
+                <Link href="/#how-it-works" className="text-slate-600 hover:text-[#429874] transition">
                   {t("nav.howItWorks")}
-                </a>
+                </Link>
               </li>
               <li>
                 <Link href="/paths" className="text-slate-600 hover:text-[#429874] transition">

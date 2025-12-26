@@ -19,7 +19,7 @@ export default function RoadmapPage() {
 
   const roadmapItems = [
     {
-      status: "inProgress",
+      status: "completed",
       quarter: isArabic ? "نوفمبر 2025" : "November 2025",
       items: isArabic 
         ? [
@@ -38,7 +38,7 @@ export default function RoadmapPage() {
           ],
     },
     {
-      status: "planned",
+      status: "inProgress",
       quarter: isArabic ? "يناير 2026" : "January 2026",
       items: isArabic
         ? [

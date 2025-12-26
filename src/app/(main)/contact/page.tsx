@@ -70,7 +70,10 @@ export default function ContactPage() {
       const supabase = createClient();
 
       // Insert into waitlist table
-      // Store request title in referral_source since request_title column may not exist
+      // NOTE: رسائل "تواصل معنا" تروح في جدول waitlist في قاعدة البيانات
+      // العنوان والرسالة تُحفظ في حقل referral_source
+      // يمكنك مشاهدتها في /admin/waitlist
+      // Store request title and message in referral_source since request_title column may not exist
       const { error: insertError } = await supabase.from("waitlist").insert({
         email: formData.email,
         full_name: formData.name || null,
