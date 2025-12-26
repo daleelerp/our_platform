@@ -10,7 +10,7 @@ import { ContentTierBadge } from "./ContentTierBadge";
 import { LockedContent } from "./LockedContent";
 import { getContentTierFromBudget, hasAccessToTier, type ContentTier } from "@/utils/contentTiers";
 import { createClient } from "@/utils/supabase/client";
-// Progress tracking removed - simplified
+import { checkMilestoneCompletion, updateMilestoneProgress, calculatePathProgress } from "@/utils/milestoneProgress";
 import Link from "next/link";
 import { CheckCircleIcon, PlayIcon } from "@heroicons/react/24/outline";
 import { LearningResource } from "@/types/learning";
