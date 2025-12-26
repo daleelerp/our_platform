@@ -253,10 +253,34 @@ export function LearningInterface({
     // Progress tracking removed - simplified
   }, [currentMilestone, userId, path.id, milestones, enrollment.id, supabase, path.slug, router]);
 
-  // Simplified - removed complex progress tracking
+  // Simple progress update when video is completed
   const handleVideoComplete = async () => {
-    // Progress tracking removed - videos will still save their own progress
-    // but milestone completion tracking is disabled
+    if (!currentMilestone || !userId) return;
+
+    try {
+      // Check milestone completion status
+      const completionStatus = await checkMilestoneCompletion(userId, currentMilestone.id);
+      
+      // Update milestone progress
+      await updateMilestoneProgress(userId, currentMilestone.id, completionStatus);
+
+      // Calculate and update path progress
+      const overallProgress = await calculatePathProgress(userId, path.id);
+      
+      // Update enrollment progress
+      await supabase
+        .from("path_enrollments")
+        .update({
+          progress_percentage: overallProgress,
+          last_activity_at: new Date().toISOString(),
+        })
+        .eq("id", enrollment.id);
+
+      // Update local state
+      setCurrentEnrollmentProgress(overallProgress);
+    } catch (error) {
+      console.debug("Error updating progress:", error);
+    }
   };
 
   if (!currentMilestone) {
@@ -664,6 +688,7 @@ export function LearningInterface({
                           
                           // Progress tracking removed
                         }}
+                        onComplete={handleVideoComplete}
                       />
                     ) : (
                       <div className="bg-slate-100 rounded-lg aspect-video flex items-center justify-center p-8">
