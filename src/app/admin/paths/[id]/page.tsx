@@ -112,6 +112,8 @@ export default function EditPathPage() {
     Record<string, Quiz[]>
   >({});
 
+  const [showAddMilestoneModal, setShowAddMilestoneModal] = useState(false);
+  
   const [newMilestone, setNewMilestone] = useState<NewMilestone>({
     title: "",
     title_ar: "",
@@ -359,12 +361,51 @@ export default function EditPathPage() {
     }
   };
 
+  // Calculate next milestone number automatically
+  const getNextMilestoneNumber = () => {
+    if (milestones.length === 0) return 1;
+    const maxNumber = Math.max(...milestones.map(m => m.milestone_number || 0));
+    return maxNumber + 1;
+  };
+
+  const handleOpenAddMilestoneModal = () => {
+    // Auto-calculate milestone number
+    const nextNumber = getNextMilestoneNumber();
+    setNewMilestone(prev => ({
+      ...prev,
+      milestone_number: nextNumber,
+    }));
+    setShowAddMilestoneModal(true);
+  };
+
+  const handleCloseAddMilestoneModal = () => {
+    setShowAddMilestoneModal(false);
+    setNewMilestone({
+      title: "",
+      title_ar: "",
+      description: "",
+      description_ar: "",
+      milestone_number: "",
+      estimated_hours: "",
+      learning_objectives: [],
+      learning_objectives_ar: [],
+      checkpoint_type: "quiz",
+      checkpoint_description: "",
+      checkpoint_description_ar: "",
+      job_skills_unlocked: [],
+      is_optional: false,
+    });
+  };
+
   const handleAddMilestone = async () => {
     if (!pathId) return;
-    if (!newMilestone.title.trim() || !newMilestone.milestone_number) {
-      alert("Please enter a title and milestone number.");
+    if (!newMilestone.title.trim()) {
+      alert("Please enter a title.");
       return;
     }
+
+    // Auto-calculate milestone number if not set
+    const milestoneNumber = newMilestone.milestone_number || getNextMilestoneNumber();
 
     try {
       const res = await fetch("/api/admin/data?table=path_milestones", {
@@ -376,7 +417,7 @@ export default function EditPathPage() {
           title_ar: newMilestone.title_ar.trim() || null,
           description: newMilestone.description.trim() || null,
           description_ar: newMilestone.description_ar.trim() || null,
-          milestone_number: Number(newMilestone.milestone_number),
+          milestone_number: milestoneNumber,
           estimated_hours: newMilestone.estimated_hours
             ? Number(newMilestone.estimated_hours)
             : null,
@@ -410,21 +451,7 @@ export default function EditPathPage() {
       setVideosByMilestone((prev) => ({ ...prev, [created.id]: [] }));
       setResourcesByMilestone((prev) => ({ ...prev, [created.id]: [] }));
       setQuizzesByMilestone((prev) => ({ ...prev, [created.id]: [] }));
-      setNewMilestone({
-        title: "",
-        title_ar: "",
-        description: "",
-        description_ar: "",
-        milestone_number: "",
-        estimated_hours: "",
-        learning_objectives: [],
-        learning_objectives_ar: [],
-        checkpoint_type: "quiz",
-        checkpoint_description: "",
-        checkpoint_description_ar: "",
-        job_skills_unlocked: [],
-        is_optional: false,
-      });
+      handleCloseAddMilestoneModal();
     } catch (err: any) {
       console.error(err);
       alert(err.message || "Failed to add milestone");
@@ -1258,16 +1285,38 @@ export default function EditPathPage() {
           </p>
         </div>
 
-        {/* Add new milestone */}
-        <div className="mb-4 border border-slate-200 rounded-lg p-4 bg-slate-50/60">
-          <div className="flex items-center justify-between mb-3">
-            <div className="text-xs font-semibold text-slate-700">
-              Add new milestone
-            </div>
-            <div className="text-[10px] text-slate-500 bg-blue-50 px-2 py-1 rounded border border-blue-200">
-              💡 Budget/Price is set when adding resources below, not here
-            </div>
-          </div>
+        {/* Add new milestone button */}
+        <div className="mb-4">
+          <button
+            type="button"
+            onClick={handleOpenAddMilestoneModal}
+            className="px-4 py-2 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 font-medium"
+          >
+            + Add new milestone
+          </button>
+        </div>
+
+        {/* Add Milestone Modal */}
+        {showAddMilestoneModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-slate-900">Add new milestone</h2>
+                <button
+                  type="button"
+                  onClick={handleCloseAddMilestoneModal}
+                  className="text-slate-400 hover:text-slate-600 text-2xl leading-none"
+                >
+                  ×
+                </button>
+              </div>
+              
+              <div className="p-6">
+                <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-xs text-blue-800">
+                    💡 Budget/Price is set when adding resources below, not here
+                  </p>
+                </div>
           
           <div className="space-y-4">
             {/* Basic Info */}
@@ -1309,24 +1358,26 @@ export default function EditPathPage() {
               </div>
               <div>
                 <label className="block text-[11px] font-medium text-slate-600 mb-1">
-                  Milestone number *
+                  Milestone number (Auto-calculated)
                 </label>
                 <input
                   type="number"
                   min={1}
-                  required
                   value={newMilestone.milestone_number}
                   onChange={(e) =>
                     setNewMilestone((prev) => ({
                       ...prev,
                       milestone_number: e.target.value
                         ? Number(e.target.value)
-                        : "",
+                        : getNextMilestoneNumber(),
                     }))
                   }
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                  placeholder="1"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-slate-50"
+                  placeholder="Auto"
                 />
+                <p className="text-[10px] text-slate-500 mt-1">
+                  Automatically set to {getNextMilestoneNumber()}. You can change it if needed.
+                </p>
               </div>
             </div>
 
@@ -1553,18 +1604,27 @@ export default function EditPathPage() {
               />
             </div>
 
-            {/* Submit Button */}
-            <div className="flex justify-end pt-2">
-              <button
-                type="button"
-                onClick={handleAddMilestone}
-                className="px-4 py-2 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 whitespace-nowrap font-medium"
-              >
-                Add Milestone
-              </button>
+                {/* Submit Button */}
+                <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 mt-4">
+                  <button
+                    type="button"
+                    onClick={handleCloseAddMilestoneModal}
+                    className="px-4 py-2 bg-slate-200 text-slate-700 text-sm rounded-lg hover:bg-slate-300 font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAddMilestone}
+                    className="px-4 py-2 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 font-medium"
+                  >
+                    Add Milestone
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {milestones.length === 0 ? (
           <p className="text-slate-500 text-sm">
