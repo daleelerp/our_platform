@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { LearningResource } from "@/types/learning";
 import { useAppStore } from "@/store/useAppStore";
 import { VideoPlayer } from "./VideoPlayer";
@@ -101,7 +102,7 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
         
         // Split by double newlines to create paragraphs
         const paragraphs = content.split(/\n\n+/).filter(p => p.trim());
-        const elements: JSX.Element[] = [];
+        const elements: React.ReactElement[] = [];
         let currentListItems: string[] = [];
         
         paragraphs.forEach((para, idx) => {
