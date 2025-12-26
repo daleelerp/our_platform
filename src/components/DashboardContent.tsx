@@ -1,7 +1,7 @@
 "use client";
 
 import { useAppStore } from "@/store/useAppStore";
-import { useSubscription } from "@/hooks/useSubscription";
+// Subscription system removed - using free plan only
 import Link from "next/link";
 
 type Profile = {
@@ -197,14 +197,6 @@ export function DashboardContent({ profile, enrollments, recommendedPaths, saved
             </p>
           </div>
 
-          {/* Time spent card */}
-          <div className="bg-white rounded-xl border border-slate-200 p-6">
-            <h3 className="text-sm font-medium text-slate-500 mb-2">{t.timeThisWeek}</h3>
-            <p className="text-3xl font-bold text-slate-900">
-              {hoursThisWeek > 0 ? `${hoursThisWeek}h` : "0h"}
-            </p>
-            <p className="text-sm text-slate-500 mt-1">{t.keepLearning}</p>
-          </div>
         </div>
 
         {/* Active Enrollments */}

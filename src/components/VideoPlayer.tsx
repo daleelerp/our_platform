@@ -198,9 +198,14 @@ export function VideoPlayer({
               .select("last_watched_position, is_completed, completion_percentage")
               .eq("user_id", userId)
               .eq("video_id", videoContentId)
-              .single();
+              .maybeSingle();
             
             if (error) {
+              // If table doesn't exist or RLS issue, skip loading progress
+              if (error.code === "PGRST116" || error?.message?.includes("406") || error?.message?.includes("permission")) {
+                console.debug("Video progress table not accessible, starting fresh");
+                return;
+              }
               console.debug("Error loading progress:", error);
               return;
             }
