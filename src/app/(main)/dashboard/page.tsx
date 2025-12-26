@@ -2,7 +2,6 @@ import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import { DashboardContent } from "@/components/DashboardContent";
-import { calculatePathProgress } from "@/utils/milestoneProgress";
 import { filterPathsByPlan } from "@/utils/pathAccess";
 
 export default async function DashboardPage() {
@@ -28,62 +27,7 @@ export default async function DashboardPage() {
     redirect("/onboarding");
   }
 
-  // Fetch user's enrolled paths
-  const { data: enrollments } = await supabase
-    .from("path_enrollments")
-    .select(`
-      *,
-      learning_paths (
-        id,
-        title,
-        title_ar,
-        slug,
-        estimated_duration_hours,
-        difficulty_level
-      )
-    `)
-    .eq("user_id", user.id)
-    .eq("status", "active");
-
-  // Recalculate and update progress for all enrollments
-  // This ensures progress is always up-to-date when viewing the dashboard
-  let finalEnrollments = enrollments || [];
-  if (enrollments && enrollments.length > 0) {
-    finalEnrollments = await Promise.all(
-      enrollments.map(async (enrollment) => {
-        try {
-          // Calculate current progress based on milestone completion
-          const calculatedProgress = await calculatePathProgress(
-            user.id,
-            enrollment.learning_path_id,
-            supabase
-          );
-
-          // Only update if progress has changed (to avoid unnecessary writes)
-          if (Math.abs(calculatedProgress - (enrollment.progress_percentage || 0)) > 0.1) {
-            await supabase
-              .from("path_enrollments")
-              .update({
-                progress_percentage: calculatedProgress,
-              })
-              .eq("id", enrollment.id);
-
-            // Return updated enrollment
-            return { ...enrollment, progress_percentage: calculatedProgress };
-          }
-          
-          return enrollment;
-        } catch (error) {
-          console.error(`Error calculating progress for enrollment ${enrollment.id}:`, error);
-          // Return original enrollment if calculation fails
-          return enrollment;
-        }
-      })
-    );
-  }
-
-  // Time tracking removed - not needed for free plan
-  const hoursThisWeek = 0;
+  // Progress tracking removed
 
   // Fetch saved path finder recommendations
   const { data: savedPreferences } = await supabase
@@ -124,10 +68,8 @@ export default async function DashboardPage() {
   return (
     <DashboardContent 
       profile={profile}
-      enrollments={finalEnrollments}
       recommendedPaths={recommendedPaths}
       savedPreferences={savedPreferences}
-      hoursThisWeek={hoursThisWeek}
     />
   );
 }

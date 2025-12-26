@@ -13,20 +13,6 @@ type Profile = {
   preferred_language: string | null;
 };
 
-type Enrollment = {
-  id: string;
-  progress_percentage: number;
-  status: string;
-  learning_paths: {
-    id: string;
-    title: string;
-    title_ar: string | null;
-    slug: string;
-    estimated_duration_hours: number | null;
-    difficulty_level: string | null;
-  };
-};
-
 type Path = {
   id: string;
   title: string;
@@ -47,10 +33,8 @@ type SavedPreferences = {
 
 type Props = {
   profile: Profile | null;
-  enrollments: Enrollment[];
   recommendedPaths: Path[];
   savedPreferences?: SavedPreferences;
-  hoursThisWeek?: number;
 };
 
 const difficultyConfig: Record<string, { labelEn: string; labelAr: string; color: string }> = {
@@ -59,7 +43,7 @@ const difficultyConfig: Record<string, { labelEn: string; labelAr: string; color
   advanced: { labelEn: "Advanced", labelAr: "متقدم", color: "bg-orange-100 text-orange-700" },
 };
 
-export function DashboardContent({ profile, enrollments, recommendedPaths, savedPreferences, hoursThisWeek = 0 }: Props) {
+export function DashboardContent({ profile, recommendedPaths, savedPreferences }: Props) {
   const language = useAppStore((state) => state.language);
   const isHydrated = useAppStore((state) => state.isHydrated);
   // Subscription system removed - all users on free plan
@@ -73,12 +57,6 @@ export function DashboardContent({ profile, enrollments, recommendedPaths, saved
   const t = {
     welcomeBack: language === "ar" ? "مرحباً بعودتك" : "Welcome back",
     continueJourney: language === "ar" ? "تابع رحلة تعلم ERP الخاصة بك" : "Continue your ERP learning journey",
-    yourProgress: language === "ar" ? "تقدمك" : "Your Progress",
-    startPath: language === "ar" ? "ابدأ مسار تعلم" : "Start a learning path",
-    activePaths: language === "ar" ? "المسارات النشطة" : "Active Paths",
-    enrollToStart: language === "ar" ? "سجل في مسار للبدء" : "Enroll in a path to start",
-    timeThisWeek: language === "ar" ? "الوقت هذا الأسبوع" : "Time This Week",
-    keepLearning: language === "ar" ? "استمر في التعلم!" : "Keep learning!",
     readyToStart: language === "ar" ? "هل أنت مستعد للبدء؟" : "Ready to start learning?",
     explorePathsDesc: language === "ar" 
       ? "استكشف مسارات التعلم المنسقة لدينا وابدأ رحلة إتقان ERP الخاصة بك."
@@ -92,8 +70,6 @@ export function DashboardContent({ profile, enrollments, recommendedPaths, saved
     recommendedForYou: language === "ar" ? "موصى به لك" : "Recommended for You",
     hours: language === "ar" ? "ساعة" : "hours",
     viewPath: language === "ar" ? "عرض المسار" : "View Path",
-    continueLearning: language === "ar" ? "تابع التعلم" : "Continue Learning",
-    complete: language === "ar" ? "مكتمل" : "complete",
   };
 
   if (!isHydrated) {
@@ -170,78 +146,6 @@ export function DashboardContent({ profile, enrollments, recommendedPaths, saved
           </div>
         )}
 
-        {/* Stats Cards */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {/* Progress card */}
-          <div className="bg-white rounded-xl border border-slate-200 p-6">
-            <h3 className="text-sm font-medium text-slate-500 mb-2">{t.yourProgress}</h3>
-            <p className="text-3xl font-bold text-slate-900">
-              {enrollments.length > 0 
-                ? `${Math.round(enrollments.reduce((sum, e) => sum + (e.progress_percentage || 0), 0) / enrollments.length)}%`
-                : "0%"
-              }
-            </p>
-            <p className="text-sm text-slate-500 mt-1">
-              {enrollments.length === 0 ? t.startPath : `${enrollments.length} ${t.activePaths.toLowerCase()}`}
-            </p>
-          </div>
-
-          {/* Active paths card */}
-          <div className="bg-white rounded-xl border border-slate-200 p-6">
-            <h3 className="text-sm font-medium text-slate-500 mb-2">{t.activePaths}</h3>
-            <p className="text-3xl font-bold text-slate-900">{enrollments.length}</p>
-            <p className="text-sm text-slate-500 mt-1">
-              {enrollments.length === 0 ? t.enrollToStart : ""}
-            </p>
-          </div>
-
-        </div>
-
-        {/* Active Enrollments */}
-        {enrollments.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">{t.continueLearning}</h2>
-            <div className="grid md:grid-cols-2 gap-4">
-              {enrollments.map((enrollment) => {
-                const path = enrollment.learning_paths;
-                const difficulty = difficultyConfig[path.difficulty_level || "beginner"];
-                return (
-                  <div key={enrollment.id} className="bg-white rounded-xl border border-slate-200 p-5">
-                    <div className="flex items-start justify-between mb-3">
-                      <h3 className="font-medium text-slate-900">
-                        {getText(path.title, path.title_ar)}
-                      </h3>
-                      <span className={`text-xs px-2 py-1 rounded-full ${difficulty.color}`}>
-                        {language === "ar" ? difficulty.labelAr : difficulty.labelEn}
-                      </span>
-                    </div>
-                    <div className="mb-3">
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="text-slate-500">{t.yourProgress}</span>
-                        <span className="font-medium text-slate-900">{enrollment.progress_percentage}%</span>
-                      </div>
-                      <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-teal-500 rounded-full transition-all"
-                          style={{ width: `${enrollment.progress_percentage}%` }}
-                        />
-                      </div>
-                    </div>
-                    <Link
-                      href={`/paths/${path.slug}`}
-                      className="inline-flex items-center gap-2 text-sm font-medium text-teal-600 hover:text-teal-700"
-                    >
-                      {t.continueLearning}
-                      <svg className="w-4 h-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                      </svg>
-                    </Link>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
 
         {/* Getting started / AI Path Finder */}
         <div className="grid md:grid-cols-2 gap-6 mb-8">
