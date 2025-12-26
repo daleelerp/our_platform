@@ -62,10 +62,8 @@ const difficultyConfig: Record<string, { labelEn: string; labelAr: string; color
 export function DashboardContent({ profile, enrollments, recommendedPaths, savedPreferences, hoursThisWeek = 0 }: Props) {
   const language = useAppStore((state) => state.language);
   const isHydrated = useAppStore((state) => state.isHydrated);
-  const { plan, isLoading: subscriptionLoading } = useSubscription();
-  
-  // Check if user is on free plan
-  const isFreePlan = !subscriptionLoading && plan?.name === "free";
+  // Subscription system removed - all users on free plan
+  const isFreePlan = true;
 
   const getText = (en: string | null, ar: string | null): string => {
     if (language === "ar" && ar) return ar;
