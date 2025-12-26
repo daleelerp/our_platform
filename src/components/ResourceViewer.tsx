@@ -44,19 +44,30 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
     if (!userId || !resource.id) return;
 
     try {
+      // First check if already exists
+      const { data: existing } = await supabase
+        .from("user_resource_interactions")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("resource_id", resource.id)
+        .eq("interaction_type", "completed")
+        .maybeSingle();
+
+      if (existing) {
+        // Already marked as read
+        setIsMarkedAsRead(true);
+        return;
+      }
+
+      // Insert new record
       const { error } = await supabase
         .from("user_resource_interactions")
-        .upsert(
-          {
-            user_id: userId,
-            resource_id: resource.id,
-            interaction_type: "completed",
-            progress_percentage: 100,
-          },
-          {
-            onConflict: "user_id,resource_id,interaction_type",
-          }
-        );
+        .insert({
+          user_id: userId,
+          resource_id: resource.id,
+          interaction_type: "completed",
+          progress_percentage: 100,
+        });
 
       if (!error) {
         setIsMarkedAsRead(true);
@@ -66,6 +77,8 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
             detail: { resourceId: resource.id, milestoneId } 
           }));
         }
+      } else {
+        console.error("Error marking article as read:", error);
       }
     } catch (error) {
       console.error("Error marking article as read:", error);

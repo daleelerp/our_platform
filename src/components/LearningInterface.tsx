@@ -294,8 +294,8 @@ export function LearningInterface({
     milestoneProgress?.progress_percentage || 0
   );
 
-  // Simple progress update when video is completed
-  const handleVideoComplete = async () => {
+  // Function to update progress (used by both video and article completion)
+  const updateProgress = async () => {
     if (!currentMilestone || !userId) return;
 
     try {
@@ -326,6 +326,25 @@ export function LearningInterface({
       console.debug("Error updating progress:", error);
     }
   };
+
+  // Simple progress update when video is completed
+  const handleVideoComplete = async () => {
+    await updateProgress();
+  };
+
+  // Listen for article completion events
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleResourceCompleted = async () => {
+      await updateProgress();
+    };
+
+    window.addEventListener("resourceCompleted", handleResourceCompleted);
+    return () => {
+      window.removeEventListener("resourceCompleted", handleResourceCompleted);
+    };
+  }, [currentMilestone, userId, path.id, enrollment.id, supabase]);
 
   if (!currentMilestone) {
     return (

@@ -111,26 +111,27 @@ export default async function DashboardPage() {
         const firstWatched = progress.first_watched_at ? new Date(progress.first_watched_at) : null;
         const watchProgress = progress.watch_progress_seconds || 0;
 
-        // If video was first watched this week, calculate time based on watch_progress_seconds
-        // This represents the actual position reached in the video
+        // If video was first watched this week, use watch_progress_seconds
+        // This represents the actual position reached in the video (time spent)
         if (firstWatched && firstWatched >= startOfWeek) {
-          // Use watch_progress_seconds as the actual time spent (position reached)
-          // This is more accurate than total_watch_time_seconds which may not be cumulative
+          // watch_progress_seconds = position in video = actual time watched
           if (watchProgress > 0) {
             return sum + watchProgress;
           }
-          // If no progress recorded, estimate 1 minute minimum
+          // If no progress recorded but video was watched, estimate 1 minute minimum
           return sum + 60;
         }
 
         // For videos watched before this week but updated this week,
-        // calculate the difference in watch_progress_seconds since start of week
-        // We need to estimate based on current position
-        // Since we don't have historical data, use a conservative estimate
-        if (watchProgress > 0) {
-          // Estimate: assume user watched at least 30 seconds if they made progress
-          // This is a conservative estimate for incremental watching
-          return sum + Math.min(watchProgress * 0.1, 300); // 10% of progress or max 5 minutes
+        // calculate time difference if we have first_watched_at
+        if (firstWatched && firstWatched < startOfWeek) {
+          // Video was started before this week but updated this week
+          // Estimate: assume they watched at least 1 minute if they came back
+          if (watchProgress > 0) {
+            // Use a small portion of progress as time spent this week
+            return sum + Math.min(60, watchProgress * 0.1); // Max 1 minute or 10% of progress
+          }
+          return sum + 60; // 1 minute minimum
         }
 
         // Fallback: 1 minute minimum for any video interaction this week
