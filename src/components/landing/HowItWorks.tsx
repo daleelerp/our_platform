@@ -1,9 +1,12 @@
 "use client";
 
 import { useTranslation } from "@/hooks/useTranslation";
+import { useAppStore } from "@/store/useAppStore";
 
 export function HowItWorks() {
   const { t } = useTranslation();
+  const language = useAppStore((state) => state.language);
+  const isRTL = language === "ar";
 
   const steps = [
     {
@@ -65,7 +68,11 @@ export function HowItWorks() {
         {/* Steps */}
         <div className="relative">
           {/* Connection line */}
-          <div className="hidden lg:block absolute top-1/2 left-0 right-0 h-0.5 bg-gradient-to-r from-[#d4ede3] via-[#7dc9ab] to-[#d4ede3] -translate-y-1/2 z-0" />
+          <div className={`hidden lg:block absolute top-1/2 left-0 right-0 h-0.5 -translate-y-1/2 z-0 ${
+            isRTL 
+              ? "bg-gradient-to-l from-[#d4ede3] via-[#7dc9ab] to-[#d4ede3]"
+              : "bg-gradient-to-r from-[#d4ede3] via-[#7dc9ab] to-[#d4ede3]"
+          }`} />
 
           <div className="grid lg:grid-cols-3 gap-8 relative z-10">
             {steps.map((step, index) => (
@@ -84,9 +91,16 @@ export function HowItWorks() {
 
                 {/* Arrow for desktop */}
                 {index < steps.length - 1 && (
-                  <div className="hidden lg:block absolute top-1/2 -right-4 transform -translate-y-1/2 z-20">
+                  <div className={`hidden lg:block absolute top-1/2 transform -translate-y-1/2 z-20 ${
+                    isRTL ? "-left-4" : "-right-4"
+                  }`}>
                     <div className="w-8 h-8 rounded-full bg-[#429874] text-white flex items-center justify-center shadow-lg">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg 
+                        className={`w-4 h-4 ${isRTL ? "rotate-180" : ""}`} 
+                        fill="none" 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24"
+                      >
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
                     </div>

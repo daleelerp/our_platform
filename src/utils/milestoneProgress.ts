@@ -64,7 +64,7 @@ export async function checkMilestoneCompletion(
   status.videosTotal = videos?.length || 0;
 
   if (status.videosTotal > 0) {
-    const videoIds = videos!.map(v => v.id);
+    const videoIds = videos!.map((v: { id: string }) => v.id);
     
     const { data: videoProgress } = await supabase
       .from("user_video_progress")

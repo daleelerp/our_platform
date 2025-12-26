@@ -150,20 +150,22 @@ export function PricingSection() {
                   {getDescription(plan)}
                 </p>
                 <div className="mb-4">
-                  <span className="text-4xl font-bold text-slate-900">
-                    {formatPrice(getPlanPrice(plan).price)}
-                  </span>
-                  {getPlanPrice(plan).price > 0 && (
-                    <span className="text-slate-600 text-lg ml-2">
-                      {getPlanPrice(plan).label}
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-4xl font-bold text-slate-900">
+                      {formatPrice(getPlanPrice(plan).price)}
                     </span>
+                    {getPlanPrice(plan).price > 0 && (
+                      <span className="text-slate-600 text-lg">
+                        {getPlanPrice(plan).label}
+                      </span>
+                    )}
+                  </div>
+                  {getPlanPrice(plan).subtitle && (
+                    <p className="text-sm text-slate-500 mt-1">
+                      {getPlanPrice(plan).subtitle}
+                    </p>
                   )}
                 </div>
-                {getPlanPrice(plan).subtitle && (
-                  <p className="text-sm text-slate-500">
-                    {getPlanPrice(plan).subtitle}
-                  </p>
-                )}
               </div>
 
               {/* CTA Button */}
