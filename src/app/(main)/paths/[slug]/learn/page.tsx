@@ -130,6 +130,35 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
         .eq("is_active", true)
     : { data: null };
 
+  // Fetch resources for current milestone
+  const { data: milestoneResources } = currentMilestone
+    ? await supabase
+        .from("milestone_resources")
+        .select(`
+          *,
+          learning_resources (
+            *,
+            resource_platforms (*)
+          )
+        `)
+        .eq("milestone_id", currentMilestone.id)
+        .order("resource_order")
+    : { data: null };
+
+  // Extract learning resources from milestone_resources join
+  const resources = milestoneResources
+    ? milestoneResources
+        .map((mr: any) => mr.learning_resources)
+        .filter((r: any) => r && r.is_active)
+        .map((r: any) => {
+          const { resource_platforms, ...resourceData } = r;
+          return {
+            ...resourceData,
+            platform: resource_platforms || null,
+          };
+        })
+    : [];
+
   // Check and update milestone progress based on actual completion
   // This will be handled by the LearningInterface component using the milestoneProgress utility
 
@@ -180,6 +209,7 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
       currentMilestone={currentMilestone}
       videos={videos || []}
       quizzes={quizzes || []}
+      resources={resources}
       enrollment={enrollment}
       videoProgress={videoProgress || []}
       milestoneProgress={milestoneProgress}
