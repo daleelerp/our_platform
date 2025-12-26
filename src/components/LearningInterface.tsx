@@ -245,13 +245,49 @@ export function LearningInterface({
     return en || "";
   };
 
-  // Check milestone completion periodically based on actual content completion
+  // Calculate milestone progress on mount and when milestone changes
   useEffect(() => {
-    if (!currentMilestone) return;
+    if (!currentMilestone || !userId) return;
     hasReloadedRef.current = false; // Reset on milestone change
 
-    // Progress tracking removed - simplified
-  }, [currentMilestone, userId, path.id, milestones, enrollment.id, supabase, path.slug, router]);
+    // Calculate milestone progress if not already set
+    const calculateInitialProgress = async () => {
+      try {
+        const completionStatus = await checkMilestoneCompletion(userId, currentMilestone.id);
+        
+        // Update milestone progress in database
+        await updateMilestoneProgress(userId, currentMilestone.id, completionStatus);
+        
+        // Update local state
+        setCurrentMilestoneProgress(completionStatus.progressPercentage);
+
+        // Calculate and update path progress
+        const overallProgress = await calculatePathProgress(userId, path.id);
+        
+        // Update enrollment progress
+        await supabase
+          .from("path_enrollments")
+          .update({
+            progress_percentage: overallProgress,
+            last_activity_at: new Date().toISOString(),
+          })
+          .eq("id", enrollment.id);
+
+        // Update local enrollment progress state
+        setCurrentEnrollmentProgress(overallProgress);
+      } catch (error) {
+        console.debug("Error calculating initial progress:", error);
+      }
+    };
+
+    // Only calculate if milestone progress is not set or is 0
+    if (!milestoneProgress || milestoneProgress.progress_percentage === 0 || milestoneProgress.progress_percentage === null) {
+      calculateInitialProgress();
+    } else {
+      // Use existing progress
+      setCurrentMilestoneProgress(milestoneProgress.progress_percentage);
+    }
+  }, [currentMilestone, userId, path.id, enrollment.id, supabase]);
 
   // State for current milestone progress
   const [currentMilestoneProgress, setCurrentMilestoneProgress] = useState<number>(
