@@ -11,7 +11,7 @@ export function AboutContent() {
   const content = {
     en: {
       title: "About Daleel",
-      subtitle: "Your complete guide to ERP career paths. Whether you're a student starting young, or a professional looking to switch careers - we're with you every step of the way.",
+      subtitle: "Your complete guide to ERP career paths. Whether you're a student starting young, or a professional looking to switch careers - we're with you every step of the way. We help developers and technical professionals, and we also help people who want to work in Functional or Business roles.",
       
       story: {
         title: "Our Story",
@@ -25,7 +25,7 @@ export function AboutContent() {
 
       mission: {
         title: "Our Mission",
-        text: "To democratize ERP education in MENA for everyone - students who want to start young, professionals looking to switch careers, and those wanting to learn something new. We provide structured, bilingual learning paths with deep, comprehensive data gathered from thousands of sources and carefully reviewed."
+        text: "To democratize ERP education in MENA for everyone - students who want to start young, professionals looking to switch careers. We help developers and technical professionals, and we also help people who want to work in Functional or Business roles. We provide structured, bilingual learning paths with deep, comprehensive data gathered from thousands of sources and carefully reviewed."
       },
 
       whatWeDo: {
@@ -49,7 +49,7 @@ export function AboutContent() {
           {
             icon: "🤖",
             title: "AI-Powered Guidance",
-            description: "Our AI understands your background and goals to recommend the perfect learning path for your career journey - whether you're a student or a professional looking to switch careers."
+            description: "Our AI understands your background and goals to recommend the perfect learning path for your career journey - whether you're a student or a professional looking to switch careers. We help developers and technical professionals, and we also help people who want to work in Functional or Business roles."
           }
         ]
       },
@@ -116,7 +116,7 @@ export function AboutContent() {
     },
     ar: {
       title: "عن دليل",
-      subtitle: "دليلك الكامل للمسارات المهنية في ERP. سواء كنت طالب عاوز تبدأ من سن صغير، أو محترف عاوز تغير مجالك - احنا معاك في كل خطوة.",
+      subtitle: "دليلك الكامل للمسارات المهنية في ERP. سواء كنت طالب عاوز تبدأ من سن صغير، أو محترف عاوز تغير مجالك - احنا معاك في كل خطوة. نساعد المبرمجين والتقنيين، ونساعد كمان الناس اللي هتشتغل Functional أو Business.",
       
       story: {
         title: "قصتنا",
@@ -130,7 +130,7 @@ export function AboutContent() {
 
       mission: {
         title: "مهمتنا",
-        text: "إتاحة تعليم ERP في الشرق الأوسط لكل الناس - الطلبة اللي عاوزين يبدأوا من سن صغير، والمحترفين اللي عاوزين يغيروا مجالاتهم، واللي عاوزين يتعلموا حاجة جديدة. بنوفر مسارات تعلم منظمة وثنائية اللغة بداتا عميقة متعمقة متجمعة من آلاف المصادر ومتراجعة بدقة."
+        text: "إتاحة تعليم ERP في الشرق الأوسط لكل الناس - الطلبة اللي عاوزين يبدأوا من سن صغير، والمحترفين اللي عاوزين يغيروا مجالاتهم. نساعد المبرمجين والتقنيين، ونساعد كمان الناس اللي هتشتغل Functional أو Business. بنوفر مسارات تعلم منظمة وثنائية اللغة بداتا عميقة متعمقة متجمعة من آلاف المصادر ومتراجعة بدقة."
       },
 
       whatWeDo: {
@@ -154,7 +154,7 @@ export function AboutContent() {
           {
             icon: "🤖",
             title: "إرشاد بالذكاء الاصطناعي",
-            description: "ذكاؤنا الاصطناعي بيفهم خلفيتك وأهدافك ويوصيك بمسار التعلم المثالي لرحلتك المهنية - سواء كنت طالب أو محترف عاوز يغير مجاله."
+            description: "ذكاؤنا الاصطناعي بيفهم خلفيتك وأهدافك ويوصيك بمسار التعلم المثالي لرحلتك المهنية - سواء كنت طالب أو محترف عاوز يغير مجاله. نساعد المبرمجين والتقنيين، ونساعد كمان الناس اللي هتشتغل Functional أو Business."
           }
         ]
       },
