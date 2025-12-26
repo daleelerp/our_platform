@@ -120,6 +120,9 @@ export function LearningInterface({
 
   // Filter resources by language preference
   const filteredResources = resources.filter((resource) => {
+    // For articles, always show if they have a title (even without description)
+    // This ensures articles are visible even if they only have a title and a URL
+    
     // Check if resource has content in the selected language
     const hasContentInLanguage = (resource.language === "both") || 
       (language === "ar" && (resource.language === "ar" || !resource.language)) ||
@@ -128,23 +131,27 @@ export function LearningInterface({
     if (!hasContentInLanguage) return false;
     
     // Check if resource actually has content (title or description) in the selected language
-    // For articles, we only need title to display them
+    // For articles, we only need title to display them (they can have URL instead of description)
     if (resource.language === "en") {
-      return !!(resource.title || resource.description);
+      // Show if has title, description, or URL (for articles)
+      return !!(resource.title || resource.description || (resource.resource_type === "article" && resource.url));
     }
     if (resource.language === "ar") {
-      return !!(resource.title_ar || resource.description_ar);
+      // Show if has title_ar, description_ar, or URL (for articles)
+      return !!(resource.title_ar || resource.description_ar || (resource.resource_type === "article" && resource.url));
     }
     if (resource.language === "both") {
       if (language === "ar") {
-        return !!(resource.title_ar || resource.description_ar);
+        // Show if has title_ar, description_ar, or URL (for articles)
+        return !!(resource.title_ar || resource.description_ar || (resource.resource_type === "article" && resource.url));
       } else {
-        return !!(resource.title || resource.description);
+        // Show if has title, description, or URL (for articles)
+        return !!(resource.title || resource.description || (resource.resource_type === "article" && resource.url));
       }
     }
-    // Legacy resources without language field - show if they have at least a title
-    // This ensures articles without description but with title will still show
-    return !!(resource.title || resource.title_ar || resource.description || resource.description_ar);
+    // Legacy resources without language field - show if they have at least a title or URL (for articles)
+    // This ensures articles without description but with title or URL will still show
+    return !!(resource.title || resource.title_ar || resource.description || resource.description_ar || (resource.resource_type === "article" && resource.url));
   });
   
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(
@@ -157,6 +164,13 @@ export function LearningInterface({
   const [activeTab, setActiveTab] = useState<"videos" | "quiz" | "resources">(
     filteredVideos.length > 0 ? "videos" : filteredResources.length > 0 ? "resources" : quizzes.length > 0 ? "quiz" : "videos"
   );
+  
+  // Update selected resource when resources change or when switching to resources tab
+  useEffect(() => {
+    if (activeTab === "resources" && filteredResources.length > 0 && !selectedResource) {
+      setSelectedResource(filteredResources[0]);
+    }
+  }, [activeTab, filteredResources, selectedResource]);
   const [currentEnrollmentProgress, setCurrentEnrollmentProgress] = useState<number>(
     enrollment.progress_percentage || 0
   );
