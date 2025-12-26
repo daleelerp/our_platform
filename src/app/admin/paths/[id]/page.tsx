@@ -1318,9 +1318,9 @@ export default function EditPathPage() {
                   </p>
                 </div>
           
-          <div className="space-y-4">
-            {/* Basic Info */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="space-y-4">
+                  {/* Basic Info */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div>
                 <label className="block text-[11px] font-medium text-slate-600 mb-1">
                   Title (English) *
@@ -1378,11 +1378,11 @@ export default function EditPathPage() {
                 <p className="text-[10px] text-slate-500 mt-1">
                   Automatically set to {getNextMilestoneNumber()}. You can change it if needed.
                 </p>
-              </div>
-            </div>
+                  </div>
+                </div>
 
-            {/* Descriptions */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {/* Descriptions */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="block text-[11px] font-medium text-slate-600 mb-1">
                   Description (English)
@@ -1416,11 +1416,11 @@ export default function EditPathPage() {
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                   placeholder="وصف تفصيلي لهذا المعلم"
                 />
-              </div>
-            </div>
+                  </div>
+                </div>
 
-            {/* Estimated Hours & Optional */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {/* Estimated Hours & Optional */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="block text-[11px] font-medium text-slate-600 mb-1">
                   Estimated hours (optional)
@@ -1462,11 +1462,11 @@ export default function EditPathPage() {
                     Check if students can skip this milestone
                   </p>
                 </div>
-              </div>
-            </div>
+                  </div>
+                </div>
 
-            {/* Learning Objectives */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {/* Learning Objectives */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="block text-[11px] font-medium text-slate-600 mb-1">
                   Learning Objectives (English)
@@ -1510,11 +1510,11 @@ export default function EditPathPage() {
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                   placeholder="مثال: فهم هيكل GL (اضغط Enter للسطر الجديد)"
                 />
-              </div>
-            </div>
+                  </div>
+                </div>
 
-            {/* Checkpoint */}
-            <div className="border-t border-slate-200 pt-3 mt-2">
+                  {/* Checkpoint */}
+                  <div className="border-t border-slate-200 pt-3 mt-2">
               <p className="text-[10px] font-medium text-slate-600 mb-2">
                 Checkpoint (Assessment/Test)
               </p>
@@ -1578,10 +1578,10 @@ export default function EditPathPage() {
                   />
                 </div>
               </div>
-            </div>
+                  </div>
 
-            {/* Job Skills Unlocked */}
-            <div className="border-t border-slate-200 pt-3 mt-2">
+                  {/* Job Skills Unlocked */}
+                  <div className="border-t border-slate-200 pt-3 mt-2">
               <label className="block text-[11px] font-medium text-slate-600 mb-1">
                 Job Skills Unlocked
               </label>
@@ -1602,10 +1602,10 @@ export default function EditPathPage() {
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                 placeholder="Example: Oracle GL Configuration (press Enter for new line)"
               />
-            </div>
+                  </div>
 
-                {/* Submit Button */}
-                <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 mt-4">
+                  {/* Submit Button */}
+                  <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 mt-4">
                   <button
                     type="button"
                     onClick={handleCloseAddMilestoneModal}
@@ -1620,6 +1620,7 @@ export default function EditPathPage() {
                   >
                     Add Milestone
                   </button>
+                  </div>
                 </div>
               </div>
             </div>
