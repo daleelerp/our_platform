@@ -21,6 +21,8 @@ export type MilestoneCompletionStatus = {
   quizzesTotal: number;
   articlesCompleted: number;
   articlesTotal: number;
+  resourcesCompleted: number;
+  resourcesTotal: number;
   externalTestsPassed: number;
   externalTestsTotal: number;
   missingRequirements: string[];
@@ -45,6 +47,8 @@ export async function checkMilestoneCompletion(
     quizzesTotal: 0,
     articlesCompleted: 0,
     articlesTotal: 0,
+    resourcesCompleted: 0,
+    resourcesTotal: 0,
     externalTestsPassed: 0,
     externalTestsTotal: 0,
     missingRequirements: [],
@@ -60,7 +64,7 @@ export async function checkMilestoneCompletion(
   status.videosTotal = videos?.length || 0;
 
   if (status.videosTotal > 0) {
-    const videoIds = videos!.map((v: any) => v.id);
+    const videoIds = videos!.map(v => v.id);
     
     const { data: videoProgress } = await supabase
       .from("user_video_progress")
@@ -94,7 +98,7 @@ export async function checkMilestoneCompletion(
   status.quizzesTotal = quizzes?.length || 0;
 
   if (status.quizzesTotal > 0) {
-    const quizIds = quizzes!.map((q: any) => q.id);
+    const quizIds = quizzes!.map(q => q.id);
     
     const { data: quizAttempts } = await supabase
       .from("user_quiz_attempts")
@@ -121,44 +125,60 @@ export async function checkMilestoneCompletion(
     }
   }
 
-  // 3. Check Articles from learning_resources via milestone_resources
+  // 3. Check Articles/Text Content (if exists in future)
+  // For now, we'll check if there's a text_content or article table
+  // This is a placeholder for future implementation
+  const { data: articles } = await supabase
+    .from("text_content")
+    .select("id")
+    .eq("milestone_id", milestoneId)
+    .eq("is_active", true)
+    .maybeSingle(); // Use maybeSingle since table might not exist
+
+  if (articles) {
+    // If articles table exists, check completion
+    // This will be implemented when articles are added
+    status.articlesTotal = 1; // Placeholder
+    status.articlesCompleted = 0; // Placeholder
+  }
+
+  // 4. Check Learning Resources (from milestone_resources)
   const { data: milestoneResources } = await supabase
     .from("milestone_resources")
-    .select(`
-      resource_id,
-      learning_resources!inner(id, resource_type, is_active)
-    `)
+    .select("resource_id, is_required")
     .eq("milestone_id", milestoneId);
 
-  const articleResources = (milestoneResources || [])
-    .filter((mr: any) => mr.learning_resources?.resource_type === "article" && mr.learning_resources?.is_active)
-    .map((mr: any) => mr.resource_id);
+  // Only count required resources, or all resources if none are marked as required
+  const requiredResources = milestoneResources?.filter((mr: any) => mr.is_required === true) || [];
+  const resourcesToCheck = requiredResources.length > 0 ? requiredResources : (milestoneResources || []);
+  
+  status.resourcesTotal = resourcesToCheck.length;
 
-  status.articlesTotal = articleResources.length;
-
-  if (status.articlesTotal > 0) {
-    // Check user_resource_interactions for completed articles
-    const { data: articleInteractions } = await supabase
+  if (status.resourcesTotal > 0) {
+    const resourceIds = resourcesToCheck.map((mr: any) => mr.resource_id);
+    
+    // Check if user has completed these resources
+    const { data: resourceInteractions } = await supabase
       .from("user_resource_interactions")
-      .select("resource_id, interaction_type, updated_at")
+      .select("resource_id, interaction_type")
       .eq("user_id", userId)
-      .in("resource_id", articleResources)
+      .in("resource_id", resourceIds)
       .eq("interaction_type", "completed");
 
-    // Count articles that were completed (no time restriction for articles)
-    const completedArticleIds = new Set(
-      (articleInteractions || []).map((ai: any) => ai.resource_id)
+    // Count unique completed resources
+    const completedResourceIds = new Set(
+      (resourceInteractions || []).map((ri: any) => ri.resource_id)
     );
-    status.articlesCompleted = completedArticleIds.size;
-
-    if (status.articlesCompleted < status.articlesTotal) {
+    status.resourcesCompleted = completedResourceIds.size;
+    
+    if (status.resourcesCompleted < status.resourcesTotal) {
       status.missingRequirements.push(
-        `${status.articlesTotal - status.articlesCompleted} article(s) not completed`
+        `${status.resourcesTotal - status.resourcesCompleted} resource(s) not completed`
       );
     }
   }
 
-  // 4. Check External Tests (via external_test_results table)
+  // 5. Check External Tests (via external_test_results table)
   const { data: externalTests } = await supabase
     .from("external_test_results")
     .select("id, test_id, is_passed")
@@ -180,8 +200,8 @@ export async function checkMilestoneCompletion(
   }
 
   // Calculate overall progress percentage
-  const totalItems = status.videosTotal + status.quizzesTotal + status.articlesTotal + status.externalTestsTotal;
-  const completedItems = status.videosCompleted + status.quizzesPassed + status.articlesCompleted + status.externalTestsPassed;
+  const totalItems = status.videosTotal + status.quizzesTotal + status.articlesTotal + status.resourcesTotal + status.externalTestsTotal;
+  const completedItems = status.videosCompleted + status.quizzesPassed + status.articlesCompleted + status.resourcesCompleted + status.externalTestsPassed;
 
   if (totalItems === 0) {
     // Milestone has no content - mark as completed automatically
@@ -286,9 +306,9 @@ export async function calculatePathProgress(
     return 0;
   }
 
-  const milestoneIds = milestones.map((m: any) => m.id);
+  const milestoneIds = milestones.map(m => m.id);
   
-  // Get all videos and quizzes for all milestones in one query
+  // Get all videos, quizzes, and learning resources for all milestones in one query
   const { data: allVideos } = await supabase
     .from("video_content")
     .select("milestone_id")
@@ -301,10 +321,16 @@ export async function calculatePathProgress(
     .in("milestone_id", milestoneIds)
     .eq("is_active", true);
 
+  const { data: allResources } = await supabase
+    .from("milestone_resources")
+    .select("milestone_id")
+    .in("milestone_id", milestoneIds);
+
   // Create a map of which milestones have content
   const milestonesWithContent = new Set<string>();
   (allVideos || []).forEach((v: any) => milestonesWithContent.add(v.milestone_id));
   (allQuizzes || []).forEach((q: any) => milestonesWithContent.add(q.milestone_id));
+  (allResources || []).forEach((r: any) => milestonesWithContent.add(r.milestone_id));
 
   // Get completion status for all milestones
   const { data: milestoneProgress } = await supabase
