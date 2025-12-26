@@ -128,6 +128,7 @@ export function LearningInterface({
     if (!hasContentInLanguage) return false;
     
     // Check if resource actually has content (title or description) in the selected language
+    // For articles, we only need title to display them
     if (resource.language === "en") {
       return !!(resource.title || resource.description);
     }
@@ -141,7 +142,8 @@ export function LearningInterface({
         return !!(resource.title || resource.description);
       }
     }
-    // Legacy resources without language field - show if they have content
+    // Legacy resources without language field - show if they have at least a title
+    // This ensures articles without description but with title will still show
     return !!(resource.title || resource.title_ar || resource.description || resource.description_ar);
   });
   
