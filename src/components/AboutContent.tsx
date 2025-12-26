@@ -11,7 +11,7 @@ export function AboutContent() {
   const content = {
     en: {
       title: "About Daleel",
-      subtitle: "Your Guide to Mastering ERP Systems in MENA",
+      subtitle: "A structured system that helps ERP learners make the right career decisions and progress with confidence.",
       
       story: {
         title: "Our Story",
@@ -103,7 +103,7 @@ export function AboutContent() {
 
       cta: {
         title: "Ready to Start Your Journey?",
-        subtitle: "Join thousands of MENA professionals who are transforming their ERP careers with Daleel.",
+        subtitle: "A structured system that helps ERP learners make the right career decisions and progress with confidence.",
         button: "Explore Learning Paths"
       },
 
@@ -115,7 +115,7 @@ export function AboutContent() {
     },
     ar: {
       title: "عن دليل",
-      subtitle: "مرشدك لإتقان أنظمة ERP في الشرق الأوسط",
+      subtitle: "نظام منظم يساعد متعلمي ERP على اتخاذ قرارات مهنية صحيحة والتقدم بثقة.",
       
       story: {
         title: "قصتنا",
@@ -207,7 +207,7 @@ export function AboutContent() {
 
       cta: {
         title: "مستعد لبدء رحلتك؟",
-        subtitle: "انضم إلى آلاف المحترفين في الشرق الأوسط الذين يحولون مسيراتهم المهنية في ERP مع دليل.",
+        subtitle: "نظام منظم يساعد متعلمي ERP على اتخاذ قرارات مهنية صحيحة والتقدم بثقة.",
         button: "استكشف مسارات التعلم"
       },
 
