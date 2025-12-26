@@ -69,12 +69,14 @@ export default function ContactPage() {
     try {
       const supabase = createClient();
 
-      // Insert into waitlist table with request_title
+      // Insert into waitlist table
+      // Store request title in referral_source since request_title column may not exist
       const { error: insertError } = await supabase.from("waitlist").insert({
         email: formData.email,
         full_name: formData.name || null,
-        request_title: formData.requestTitle || null,
-        referral_source: "contact_form",
+        referral_source: formData.requestTitle 
+          ? `contact_form: ${formData.requestTitle}${formData.message ? ` | ${formData.message.substring(0, 100)}` : ''}` 
+          : "contact_form",
         status: "pending",
       });
 
@@ -85,8 +87,9 @@ export default function ContactPage() {
             .from("waitlist")
             .update({
               full_name: formData.name || null,
-              request_title: formData.requestTitle || null,
-              referral_source: "contact_form",
+              referral_source: formData.requestTitle 
+                ? `contact_form: ${formData.requestTitle}${formData.message ? ` | ${formData.message.substring(0, 100)}` : ''}` 
+                : "contact_form",
             })
             .eq("email", formData.email);
 
