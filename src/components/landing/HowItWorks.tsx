@@ -38,6 +38,7 @@ export function HowItWorks() {
     t("howItWorks.problem3"),
     t("howItWorks.problem4"),
     t("howItWorks.problem5"),
+    t("howItWorks.problem6"),
   ];
 
   const solutions = [
