@@ -92,8 +92,6 @@ export function VideoPlayer({
       lastSavedProgressTimeRef.current = Date.now();
       lastSavedProgressSecondsRef.current = progressSeconds;
 
-      lastSavedProgressRef.current = progressSeconds;
-
       try {
         const { error } = await supabase.from("user_video_progress").upsert(
           {
