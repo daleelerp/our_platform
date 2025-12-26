@@ -325,31 +325,6 @@ export function PathDetailContent({ path, milestones, isLoggedIn, userId, enroll
               {isLoggedIn ? (
                 hasStarted ? (
                   <>
-                    {/* Progress Display */}
-                    <div className="mb-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-slate-700">
-                          {language === "ar" ? "تقدمك" : "Your Progress"}
-                        </span>
-                        <span className="text-sm font-bold text-teal-600">
-                          {enrollment?.progress_percentage?.toFixed(0) || 0}%
-                        </span>
-                      </div>
-                      <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-teal-500 transition-all duration-300"
-                          style={{ width: `${enrollment?.progress_percentage || 0}%` }}
-                        />
-                      </div>
-                      {enrollment?.current_milestone_number && (
-                        <p className="text-xs text-slate-500 mt-2 text-center">
-                          {language === "ar" 
-                            ? `المرحلة ${enrollment.current_milestone_number} من ${milestones.length}`
-                            : `Milestone ${enrollment.current_milestone_number} of ${milestones.length}`}
-                        </p>
-                      )}
-                    </div>
-                    
                     {/* Continue Learning Button */}
                     <Link
                       href={`/paths/${path.slug}/learn`}

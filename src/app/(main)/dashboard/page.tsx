@@ -27,7 +27,24 @@ export default async function DashboardPage() {
     redirect("/onboarding");
   }
 
-  // Progress tracking removed
+  // Fetch user's enrolled paths
+  const { data: enrollments } = await supabase
+    .from("path_enrollments")
+    .select(`
+      *,
+      learning_paths (
+        id,
+        title,
+        title_ar,
+        slug,
+        description,
+        description_ar,
+        difficulty_level,
+        estimated_duration_hours
+      )
+    `)
+    .eq("user_id", user.id)
+    .eq("status", "active");
 
   // Fetch saved path finder recommendations
   const { data: savedPreferences } = await supabase
@@ -68,6 +85,7 @@ export default async function DashboardPage() {
   return (
     <DashboardContent 
       profile={profile}
+      enrolledPaths={enrollments || []}
       recommendedPaths={recommendedPaths}
       savedPreferences={savedPreferences}
     />

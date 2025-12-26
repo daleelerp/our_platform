@@ -370,20 +370,6 @@ export function LearningInterface({
                 <h1 className="text-lg font-semibold text-slate-900">
                   {getText(path.title, path.title_ar)}
                 </h1>
-                <p className="text-sm text-slate-500">
-                  {language === "ar" ? "المرحلة" : "Milestone"} {currentMilestone.milestone_number}{" "}
-                  {language === "ar" ? "من" : "of"} {milestones.length}
-                </p>
-              </div>
-            </div>
-            <div className="text-sm text-slate-600">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-500">
-                  {language === "ar" ? "تقدمك" : "Your Progress"}
-                </span>
-                <span className="font-semibold text-teal-600">
-                  {currentEnrollmentProgress.toFixed(0)}%
-                </span>
               </div>
             </div>
           </div>

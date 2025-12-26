@@ -31,8 +31,23 @@ type SavedPreferences = {
   quiz_completed_at: string | null;
 } | null;
 
+type EnrolledPath = {
+  id: string;
+  learning_paths: {
+    id: string;
+    title: string;
+    title_ar: string | null;
+    slug: string;
+    description: string | null;
+    description_ar: string | null;
+    difficulty_level: string | null;
+    estimated_duration_hours: number | null;
+  };
+};
+
 type Props = {
   profile: Profile | null;
+  enrolledPaths?: EnrolledPath[];
   recommendedPaths: Path[];
   savedPreferences?: SavedPreferences;
 };
@@ -43,7 +58,7 @@ const difficultyConfig: Record<string, { labelEn: string; labelAr: string; color
   advanced: { labelEn: "Advanced", labelAr: "متقدم", color: "bg-orange-100 text-orange-700" },
 };
 
-export function DashboardContent({ profile, recommendedPaths, savedPreferences }: Props) {
+export function DashboardContent({ profile, enrolledPaths = [], recommendedPaths, savedPreferences }: Props) {
   const language = useAppStore((state) => state.language);
   const isHydrated = useAppStore((state) => state.isHydrated);
   // Subscription system removed - all users on free plan
@@ -146,7 +161,6 @@ export function DashboardContent({ profile, recommendedPaths, savedPreferences }
           </div>
         )}
 
-
         {/* Getting started / AI Path Finder */}
         <div className="grid md:grid-cols-2 gap-6 mb-8">
           <div className="bg-gradient-to-br from-teal-500 to-emerald-600 rounded-xl p-6 text-white">
@@ -171,6 +185,47 @@ export function DashboardContent({ profile, recommendedPaths, savedPreferences }
             </Link>
           </div>
         </div>
+
+        {/* Enrolled Paths */}
+        {enrolledPaths.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-lg font-semibold text-slate-900 mb-4">
+              {language === "ar" ? "المسارات المسجلة" : "Enrolled Paths"}
+            </h2>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {enrolledPaths.map((enrollment) => {
+                const path = enrollment.learning_paths;
+                const difficulty = difficultyConfig[path.difficulty_level || "beginner"];
+                return (
+                  <Link
+                    key={enrollment.id}
+                    href={`/paths/${path.slug}`}
+                    className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md transition hover:border-teal-300"
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <h3 className="font-medium text-slate-900 flex-1">
+                        {getText(path.title, path.title_ar)}
+                      </h3>
+                      <span className={`text-xs px-2 py-1 rounded-full ${difficulty.color} ml-2 flex-shrink-0`}>
+                        {language === "ar" ? difficulty.labelAr : difficulty.labelEn}
+                      </span>
+                    </div>
+                    {path.description && (
+                      <p className="text-sm text-slate-500 line-clamp-2 mb-3">
+                        {getText(path.description, path.description_ar)}
+                      </p>
+                    )}
+                    {path.estimated_duration_hours && (
+                      <p className="text-xs text-slate-400">
+                        {path.estimated_duration_hours} {language === "ar" ? "ساعة" : "hours"}
+                      </p>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Recommended Paths - Show saved path finder results or generic recommendations */}
         {recommendedPaths.length > 0 && (
