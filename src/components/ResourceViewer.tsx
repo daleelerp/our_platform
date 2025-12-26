@@ -360,11 +360,7 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
           <div className="px-8 py-8">
             {articleContent && articleContent.length > 0 ? (
               <div className="article-content max-w-4xl mx-auto">
-                {articleContent.map((element, index) => (
-                  <React.Fragment key={element?.key || `article-content-${index}`}>
-                    {element}
-                  </React.Fragment>
-                ))}
+                {articleContent}
               </div>
             ) : (
               <div className="text-center py-12">
