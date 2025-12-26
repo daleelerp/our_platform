@@ -11,20 +11,21 @@ export function AboutContent() {
   const content = {
     en: {
       title: "About Daleel",
-      subtitle: "A structured system that helps ERP learners make the right career decisions and progress with confidence.",
+      subtitle: "Your complete guide to ERP career paths. Whether you're a student starting young, or a professional looking to switch careers - we're with you every step of the way.",
       
       story: {
         title: "Our Story",
         paragraphs: [
           "Daleel (دليل) means 'guide' in Arabic. We chose this name because that's exactly what we aim to be — your trusted guide through the complex world of Enterprise Resource Planning systems.",
-          "As professionals in the MENA region, we experienced firsthand the challenges of learning ERP systems. The resources were scattered across dozens of platforms, often outdated, and rarely tailored to our regional context. We spent months piecing together learning paths that should have taken weeks.",
-          "That's why we built Daleel. We're not another course platform — we're curators. We find the best resources, organize them into clear learning paths, and guide you from where you are to where you want to be."
+          "We built this platform because of people's many questions. Every now and then someone asks: \"Where do I start?\", \"What should I learn?\", \"Which system suits me?\". We found that there's a huge problem: people don't know what to do or how to start, and they have so many questions.",
+          "We decided to build this platform to answer all their questions. Whether you're a student starting young, a professional looking to switch careers, or someone wanting to learn something new - we're with you every step of the way.",
+          "We're not another course platform — we're curators. We gather deep, comprehensive data from thousands of sources online and carefully review it. We organize the best resources into clear learning paths, and guide you from where you are to where you want to be."
         ]
       },
 
       mission: {
         title: "Our Mission",
-        text: "To democratize ERP education in the MENA region by providing structured, bilingual learning paths that connect professionals with the best resources and career opportunities."
+        text: "To democratize ERP education in MENA for everyone - students who want to start young, professionals looking to switch careers, and those wanting to learn something new. We provide structured, bilingual learning paths with deep, comprehensive data gathered from thousands of sources and carefully reviewed."
       },
 
       whatWeDo: {
@@ -33,7 +34,7 @@ export function AboutContent() {
           {
             icon: "🗺️",
             title: "Curate Learning Paths",
-            description: "We don't create courses. We analyze thousands of resources and organize the best ones into clear, structured paths for each ERP module and career goal."
+            description: "We don't create courses. We gather deep, comprehensive data from thousands of sources online and carefully review it. We organize the best resources into clear, structured paths for each ERP module and career goal."
           },
           {
             icon: "🌍",
@@ -43,12 +44,12 @@ export function AboutContent() {
           {
             icon: "🔤",
             title: "Bilingual Support",
-            description: "Learn in Arabic or English. We believe language shouldn't be a barrier to mastering enterprise software."
+            description: "Learn in Arabic or English. We believe language shouldn't be a barrier to mastering enterprise software - perfect for students starting young."
           },
           {
             icon: "🤖",
             title: "AI-Powered Guidance",
-            description: "Our AI analyzes your background and goals to recommend the perfect learning path for your career journey."
+            description: "Our AI understands your background and goals to recommend the perfect learning path for your career journey - whether you're a student or a professional looking to switch careers."
           }
         ]
       },
@@ -58,19 +59,19 @@ export function AboutContent() {
         comparison: [
           {
             others: "Scattered resources across 20+ platforms",
-            daleel: "One organized path with the best resources"
+            daleel: "One organized path with the best resources - deep, comprehensive data gathered from thousands of sources"
           },
           {
             others: "Generic global content",
-            daleel: "MENA-focused with regional job market insights"
+            daleel: "MENA-focused with regional job market insights - suitable for students and professionals looking to switch careers"
           },
           {
             others: "English-only documentation",
-            daleel: "Full Arabic and English support"
+            daleel: "Full Arabic and English support - perfect for students starting young"
           },
           {
             others: "No career guidance",
-            daleel: "Clear career outcomes and salary insights"
+            daleel: "Clear career outcomes and salary insights from deep, comprehensive data - we help with employment"
           }
         ]
       },
@@ -115,66 +116,67 @@ export function AboutContent() {
     },
     ar: {
       title: "عن دليل",
-      subtitle: "نظام منظم يساعد متعلمي ERP على اتخاذ قرارات مهنية صحيحة والتقدم بثقة.",
+      subtitle: "دليلك الكامل للمسارات المهنية في ERP. سواء كنت طالب عاوز تبدأ من سن صغير، أو محترف عاوز تغير مجالك - احنا معاك في كل خطوة.",
       
       story: {
         title: "قصتنا",
         paragraphs: [
-          "دليل — اخترنا هذا الاسم لأنه يعكس هدفنا بالضبط: أن نكون مرشدك الموثوق في عالم أنظمة تخطيط موارد المؤسسات المعقد.",
-          "كمحترفين في منطقة الشرق الأوسط، عشنا تحديات تعلم أنظمة ERP بأنفسنا. كانت الموارد مبعثرة عبر عشرات المنصات، غالباً قديمة، ونادراً ما تناسب سياقنا الإقليمي. قضينا شهوراً في تجميع مسارات تعلم كان يجب أن تستغرق أسابيع فقط.",
-          "لهذا بنينا دليل. نحن لسنا منصة دورات أخرى — نحن منسقون. نجد أفضل الموارد، ننظمها في مسارات تعلم واضحة، ونرشدك من حيث أنت إلى حيث تريد أن تكون."
+          "دليل — اخترنا الاسم ده لأنه يعكس هدفنا بالضبط: نبقى مرشدك الموثوق في عالم أنظمة ERP المعقد.",
+          "عملنا المنصة دي بسبب أسئلة الناس الكتيرة. كل شوية حد بيسأل: \"أبدأ منين؟\"، \"أتعلم إيه؟\"، \"أيه النظام اللي يناسبني؟\". لقينا إن في مشكلة كبيرة جداً: الناس مش عارفة تعمل إيه أو تبدأ إزاي، وعندهم أسئلة كتيرة أوي.",
+          "قررنا نعمل المنصة دي علشان تجاوب على كل أسئلتهم. سواء كنت طالب عاوز تبدأ من سن صغير، أو محترف عاوز يغير مجاله، أو حد عاوز يتعلم حاجة جديدة - احنا هنكون معاك في كل خطوة.",
+          "احنا مش منصة دورات تانية — احنا منسقين. بنجمع داتا عميقة متعمقة من آلاف المصادر على الإنترنت وبنراجعها بدقة. بننظم أحسن الموارد في مسارات تعلم واضحة، وبنرشدك من حيث أنت إلى حيث عاوز توصل."
         ]
       },
 
       mission: {
         title: "مهمتنا",
-        text: "إتاحة تعليم ERP في منطقة الشرق الأوسط من خلال توفير مسارات تعلم منظمة وثنائية اللغة تربط المحترفين بأفضل الموارد وفرص العمل."
+        text: "إتاحة تعليم ERP في الشرق الأوسط لكل الناس - الطلبة اللي عاوزين يبدأوا من سن صغير، والمحترفين اللي عاوزين يغيروا مجالاتهم، واللي عاوزين يتعلموا حاجة جديدة. بنوفر مسارات تعلم منظمة وثنائية اللغة بداتا عميقة متعمقة متجمعة من آلاف المصادر ومتراجعة بدقة."
       },
 
       whatWeDo: {
-        title: "ماذا نفعل",
+        title: "احنا بنعمل إيه",
         items: [
           {
             icon: "🗺️",
-            title: "ننسق مسارات التعلم",
-            description: "نحن لا ننشئ دورات. نحلل آلاف الموارد وننظم أفضلها في مسارات واضحة ومنظمة لكل وحدة ERP وهدف مهني."
+            title: "بننسق مسارات التعلم",
+            description: "احنا مش بنعمل دورات. بنجمع داتا عميقة متعمقة من آلاف المصادر على الإنترنت وبنراجعها بدقة. بننظم أحسن الموارد في مسارات واضحة ومنظمة لكل وحدة ERP وهدف مهني."
           },
           {
             icon: "🌍",
-            title: "نركز على الشرق الأوسط",
-            description: "مساراتنا مصممة لسوق العمل في الشرق الأوسط. نفهم الشهادات والمهارات والخبرات التي يبحث عنها أصحاب العمل في منطقتنا."
+            title: "بنركز على الشرق الأوسط",
+            description: "مساراتنا مصممة لسوق الشغل في الشرق الأوسط. بنفهم الشهادات والمهارات والخبرات اللي أصحاب الشغل في منطقتنا بيدوروا عليها."
           },
           {
             icon: "🔤",
             title: "دعم ثنائي اللغة",
-            description: "تعلم بالعربية أو الإنجليزية. نؤمن أن اللغة لا يجب أن تكون عائقاً أمام إتقان برامج المؤسسات."
+            description: "اتعلم بالعربي أو الإنجليزي. احنا مؤمنين إن اللغة مش لازم تكون عائق قدام إتقان برامج المؤسسات."
           },
           {
             icon: "🤖",
             title: "إرشاد بالذكاء الاصطناعي",
-            description: "يحلل ذكاؤنا الاصطناعي خلفيتك وأهدافك ليوصي بمسار التعلم المثالي لرحلتك المهنية."
+            description: "ذكاؤنا الاصطناعي بيفهم خلفيتك وأهدافك ويوصيك بمسار التعلم المثالي لرحلتك المهنية - سواء كنت طالب أو محترف عاوز يغير مجاله."
           }
         ]
       },
 
       whyDifferent: {
-        title: "لماذا نحن مختلفون",
+        title: "ليه احنا مختلفين",
         comparison: [
           {
-            others: "موارد مبعثرة عبر 20+ منصة",
-            daleel: "مسار واحد منظم مع أفضل الموارد"
+            others: "موارد مبعثرة على 20+ منصة",
+            daleel: "مسار واحد منظم مع أحسن الموارد - داتا عميقة متعمقة متجمعة من آلاف المصادر"
           },
           {
             others: "محتوى عالمي عام",
-            daleel: "تركيز على الشرق الأوسط مع رؤى سوق العمل الإقليمي"
+            daleel: "تركيز على الشرق الأوسط مع رؤى سوق الشغل الإقليمي - مناسب للطلبة والمحترفين اللي عاوزين يغيروا مجالاتهم"
           },
           {
-            others: "توثيق بالإنجليزية فقط",
-            daleel: "دعم كامل بالعربية والإنجليزية"
+            others: "توثيق بالإنجليزي بس",
+            daleel: "دعم كامل بالعربي والإنجليزي - مناسب للطلبة اللي عاوزين يبدأوا من سن صغير"
           },
           {
-            others: "لا إرشاد مهني",
-            daleel: "نتائج مهنية واضحة ورؤى عن الرواتب"
+            others: "مفيش إرشاد مهني",
+            daleel: "نتائج مهنية واضحة ورؤى عن الرواتب بداتا عميقة متعمقة - بنساعدك في التوظيف"
           }
         ]
       },
