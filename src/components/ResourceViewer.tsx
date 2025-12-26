@@ -1,9 +1,12 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { LearningResource } from "@/types/learning";
 import { useAppStore } from "@/store/useAppStore";
 import { VideoPlayer } from "./VideoPlayer";
+import { createClient } from "@/utils/supabase/client";
+import { CheckCircleIcon } from "@heroicons/react/24/outline";
+import { CheckCircleIcon as CheckCircleIconSolid } from "@heroicons/react/24/solid";
 
 type Props = {
   resource: LearningResource;
@@ -13,6 +16,61 @@ type Props = {
 
 export function ResourceViewer({ resource, userId, milestoneId }: Props) {
   const language = useAppStore((state) => state.language);
+  const [isMarkedAsRead, setIsMarkedAsRead] = useState(false);
+  const supabase = createClient();
+
+  // Check if article is already marked as read
+  useEffect(() => {
+    if (!userId || !resource.id || resource.resource_type !== "article") return;
+
+    const checkReadStatus = async () => {
+      const { data } = await supabase
+        .from("user_resource_interactions")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("resource_id", resource.id)
+        .eq("interaction_type", "completed")
+        .maybeSingle();
+
+      if (data) {
+        setIsMarkedAsRead(true);
+      }
+    };
+
+    checkReadStatus();
+  }, [userId, resource.id, resource.resource_type, supabase]);
+
+  const handleMarkAsRead = async () => {
+    if (!userId || !resource.id) return;
+
+    try {
+      const { error } = await supabase
+        .from("user_resource_interactions")
+        .upsert(
+          {
+            user_id: userId,
+            resource_id: resource.id,
+            interaction_type: "completed",
+            progress_percentage: 100,
+          },
+          {
+            onConflict: "user_id,resource_id,interaction_type",
+          }
+        );
+
+      if (!error) {
+        setIsMarkedAsRead(true);
+        // Trigger milestone progress update
+        if (milestoneId && typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("resourceCompleted", { 
+            detail: { resourceId: resource.id, milestoneId } 
+          }));
+        }
+      }
+    } catch (error) {
+      console.error("Error marking article as read:", error);
+    }
+  };
 
   const getText = (en: string | null, ar: string | null): string => {
     // Respect the article's language field
@@ -220,32 +278,55 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
             )}
           </div>
 
-          {/* Footer with Link Button */}
-          {resource.url && (
-            <div className="border-t border-slate-200 px-8 py-6 bg-slate-50 rounded-b-xl">
-              <a
-                href={resource.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-teal-600 hover:bg-teal-700 text-white font-medium rounded-lg transition-colors duration-200 shadow-sm hover:shadow-md"
-              >
-                <svg 
-                  className="w-5 h-5" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
+          {/* Footer with Link Button and Mark as Read */}
+          <div className="border-t border-slate-200 px-8 py-6 bg-slate-50 rounded-b-xl">
+            <div className="flex items-center justify-between gap-4">
+              {resource.url && (
+                <a
+                  href={resource.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-teal-600 hover:bg-teal-700 text-white font-medium rounded-lg transition-colors duration-200 shadow-sm hover:shadow-md"
                 >
-                  <path 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                    strokeWidth={2} 
-                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" 
-                  />
-                </svg>
-                {language === "ar" ? "فتح المقال في نافذة جديدة" : "Open Article in New Window"}
-              </a>
+                  <svg 
+                    className="w-5 h-5" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                      strokeWidth={2} 
+                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" 
+                    />
+                  </svg>
+                  {language === "ar" ? "فتح المقال في نافذة جديدة" : "Open Article in New Window"}
+                </a>
+              )}
+              <button
+                onClick={handleMarkAsRead}
+                disabled={isMarkedAsRead}
+                className={`inline-flex items-center gap-2 px-6 py-3 font-medium rounded-lg transition-colors duration-200 shadow-sm ${
+                  isMarkedAsRead
+                    ? "bg-green-100 text-green-700 cursor-not-allowed"
+                    : "bg-white text-slate-700 hover:bg-green-50 border border-slate-300 hover:border-green-300"
+                }`}
+              >
+                {isMarkedAsRead ? (
+                  <>
+                    <CheckCircleIconSolid className="w-5 h-5" />
+                    {language === "ar" ? "تمت القراءة" : "Marked as Read"}
+                  </>
+                ) : (
+                  <>
+                    <CheckCircleIcon className="w-5 h-5" />
+                    {language === "ar" ? "تمت القراءة" : "Mark as Read"}
+                  </>
+                )}
+              </button>
             </div>
-          )}
+          </div>
         </div>
       );
     }

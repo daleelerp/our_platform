@@ -392,28 +392,17 @@ export function LearningInterface({
                   {language === "ar" ? "المرحلة" : "Milestone"} {currentMilestone.milestone_number}{" "}
                   {language === "ar" ? "من" : "of"} {milestones.length}
                 </p>
-                {/* Milestone Progress */}
-                <div className="mt-2">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs text-slate-500">
-                      {language === "ar" ? "تقدمك" : "Your Progress"}
-                    </span>
-                    <span className="text-xs font-semibold text-teal-600">
-                      {currentMilestoneProgress}%
-                    </span>
-                  </div>
-                  <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden w-32">
-                    <div
-                      className="h-full bg-teal-500 transition-all duration-300"
-                      style={{ width: `${currentMilestoneProgress}%` }}
-                    />
-                  </div>
-                </div>
               </div>
             </div>
             <div className="text-sm text-slate-600">
-              {currentEnrollmentProgress.toFixed(0)}%{" "}
-              {language === "ar" ? "مكتمل" : "Complete"}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-500">
+                  {language === "ar" ? "تقدمك" : "Your Progress"}
+                </span>
+                <span className="font-semibold text-teal-600">
+                  {currentEnrollmentProgress.toFixed(0)}%
+                </span>
+              </div>
             </div>
           </div>
         </div>
