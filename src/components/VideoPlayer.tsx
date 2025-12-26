@@ -426,6 +426,9 @@ export function VideoPlayer({
       rel: 0, // Don't show related videos
       modestbranding: 1,
       iv_load_policy: 3, // Hide annotations
+      cc_load_policy: 1, // Show captions by default
+      cc_lang_pref: language === "ar" ? "ar" : "en", // Preferred caption language
+      hl: language === "ar" ? "ar" : "en", // Interface language
     },
   };
 
