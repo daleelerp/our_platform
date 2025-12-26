@@ -98,7 +98,7 @@ export async function checkMilestoneCompletion(
   status.quizzesTotal = quizzes?.length || 0;
 
   if (status.quizzesTotal > 0) {
-    const quizIds = quizzes!.map(q => q.id);
+    const quizIds = quizzes!.map((q: { id: string }) => q.id);
     
     const { data: quizAttempts } = await supabase
       .from("user_quiz_attempts")
@@ -306,7 +306,7 @@ export async function calculatePathProgress(
     return 0;
   }
 
-  const milestoneIds = milestones.map(m => m.id);
+  const milestoneIds = milestones.map((m: { id: string }) => m.id);
   
   // Get all videos, quizzes, and learning resources for all milestones in one query
   const { data: allVideos } = await supabase
