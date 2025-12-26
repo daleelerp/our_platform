@@ -237,9 +237,9 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
             // Close any open list first
             if (currentListItems.length > 0) {
               elements.push(
-                <ul key={`list-${idx}`} className="list-disc list-inside mb-6 space-y-2 text-slate-700 leading-relaxed">
+                <ul key={`list-${idx}`} className="list-disc list-inside mb-6 space-y-3 text-slate-700 leading-7 pl-4">
                   {currentListItems.map((item, i) => (
-                    <li key={i}>{item}</li>
+                    <li key={i} className="mb-2">{item}</li>
                   ))}
                 </ul>
               );
@@ -248,10 +248,10 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
             
             const match = trimmed.match(/^[•\-\*]\s*(.+)/);
             elements.push(
-              <div key={`heading-${idx}`} className="mb-4">
-                <h4 className="text-lg font-semibold text-slate-900 mb-3 flex items-start">
-                  <span className="text-teal-600 mr-2 mt-1.5">•</span>
-                  <span>{match?.[1]}</span>
+              <div key={`heading-${idx}`} className="mb-6 mt-6">
+                <h4 className="text-xl font-semibold text-slate-900 mb-4 flex items-start">
+                  <span className="text-teal-600 mr-3 mt-1.5 text-2xl">•</span>
+                  <span className="leading-7">{match?.[1]}</span>
                 </h4>
               </div>
             );
@@ -268,9 +268,9 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
             // Close any open list first
             if (currentListItems.length > 0) {
               elements.push(
-                <ul key={`list-${idx}`} className="list-disc list-inside mb-6 space-y-2 text-slate-700 leading-relaxed">
+                <ul key={`list-${idx}`} className="list-disc list-inside mb-6 space-y-3 text-slate-700 leading-7 pl-4">
                   {currentListItems.map((item, i) => (
-                    <li key={i}>{item}</li>
+                    <li key={i} className="mb-2">{item}</li>
                   ))}
                 </ul>
               );
@@ -278,7 +278,7 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
             }
             
             elements.push(
-              <p key={`para-${idx}`} className="mb-6 text-slate-700 leading-relaxed text-[16px]">
+              <p key={`para-${idx}`} className="mb-6 text-slate-700 leading-7 text-base tracking-wide">
                 {trimmed}
               </p>
             );
@@ -288,9 +288,9 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
         // Close any remaining list
         if (currentListItems.length > 0) {
           elements.push(
-            <ul key={`list-final`} className="list-disc list-inside mb-6 space-y-2 text-slate-700 leading-relaxed">
+            <ul key={`list-final`} className="list-disc list-inside mb-6 space-y-3 text-slate-700 leading-7 pl-4">
               {currentListItems.map((item, i) => (
-                <li key={i}>{item}</li>
+                <li key={i} className="mb-2">{item}</li>
               ))}
             </ul>
           );
@@ -331,8 +331,10 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
           {/* Article Content */}
           <div className="px-8 py-8">
             {articleContent && articleContent.length > 0 ? (
-              <div className="article-content max-w-4xl mx-auto">
-                {articleContent}
+              <div className="article-content max-w-4xl mx-auto prose prose-slate max-w-none">
+                <div className="space-y-6">
+                  {articleContent}
+                </div>
               </div>
             ) : (
               <div className="text-center py-12">
