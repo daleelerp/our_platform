@@ -41,8 +41,7 @@ export function HeroSection() {
               {t("hero.title")}{" "}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#357a5d] to-[#429874]">
                 {t("hero.titleHighlight")}
-              </span>{" "}
-              {t("hero.titleSuffix")}
+              </span>
             </h1>
 
             <p className="text-xl text-slate-600 max-w-xl">

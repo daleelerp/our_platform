@@ -9,7 +9,7 @@ export default function PrivacyPolicyPage() {
   const content = isArabic
     ? {
         title: "سياسة الخصوصية",
-        lastUpdated: "آخر تحديث: ديسمبر 2024",
+        lastUpdated: "آخر تحديث: يناير 2026",
         sections: [
           {
             title: "1. مقدمة",
@@ -60,7 +60,7 @@ export default function PrivacyPolicyPage() {
       }
     : {
         title: "Privacy Policy",
-        lastUpdated: "Last Updated: December 2024",
+        lastUpdated: "Last Updated: January 2026",
         sections: [
           {
             title: "1. Introduction",

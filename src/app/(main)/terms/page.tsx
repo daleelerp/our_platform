@@ -9,7 +9,7 @@ export default function TermsOfServicePage() {
   const content = isArabic
     ? {
         title: "شروط الخدمة",
-        lastUpdated: "آخر تحديث: ديسمبر 2024",
+        lastUpdated: "آخر تحديث: يناير 2026",
         sections: [
           {
             title: "1. قبول الشروط",
@@ -70,7 +70,7 @@ export default function TermsOfServicePage() {
       }
     : {
         title: "Terms of Service",
-        lastUpdated: "Last Updated: December 2024",
+        lastUpdated: "Last Updated: January 2026",
         sections: [
           {
             title: "1. Acceptance of Terms",
