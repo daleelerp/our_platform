@@ -106,7 +106,23 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
   };
 
   const title = getText(resource.title, resource.title_ar);
-  const description = getText(resource.description, resource.description_ar);
+  
+  // Get description based on resource language and user preference
+  let description = "";
+  if (resource.language === "en") {
+    description = resource.description || "";
+  } else if (resource.language === "ar") {
+    description = resource.description_ar || "";
+  } else if (resource.language === "both") {
+    if (language === "ar") {
+      description = resource.description_ar || resource.description || "";
+    } else {
+      description = resource.description || resource.description_ar || "";
+    }
+  } else {
+    // Legacy: use user preference
+    description = getText(resource.description, resource.description_ar);
+  }
   
   // Check if URL is valid (not null, not empty, not just whitespace)
   const hasValidUrl = resource.url && typeof resource.url === 'string' && resource.url.trim().length > 0;
