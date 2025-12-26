@@ -175,17 +175,18 @@ export default function EditPathPage() {
     >
   >({});
 
+  const [showAddArticleModal, setShowAddArticleModal] = useState<string | null>(null);
+  
   const [newArticle, setNewArticle] = useState<
     Record<
       string,
       {
         title: string;
         title_ar: string;
-        description: string;
-        description_ar: string;
         url: string;
-        platform: string;
-        language: string;
+        content: string;
+        content_ar: string;
+        language: "en" | "ar" | "both";
         is_free: boolean;
       }
     >
@@ -946,10 +947,50 @@ export default function EditPathPage() {
     }
   };
 
+  const handleOpenAddArticleModal = (milestoneId: string) => {
+    setNewArticle((prev) => ({
+      ...prev,
+      [milestoneId]: {
+        title: "",
+        title_ar: "",
+        url: "",
+        content: "",
+        content_ar: "",
+        language: "en",
+        is_free: true,
+      },
+    }));
+    setShowAddArticleModal(milestoneId);
+  };
+
+  const handleCloseAddArticleModal = () => {
+    if (showAddArticleModal) {
+      setNewArticle((prev) => ({
+        ...prev,
+        [showAddArticleModal]: {
+          title: "",
+          title_ar: "",
+          url: "",
+          content: "",
+          content_ar: "",
+          language: "en",
+          is_free: true,
+        },
+      }));
+    }
+    setShowAddArticleModal(null);
+  };
+
   const handleAddArticle = async (milestoneId: string) => {
     const articleData = newArticle[milestoneId];
     if (!articleData || !articleData.title.trim()) {
       alert("Please provide at least a title");
+      return;
+    }
+
+    // Must have either URL or content (or both)
+    if (!articleData.url.trim() && !articleData.content.trim()) {
+      alert("Please provide either article URL or content (or both)");
       return;
     }
 
@@ -961,9 +1002,9 @@ export default function EditPathPage() {
         body: JSON.stringify({
           title: articleData.title.trim(),
           title_ar: articleData.title_ar.trim() || null,
-          description: articleData.description.trim() || null,
-          description_ar: articleData.description_ar.trim() || null,
-          url: articleData.url.trim() || "",
+          description: articleData.content.trim() || null,
+          description_ar: articleData.content_ar.trim() || null,
+          url: articleData.url.trim() || null,
           resource_type: "article",
           language: articleData.language || "en",
           is_free: articleData.is_free !== false,
@@ -979,20 +1020,8 @@ export default function EditPathPage() {
       // Then link it to milestone
       await handleAddResource(milestoneId, resourceJson.data.id);
       
-      // Clear form
-      setNewArticle((prev) => ({
-        ...prev,
-        [milestoneId]: {
-          title: "",
-          title_ar: "",
-          description: "",
-          description_ar: "",
-          url: "",
-          platform: "",
-          language: "en",
-          is_free: true,
-        },
-      }));
+      // Close modal and clear form
+      handleCloseAddArticleModal();
     } catch (err: any) {
       console.error(err);
       alert(err.message || "Failed to add article");
@@ -2164,181 +2193,246 @@ export default function EditPathPage() {
                   </p>
                 </div>
 
-                {/* Add Article Manually */}
+                {/* Add Article Manually Button */}
                 <div className="mt-3 border-t border-slate-100 pt-3">
-                  <div className="text-xs font-medium text-slate-500 mb-1">
-                    Add Article Manually
-                  </div>
-                  <div className="space-y-2">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      <input
-                        type="text"
-                        placeholder="Article title (English)"
-                        value={newArticle[m.id]?.title || ""}
-                        onChange={(e) =>
-                          setNewArticle((prev) => ({
-                            ...prev,
-                            [m.id]: {
-                              title: e.target.value,
-                              title_ar: prev[m.id]?.title_ar || "",
-                              description: prev[m.id]?.description || "",
-                              description_ar: prev[m.id]?.description_ar || "",
-                              url: prev[m.id]?.url || "",
-                              platform: prev[m.id]?.platform || "",
-                              language: prev[m.id]?.language || "en",
-                              is_free: prev[m.id]?.is_free !== false,
-                            },
-                          }))
-                        }
-                        className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Article title (Arabic)"
-                        value={newArticle[m.id]?.title_ar || ""}
-                        onChange={(e) =>
-                          setNewArticle((prev) => ({
-                            ...prev,
-                            [m.id]: {
-                              title: prev[m.id]?.title || "",
-                              title_ar: e.target.value,
-                              description: prev[m.id]?.description || "",
-                              description_ar: prev[m.id]?.description_ar || "",
-                              url: prev[m.id]?.url || "",
-                              platform: prev[m.id]?.platform || "",
-                              language: prev[m.id]?.language || "en",
-                              is_free: prev[m.id]?.is_free !== false,
-                            },
-                          }))
-                        }
-                        className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                      />
-                    </div>
-                    <input
-                      type="url"
-                      placeholder="Article URL (optional)"
-                      value={newArticle[m.id]?.url || ""}
-                      onChange={(e) =>
-                        setNewArticle((prev) => ({
-                          ...prev,
-                          [m.id]: {
-                            title: prev[m.id]?.title || "",
-                            title_ar: prev[m.id]?.title_ar || "",
-                            description: prev[m.id]?.description || "",
-                            description_ar: prev[m.id]?.description_ar || "",
-                            url: e.target.value,
-                            platform: prev[m.id]?.platform || "",
-                            language: prev[m.id]?.language || "en",
-                            is_free: prev[m.id]?.is_free !== false,
-                          },
-                        }))
-                      }
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                    />
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      <textarea
-                        placeholder="Description (English, optional)"
-                        value={newArticle[m.id]?.description || ""}
-                        onChange={(e) =>
-                          setNewArticle((prev) => ({
-                            ...prev,
-                            [m.id]: {
-                              title: prev[m.id]?.title || "",
-                              title_ar: prev[m.id]?.title_ar || "",
-                              description: e.target.value,
-                              description_ar: prev[m.id]?.description_ar || "",
-                              url: prev[m.id]?.url || "",
-                              platform: prev[m.id]?.platform || "",
-                              language: prev[m.id]?.language || "en",
-                              is_free: prev[m.id]?.is_free !== false,
-                            },
-                          }))
-                        }
-                        rows={2}
-                        className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                      />
-                      <textarea
-                        placeholder="Description (Arabic, optional)"
-                        value={newArticle[m.id]?.description_ar || ""}
-                        onChange={(e) =>
-                          setNewArticle((prev) => ({
-                            ...prev,
-                            [m.id]: {
-                              title: prev[m.id]?.title || "",
-                              title_ar: prev[m.id]?.title_ar || "",
-                              description: prev[m.id]?.description || "",
-                              description_ar: e.target.value,
-                              url: prev[m.id]?.url || "",
-                              platform: prev[m.id]?.platform || "",
-                              language: prev[m.id]?.language || "en",
-                              is_free: prev[m.id]?.is_free !== false,
-                            },
-                          }))
-                        }
-                        rows={2}
-                        className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                      />
-                    </div>
-                    <div className="flex gap-2 items-center">
-                      <select
-                        value={newArticle[m.id]?.language || "en"}
-                        onChange={(e) =>
-                          setNewArticle((prev) => ({
-                            ...prev,
-                            [m.id]: {
-                              title: prev[m.id]?.title || "",
-                              title_ar: prev[m.id]?.title_ar || "",
-                              description: prev[m.id]?.description || "",
-                              description_ar: prev[m.id]?.description_ar || "",
-                              url: prev[m.id]?.url || "",
-                              platform: prev[m.id]?.platform || "",
-                              language: e.target.value,
-                              is_free: prev[m.id]?.is_free !== false,
-                            },
-                          }))
-                        }
-                        className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                      >
-                        <option value="en">English</option>
-                        <option value="ar">Arabic</option>
-                        <option value="both">Both</option>
-                      </select>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          id={`article_free_${m.id}`}
-                          checked={newArticle[m.id]?.is_free !== false}
-                          onChange={(e) =>
-                            setNewArticle((prev) => ({
-                              ...prev,
-                              [m.id]: {
-                                title: prev[m.id]?.title || "",
-                                title_ar: prev[m.id]?.title_ar || "",
-                                description: prev[m.id]?.description || "",
-                                description_ar: prev[m.id]?.description_ar || "",
-                                url: prev[m.id]?.url || "",
-                                platform: prev[m.id]?.platform || "",
-                                language: prev[m.id]?.language || "en",
-                                is_free: e.target.checked,
-                              },
-                            }))
-                          }
-                          className="w-4 h-4 text-teal-600 border-slate-300 rounded focus:ring-teal-500"
-                        />
-                        <label htmlFor={`article_free_${m.id}`} className="text-xs text-slate-600">
-                          Free
-                        </label>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenAddArticleModal(m.id)}
+                    className="text-xs px-3 py-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
+                  >
+                    + Add Article Manually
+                  </button>
+                </div>
+
+                {/* Add Article Modal */}
+                {showAddArticleModal === m.id && (
+                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full">
+                      <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+                        <h2 className="text-lg font-semibold text-slate-900">Add Article Manually</h2>
+                        <button
+                          type="button"
+                          onClick={handleCloseAddArticleModal}
+                          className="text-slate-400 hover:text-slate-600 text-2xl leading-none"
+                        >
+                          ×
+                        </button>
+                      </div>
+                      
+                      <div className="p-6">
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700 mb-1">
+                                Article title (English) *
+                              </label>
+                              <input
+                                type="text"
+                                required
+                                value={newArticle[m.id]?.title || ""}
+                                onChange={(e) =>
+                                  setNewArticle((prev) => ({
+                                    ...prev,
+                                    [m.id]: {
+                                      title: e.target.value,
+                                      title_ar: prev[m.id]?.title_ar || "",
+                                      url: prev[m.id]?.url || "",
+                                      content: prev[m.id]?.content || "",
+                                      content_ar: prev[m.id]?.content_ar || "",
+                                      language: prev[m.id]?.language || "en",
+                                      is_free: prev[m.id]?.is_free !== false,
+                                    },
+                                  }))
+                                }
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                                placeholder="Article title (English)"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700 mb-1">
+                                Article title (Arabic)
+                              </label>
+                              <input
+                                type="text"
+                                value={newArticle[m.id]?.title_ar || ""}
+                                onChange={(e) =>
+                                  setNewArticle((prev) => ({
+                                    ...prev,
+                                    [m.id]: {
+                                      title: prev[m.id]?.title || "",
+                                      title_ar: e.target.value,
+                                      url: prev[m.id]?.url || "",
+                                      content: prev[m.id]?.content || "",
+                                      content_ar: prev[m.id]?.content_ar || "",
+                                      language: prev[m.id]?.language || "en",
+                                      is_free: prev[m.id]?.is_free !== false,
+                                    },
+                                  }))
+                                }
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                                placeholder="Article title (Arabic)"
+                              />
+                            </div>
+                          </div>
+                          
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">
+                              Article URL (optional)
+                            </label>
+                            <input
+                              type="url"
+                              value={newArticle[m.id]?.url || ""}
+                              onChange={(e) =>
+                                setNewArticle((prev) => ({
+                                  ...prev,
+                                  [m.id]: {
+                                    title: prev[m.id]?.title || "",
+                                    title_ar: prev[m.id]?.title_ar || "",
+                                    url: e.target.value,
+                                    content: prev[m.id]?.content || "",
+                                    content_ar: prev[m.id]?.content_ar || "",
+                                    language: prev[m.id]?.language || "en",
+                                    is_free: prev[m.id]?.is_free !== false,
+                                  },
+                                }))
+                              }
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                              placeholder="https://... (optional)"
+                            />
+                            <p className="text-xs text-slate-500 mt-1">
+                              يمكنك إدخال رابط المقالة أو محتوى المقالة أو الاثنين معاً
+                            </p>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700 mb-1">
+                                Article Content (English, optional)
+                              </label>
+                              <textarea
+                                value={newArticle[m.id]?.content || ""}
+                                onChange={(e) =>
+                                  setNewArticle((prev) => ({
+                                    ...prev,
+                                    [m.id]: {
+                                      title: prev[m.id]?.title || "",
+                                      title_ar: prev[m.id]?.title_ar || "",
+                                      url: prev[m.id]?.url || "",
+                                      content: e.target.value,
+                                      content_ar: prev[m.id]?.content_ar || "",
+                                      language: prev[m.id]?.language || "en",
+                                      is_free: prev[m.id]?.is_free !== false,
+                                    },
+                                  }))
+                                }
+                                rows={4}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                                placeholder="Enter article content here..."
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-slate-700 mb-1">
+                                Article Content (Arabic, optional)
+                              </label>
+                              <textarea
+                                value={newArticle[m.id]?.content_ar || ""}
+                                onChange={(e) =>
+                                  setNewArticle((prev) => ({
+                                    ...prev,
+                                    [m.id]: {
+                                      title: prev[m.id]?.title || "",
+                                      title_ar: prev[m.id]?.title_ar || "",
+                                      url: prev[m.id]?.url || "",
+                                      content: prev[m.id]?.content || "",
+                                      content_ar: e.target.value,
+                                      language: prev[m.id]?.language || "en",
+                                      is_free: prev[m.id]?.is_free !== false,
+                                    },
+                                  }))
+                                }
+                                rows={4}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                                placeholder="أدخل محتوى المقالة هنا..."
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex gap-4 items-center">
+                            <div className="flex-1">
+                              <label className="block text-sm font-medium text-slate-700 mb-1">
+                                Language
+                              </label>
+                              <select
+                                value={newArticle[m.id]?.language || "en"}
+                                onChange={(e) =>
+                                  setNewArticle((prev) => ({
+                                    ...prev,
+                                    [m.id]: {
+                                      title: prev[m.id]?.title || "",
+                                      title_ar: prev[m.id]?.title_ar || "",
+                                      url: prev[m.id]?.url || "",
+                                      content: prev[m.id]?.content || "",
+                                      content_ar: prev[m.id]?.content_ar || "",
+                                      language: e.target.value as "en" | "ar" | "both",
+                                      is_free: prev[m.id]?.is_free !== false,
+                                    },
+                                  }))
+                                }
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                              >
+                                <option value="en">English</option>
+                                <option value="ar">Arabic</option>
+                                <option value="both">Both</option>
+                              </select>
+                            </div>
+                            <div className="flex items-center gap-2 pt-6">
+                              <input
+                                type="checkbox"
+                                id={`article_free_${m.id}`}
+                                checked={newArticle[m.id]?.is_free !== false}
+                                onChange={(e) =>
+                                  setNewArticle((prev) => ({
+                                    ...prev,
+                                    [m.id]: {
+                                      title: prev[m.id]?.title || "",
+                                      title_ar: prev[m.id]?.title_ar || "",
+                                      url: prev[m.id]?.url || "",
+                                      content: prev[m.id]?.content || "",
+                                      content_ar: prev[m.id]?.content_ar || "",
+                                      language: prev[m.id]?.language || "en",
+                                      is_free: e.target.checked,
+                                    },
+                                  }))
+                                }
+                                className="w-4 h-4 text-teal-600 border-slate-300 rounded focus:ring-teal-500"
+                              />
+                              <label htmlFor={`article_free_${m.id}`} className="text-sm text-slate-700">
+                                Free
+                              </label>
+                            </div>
+                          </div>
+
+                          <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 mt-4">
+                            <button
+                              type="button"
+                              onClick={handleCloseAddArticleModal}
+                              className="px-4 py-2 bg-slate-200 text-slate-700 text-sm rounded-lg hover:bg-slate-300 font-medium"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleAddArticle(m.id)}
+                              className="px-4 py-2 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 font-medium"
+                            >
+                              Add Article
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleAddArticle(m.id)}
-                      className="text-xs px-3 py-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
-                    >
-                      Add Article
-                    </button>
                   </div>
-                </div>
+                )}
 
                 {/* Scrape Articles */}
                 <div className="mt-3 border-t border-slate-100 pt-3">
