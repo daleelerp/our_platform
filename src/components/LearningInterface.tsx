@@ -14,6 +14,7 @@ import { checkMilestoneCompletion, updateMilestoneProgress, calculatePathProgres
 import Link from "next/link";
 import { CheckCircleIcon, PlayIcon } from "@heroicons/react/24/outline";
 import { LearningResource } from "@/types/learning";
+import { Modal } from "./admin/Modal";
 
 type Path = {
   id: string;
@@ -120,43 +121,31 @@ export function LearningInterface({
 
   // Filter resources by language preference
   const filteredResources = resources.filter((resource) => {
-    // For articles, be more lenient - show them if they have ANY content
-    // This ensures articles are visible even if they only have a title, description, or URL
-    
-    // First, check if resource has any content at all
-    const hasAnyContent = !!(resource.title || resource.title_ar || resource.description || resource.description_ar || resource.url);
-    if (!hasAnyContent) return false;
-    
-    // For articles specifically, show them if they have title, description, or URL in any language
-    if (resource.resource_type === "article") {
-      // Articles should show if they have any content, regardless of language matching
-      // We'll let ResourceViewer handle the language display logic
-      return true;
-    }
-    
-    // For other resource types, check language preference
+    // Check if resource has content in the selected language
     const hasContentInLanguage = (resource.language === "both") || 
       (language === "ar" && (resource.language === "ar" || !resource.language)) ||
       (language === "en" && (resource.language === "en" || !resource.language));
     
     if (!hasContentInLanguage) return false;
     
-    // Check if resource has content in the selected language
+    // Check if resource actually has content (title or description) in the selected language
+    // For articles, we only need title to display them (they can have URL instead of description)
     if (resource.language === "en") {
-      return !!(resource.title || resource.description);
+      return !!(resource.title || resource.description || (resource.resource_type === "article" && resource.url));
     }
     if (resource.language === "ar") {
-      return !!(resource.title_ar || resource.description_ar);
+      return !!(resource.title_ar || resource.description_ar || (resource.resource_type === "article" && resource.url));
     }
     if (resource.language === "both") {
+      // For "both", show Arabic content in Arabic interface and English content in English interface
       if (language === "ar") {
-        return !!(resource.title_ar || resource.description_ar);
+        return !!(resource.title_ar || resource.description_ar || (resource.resource_type === "article" && resource.url));
       } else {
-        return !!(resource.title || resource.description);
+        return !!(resource.title || resource.description || (resource.resource_type === "article" && resource.url));
       }
     }
-    // Legacy resources without language field
-    return !!(resource.title || resource.title_ar || resource.description || resource.description_ar);
+    // Legacy resources without language field - show if they have at least a title or URL (for articles)
+    return !!(resource.title || resource.title_ar || resource.description || resource.description_ar || (resource.resource_type === "article" && resource.url));
   });
   
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(
@@ -169,13 +158,19 @@ export function LearningInterface({
   const [activeTab, setActiveTab] = useState<"videos" | "quiz" | "resources">(
     filteredVideos.length > 0 ? "videos" : filteredResources.length > 0 ? "resources" : quizzes.length > 0 ? "quiz" : "videos"
   );
+  const [isArticleModalOpen, setIsArticleModalOpen] = useState(false);
+  const [articleToShow, setArticleToShow] = useState<LearningResource | null>(null);
   
   // Update selected resource when resources change or when switching to resources tab
   useEffect(() => {
     if (activeTab === "resources" && filteredResources.length > 0) {
+      // Find first non-article resource, or first resource if no non-article exists
+      const nonArticleResources = filteredResources.filter((r) => r.resource_type !== "article");
+      const resourceToSelect = nonArticleResources.length > 0 ? nonArticleResources[0] : filteredResources[0];
+      
       // If no resource is selected, or selected resource is not in filtered list, select first one
       if (!selectedResource || !filteredResources.find((r) => r.id === selectedResource.id)) {
-        setSelectedResource(filteredResources[0]);
+        setSelectedResource(resourceToSelect);
       }
     }
   }, [activeTab, filteredResources, selectedResource]);
@@ -569,10 +564,17 @@ export function LearningInterface({
                       <button
                         key={resource.id}
                         onClick={() => {
-                          setSelectedResource(resource);
-                          setActiveTab("resources");
-                          setSelectedVideo(null);
-                          setSelectedQuiz(null);
+                          if (resource.resource_type === "article") {
+                            // Open article in modal
+                            setArticleToShow(resource);
+                            setIsArticleModalOpen(true);
+                          } else {
+                            // For other resource types, use the normal flow
+                            setSelectedResource(resource);
+                            setActiveTab("resources");
+                            setSelectedVideo(null);
+                            setSelectedQuiz(null);
+                          }
                         }}
                         className={`w-full text-left p-3 rounded-lg border transition-colors ${
                           isSelected
@@ -846,8 +848,8 @@ export function LearningInterface({
               </div>
             )}
 
-            {/* Resource Viewer */}
-            {activeTab === "resources" && selectedResource && (
+            {/* Resource Viewer - Only show non-article resources here */}
+            {activeTab === "resources" && selectedResource && selectedResource.resource_type !== "article" && (
               <ResourceViewer
                 resource={selectedResource}
                 userId={userId}
@@ -949,6 +951,43 @@ export function LearningInterface({
           </div>
         </div>
       </div>
+
+      {/* Article Modal */}
+      {articleToShow && (
+        <Modal
+          isOpen={isArticleModalOpen}
+          onClose={() => {
+            setIsArticleModalOpen(false);
+            setArticleToShow(null);
+          }}
+          title={(() => {
+            const getText = (en: string | null, ar: string | null, resourceLanguage?: 'en' | 'ar' | 'both'): string => {
+              if (resourceLanguage) {
+                if (resourceLanguage === "en") {
+                  return en || "";
+                }
+                if (resourceLanguage === "ar") {
+                  return ar || "";
+                }
+                if (resourceLanguage === "both") {
+                  if (language === "ar" && ar) return ar;
+                  return en || "";
+                }
+              }
+              if (language === "ar" && ar) return ar;
+              return en || "";
+            };
+            return getText(articleToShow.title, articleToShow.title_ar, articleToShow.language) || (language === "ar" ? "مقال" : "Article");
+          })()}
+          size="xl"
+        >
+          <ResourceViewer
+            resource={articleToShow}
+            userId={userId}
+            milestoneId={currentMilestone?.id}
+          />
+        </Modal>
+      )}
     </div>
   );
 }
