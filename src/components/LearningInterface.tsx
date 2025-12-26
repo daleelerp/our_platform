@@ -123,10 +123,10 @@ export function LearningInterface({
   );
   const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
   const [selectedResource, setSelectedResource] = useState<LearningResource | null>(
-    resources.length > 0 && filteredVideos.length === 0 ? resources[0] : null
+    filteredResources.length > 0 && filteredVideos.length === 0 ? filteredResources[0] : null
   );
   const [activeTab, setActiveTab] = useState<"videos" | "quiz" | "resources">(
-    filteredVideos.length > 0 ? "videos" : resources.length > 0 ? "resources" : quizzes.length > 0 ? "quiz" : "videos"
+    filteredVideos.length > 0 ? "videos" : filteredResources.length > 0 ? "resources" : quizzes.length > 0 ? "quiz" : "videos"
   );
   
   // Update selected video when language changes
@@ -148,9 +148,33 @@ export function LearningInterface({
     } else {
       // No videos available in current language
       setSelectedVideo(null);
-      if (resources.length > 0) {
+      // Filter resources by language
+      const currentFilteredResources = resources.filter((resource: any) => {
+        const hasContentInLanguage = (resource.language === "both") || 
+          (language === "ar" && (resource.language === "ar" || !resource.language)) ||
+          (language === "en" && (resource.language === "en" || !resource.language));
+        
+        if (!hasContentInLanguage) return false;
+        
+        if (resource.language === "en") {
+          return !!(resource.title || resource.description);
+        }
+        if (resource.language === "ar") {
+          return !!(resource.title_ar || resource.description_ar);
+        }
+        if (resource.language === "both") {
+          if (language === "ar") {
+            return !!(resource.title_ar || resource.description_ar);
+          } else {
+            return !!(resource.title || resource.description);
+          }
+        }
+        return !!(resource.title || resource.title_ar || resource.description || resource.description_ar);
+      });
+      
+      if (currentFilteredResources.length > 0) {
         setActiveTab("resources");
-        setSelectedResource(resources[0]);
+        setSelectedResource(currentFilteredResources[0]);
       } else if (quizzes.length > 0) {
         setActiveTab("quiz");
         setSelectedQuiz(quizzes[0]);
@@ -388,7 +412,34 @@ export function LearningInterface({
     return hasAccessToTier(userTier, quiz.content_tier as ContentTier);
   });
 
-  const accessibleResources = resources.filter((resource) => {
+  // Filter resources by language preference
+  const filteredResources = resources.filter((resource) => {
+    // Check if resource has content in the selected language
+    const hasContentInLanguage = (resource.language === "both") || 
+      (language === "ar" && (resource.language === "ar" || !resource.language)) ||
+      (language === "en" && (resource.language === "en" || !resource.language));
+    
+    if (!hasContentInLanguage) return false;
+    
+    // Check if resource actually has content (title or description) in the selected language
+    if (resource.language === "en") {
+      return !!(resource.title || resource.description);
+    }
+    if (resource.language === "ar") {
+      return !!(resource.title_ar || resource.description_ar);
+    }
+    if (resource.language === "both") {
+      if (language === "ar") {
+        return !!(resource.title_ar || resource.description_ar);
+      } else {
+        return !!(resource.title || resource.description);
+      }
+    }
+    // Legacy resources without language field - show if they have content
+    return !!(resource.title || resource.title_ar || resource.description || resource.description_ar);
+  });
+
+  const accessibleResources = filteredResources.filter((resource) => {
     // Resources don't have content_tier field, so all are accessible
     // If content_tier is added later, uncomment below:
     // if (!resource.content_tier) return true;
@@ -587,7 +638,7 @@ export function LearningInterface({
             </div>
 
             {/* Resources List */}
-            {resources.length > 0 && (
+            {filteredResources.length > 0 && (
               <div className="bg-white rounded-xl border border-slate-200 p-4">
                 <h3 className="font-semibold text-slate-900 mb-3">
                   {language === "ar" ? "الموارد" : "Resources"}
@@ -933,7 +984,7 @@ export function LearningInterface({
             )}
 
             {/* Empty State - No Resource Selected but resources exist */}
-            {activeTab === "resources" && !selectedResource && resources.length > 0 && (
+            {activeTab === "resources" && !selectedResource && filteredResources.length > 0 && (
               <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
                 <div className="text-4xl mb-4">📚</div>
                 <h3 className="text-lg font-semibold text-slate-900 mb-2">
@@ -948,7 +999,7 @@ export function LearningInterface({
             )}
 
             {/* Empty State - No Resources Available */}
-            {activeTab === "resources" && resources.length === 0 && (
+            {activeTab === "resources" && filteredResources.length === 0 && (
               <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
                 <div className="text-6xl mb-4">📚</div>
                 <h3 className="text-xl font-semibold text-slate-900 mb-2">
