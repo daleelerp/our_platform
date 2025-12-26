@@ -109,25 +109,32 @@ export default async function DashboardPage() {
       // Only count videos that were watched this week
       if (lastWatched >= startOfWeek) {
         const firstWatched = progress.first_watched_at ? new Date(progress.first_watched_at) : null;
-        const totalWatchTime = progress.total_watch_time_seconds || 0;
         const watchProgress = progress.watch_progress_seconds || 0;
 
-        // If video was first watched this week, use total_watch_time_seconds
+        // If video was first watched this week, calculate time based on watch_progress_seconds
+        // This represents the actual position reached in the video
         if (firstWatched && firstWatched >= startOfWeek) {
-          return sum + totalWatchTime;
+          // Use watch_progress_seconds as the actual time spent (position reached)
+          // This is more accurate than total_watch_time_seconds which may not be cumulative
+          if (watchProgress > 0) {
+            return sum + watchProgress;
+          }
+          // If no progress recorded, estimate 1 minute minimum
+          return sum + 60;
         }
 
         // For videos watched before this week but updated this week,
-        // estimate based on watch_progress_seconds (current position)
-        // This gives a better estimate of time spent this week
+        // calculate the difference in watch_progress_seconds since start of week
+        // We need to estimate based on current position
+        // Since we don't have historical data, use a conservative estimate
         if (watchProgress > 0) {
-          // Use watch_progress_seconds as an estimate (current position in video)
-          // This is conservative but more accurate than a fixed 5 minutes
-          return sum + Math.min(watchProgress, 1800); // Cap at 30 minutes per video
+          // Estimate: assume user watched at least 30 seconds if they made progress
+          // This is a conservative estimate for incremental watching
+          return sum + Math.min(watchProgress * 0.1, 300); // 10% of progress or max 5 minutes
         }
 
-        // Fallback: 5 minutes per video watched this week
-        return sum + 300;
+        // Fallback: 1 minute minimum for any video interaction this week
+        return sum + 60;
       }
       
       return sum;
