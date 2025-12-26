@@ -151,9 +151,6 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
     return null;
   };
 
-  // Debug: Log resource type
-  console.log("ResourceViewer - Resource Type:", resource.resource_type, "Resource ID:", resource.id, "Title:", title);
-  
   // Render based on resource type
   switch (resource.resource_type) {
     case "video": {
@@ -223,19 +220,6 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
     }
 
     case "article": {
-      // Debug: Log resource data to help diagnose issues
-      console.log("Article Resource Data:", {
-        id: resource.id,
-        title,
-        description,
-        description_en: resource.description,
-        description_ar: resource.description_ar,
-        language: resource.language,
-        url: resource.url,
-        hasValidUrl,
-        resource_type: resource.resource_type,
-      });
-
       // Format article content with proper styling
       const formatArticleContent = (content: string) => {
         if (!content) return [];
@@ -316,22 +300,7 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
       };
 
       // Use description (content) if available, otherwise show empty state
-      console.log("Article Content Check:", {
-        descriptionLength: description?.length || 0,
-        descriptionTrimmed: description?.trim().length || 0,
-        hasContent: !!(description && description.trim()),
-      });
       const articleContent = description && description.trim() ? formatArticleContent(description) : [];
-      console.log("Article Content Elements:", articleContent.length);
-      if (typeof window !== "undefined") {
-        console.log("Article Content Elements Details:", articleContent.map((el: any, idx: number) => ({
-          index: idx,
-          type: el?.type,
-          key: el?.key,
-          hasProps: !!el?.props,
-          hasChildren: !!(el?.props as any)?.children
-        })));
-      }
 
       return (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
@@ -361,17 +330,11 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
 
           {/* Article Content */}
           <div className="px-8 py-8">
-            {(() => {
-              console.log("Rendering article content:", {
-                hasContent: !!(articleContent && articleContent.length > 0),
-                length: articleContent?.length || 0,
-                firstElement: articleContent?.[0]
-              });
-              return articleContent && articleContent.length > 0 ? (
-                <div className="article-content max-w-4xl mx-auto">
-                  {articleContent}
-                </div>
-              ) : (
+            {articleContent && articleContent.length > 0 ? (
+              <div className="article-content max-w-4xl mx-auto">
+                {articleContent}
+              </div>
+            ) : (
               <div className="text-center py-12">
                 <p className="text-slate-500 mb-4">
                   {language === "ar" 
