@@ -246,11 +246,12 @@ export function LearningInterface({
   };
 
   // Calculate milestone progress on mount and when milestone changes
+  // Simplified: just calculate progress when entering milestone
   useEffect(() => {
     if (!currentMilestone || !userId) return;
     hasReloadedRef.current = false; // Reset on milestone change
 
-    // Calculate milestone progress if not already set
+    // Calculate milestone progress when entering milestone
     const calculateInitialProgress = async () => {
       try {
         const completionStatus = await checkMilestoneCompletion(userId, currentMilestone.id);
@@ -280,71 +281,21 @@ export function LearningInterface({
       }
     };
 
-    // Only calculate if milestone progress is not set or is 0
-    if (!milestoneProgress || milestoneProgress.progress_percentage === 0 || milestoneProgress.progress_percentage === null) {
-      calculateInitialProgress();
-    } else {
-      // Use existing progress
-      setCurrentMilestoneProgress(milestoneProgress.progress_percentage);
-    }
-  }, [currentMilestone, userId, path.id, enrollment.id, supabase]);
+    // Always calculate progress when entering milestone (simplified)
+    calculateInitialProgress();
+  }, [currentMilestone?.id, userId, path.id, enrollment.id, supabase]);
 
   // State for current milestone progress
   const [currentMilestoneProgress, setCurrentMilestoneProgress] = useState<number>(
     milestoneProgress?.progress_percentage || 0
   );
 
-  // Function to update progress (used by both video and article completion)
-  const updateProgress = async () => {
-    if (!currentMilestone || !userId) return;
-
-    try {
-      // Check milestone completion status
-      const completionStatus = await checkMilestoneCompletion(userId, currentMilestone.id);
-      
-      // Update milestone progress
-      await updateMilestoneProgress(userId, currentMilestone.id, completionStatus);
-      
-      // Update local milestone progress state
-      setCurrentMilestoneProgress(completionStatus.progressPercentage);
-
-      // Calculate and update path progress
-      const overallProgress = await calculatePathProgress(userId, path.id);
-      
-      // Update enrollment progress
-      await supabase
-        .from("path_enrollments")
-        .update({
-          progress_percentage: overallProgress,
-          last_activity_at: new Date().toISOString(),
-        })
-        .eq("id", enrollment.id);
-
-      // Update local state
-      setCurrentEnrollmentProgress(overallProgress);
-    } catch (error) {
-      console.debug("Error updating progress:", error);
-    }
-  };
-
-  // Simple progress update when video is completed
+  // Simplified: Progress is calculated when entering milestone
+  // No need for real-time updates - just recalculate on milestone entry
   const handleVideoComplete = async () => {
-    await updateProgress();
+    // Progress will be recalculated when milestone changes or page refreshes
+    // No need for immediate update to keep it simple
   };
-
-  // Listen for article completion events
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const handleResourceCompleted = async () => {
-      await updateProgress();
-    };
-
-    window.addEventListener("resourceCompleted", handleResourceCompleted);
-    return () => {
-      window.removeEventListener("resourceCompleted", handleResourceCompleted);
-    };
-  }, [currentMilestone, userId, path.id, enrollment.id, supabase]);
 
   if (!currentMilestone) {
     return (
