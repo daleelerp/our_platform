@@ -18,8 +18,8 @@ export function CareerResourcesSection() {
           </h2>
           <p className="text-slate-600 max-w-2xl mx-auto text-lg">
             {isArabic
-              ? "استكشف الأدوار الوظيفية ونطاقات الرواتب في سوق العمل"
-              : "Explore job roles and salary ranges in the job market"}
+              ? "نظام منظم يساعد متعلمي ERP على اتخاذ قرارات مهنية صحيحة والتقدم بثقة."
+              : "A structured system that helps ERP learners make the right career decisions and progress with confidence."}
           </p>
         </div>
 

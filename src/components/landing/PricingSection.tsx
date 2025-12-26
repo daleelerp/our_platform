@@ -118,8 +118,8 @@ export function PricingSection() {
           </h2>
           <p className="text-lg text-slate-600 max-w-2xl mx-auto">
             {language === "ar"
-              ? "اختر الخطة المناسبة لك وابدأ رحلتك في تعلم أنظمة ERP"
-              : "Choose the plan that fits you and start your ERP learning journey"}
+              ? "نظام منظم يساعد متعلمي ERP على اتخاذ قرارات مهنية صحيحة والتقدم بثقة."
+              : "A structured system that helps ERP learners make the right career decisions and progress with confidence."}
           </p>
         </div>
 
