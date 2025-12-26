@@ -316,7 +316,13 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
       };
 
       // Use description (content) if available, otherwise show empty state
+      console.log("Article Content Check:", {
+        descriptionLength: description?.length || 0,
+        descriptionTrimmed: description?.trim().length || 0,
+        hasContent: !!(description && description.trim()),
+      });
       const articleContent = description && description.trim() ? formatArticleContent(description) : [];
+      console.log("Article Content Elements:", articleContent.length);
 
       return (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
