@@ -361,11 +361,17 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
 
           {/* Article Content */}
           <div className="px-8 py-8">
-            {articleContent && articleContent.length > 0 ? (
-              <div className="article-content max-w-4xl mx-auto">
-                {articleContent}
-              </div>
-            ) : (
+            {(() => {
+              console.log("Rendering article content:", {
+                hasContent: !!(articleContent && articleContent.length > 0),
+                length: articleContent?.length || 0,
+                firstElement: articleContent?.[0]
+              });
+              return articleContent && articleContent.length > 0 ? (
+                <div className="article-content max-w-4xl mx-auto">
+                  {articleContent}
+                </div>
+              ) : (
               <div className="text-center py-12">
                 <p className="text-slate-500 mb-4">
                   {language === "ar" 
