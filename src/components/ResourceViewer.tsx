@@ -141,6 +141,9 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
     return null;
   };
 
+  // Debug: Log resource type
+  console.log("ResourceViewer - Resource Type:", resource.resource_type, "Resource ID:", resource.id, "Title:", title);
+  
   // Render based on resource type
   switch (resource.resource_type) {
     case "video": {
