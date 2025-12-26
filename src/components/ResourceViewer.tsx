@@ -323,12 +323,15 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
       });
       const articleContent = description && description.trim() ? formatArticleContent(description) : [];
       console.log("Article Content Elements:", articleContent.length);
-      console.log("Article Content Elements Details:", articleContent.map((el, idx) => ({
-        index: idx,
-        type: el?.type,
-        key: el?.key,
-        props: el?.props?.children ? (typeof el.props.children === 'string' ? el.props.children.substring(0, 50) : 'complex') : 'no children'
-      })));
+      if (typeof window !== "undefined") {
+        console.log("Article Content Elements Details:", articleContent.map((el: any, idx: number) => ({
+          index: idx,
+          type: el?.type,
+          key: el?.key,
+          hasProps: !!el?.props,
+          hasChildren: !!(el?.props as any)?.children
+        })));
+      }
 
       return (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
