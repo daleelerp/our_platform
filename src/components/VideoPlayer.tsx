@@ -52,7 +52,8 @@ export function VideoPlayer({
   const [hasError, setHasError] = useState(false);
   const [hasTriggeredComplete, setHasTriggeredComplete] = useState(false);
   const progressSaveIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const lastSavedProgressRef = useRef(0);
+  const lastSavedProgressTimeRef = useRef<number>(0); // Store timestamp of last save
+  const lastSavedProgressSecondsRef = useRef(0); // Store actual progress in seconds
   const hasPlayedRef = useRef(false); // Track if user has actually played the video
   const supabase = createClient();
   
@@ -76,9 +77,19 @@ export function VideoPlayer({
       if (!userId || !videoContentId || !player) return;
 
       // Only save if progress changed significantly (avoid too many writes)
-      if (Math.abs(progressSeconds - lastSavedProgressRef.current) < 5) {
+      // But allow saving if it's been more than 30 seconds since last save
+      const timeSinceLastSave = lastSavedProgressTimeRef.current > 0 
+        ? Date.now() - lastSavedProgressTimeRef.current 
+        : 30001;
+      const progressChanged = Math.abs(progressSeconds - lastSavedProgressSecondsRef.current) >= 5;
+      
+      if (!progressChanged && timeSinceLastSave < 30000) {
         return;
       }
+      
+      // Store timestamp and progress for next check
+      lastSavedProgressTimeRef.current = Date.now();
+      lastSavedProgressSecondsRef.current = progressSeconds;
 
       lastSavedProgressRef.current = progressSeconds;
 
@@ -319,25 +330,23 @@ export function VideoPlayer({
           }
         }, 200); // Update every 200ms for smooth progress bar animation
         
-        // Save to database every 10 seconds (only when playing)
-        if (isPlaying) {
-          saveInterval = setInterval(() => {
-            if (player) {
-              try {
-                const current = player.getCurrentTime();
-                const total = player.getDuration();
-                if (current && total && current > 0 && total > 0) {
-                  const percent = (current / total) * 100;
-                  saveProgress(current, percent, percent >= 90);
-                }
-              } catch (error) {
-                console.debug("Error in progress save interval:", error);
+        // Save to database every 10 seconds when playing, every 30 seconds when paused
+        saveInterval = setInterval(() => {
+          if (player) {
+            try {
+              const current = player.getCurrentTime();
+              const total = player.getDuration();
+              if (current && total && current > 0 && total > 0) {
+                const percent = (current / total) * 100;
+                saveProgress(current, percent, percent >= 90);
               }
+            } catch (error) {
+              console.debug("Error in progress save interval:", error);
             }
-          }, 10000);
-          
-          progressSaveIntervalRef.current = saveInterval;
-        }
+          }
+        }, isPlaying ? 10000 : 30000); // Save every 10s when playing, 30s when paused
+        
+        progressSaveIntervalRef.current = saveInterval;
       } catch (error) {
         console.error("Error setting up progress tracking:", error);
       }

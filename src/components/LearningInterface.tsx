@@ -128,6 +128,9 @@ export function LearningInterface({
   const [activeTab, setActiveTab] = useState<"videos" | "quiz" | "resources">(
     filteredVideos.length > 0 ? "videos" : filteredResources.length > 0 ? "resources" : quizzes.length > 0 ? "quiz" : "videos"
   );
+  const [currentEnrollmentProgress, setCurrentEnrollmentProgress] = useState<number>(
+    enrollment.progress_percentage || 0
+  );
   
   // Update selected video when language changes
   useEffect(() => {
@@ -267,8 +270,9 @@ export function LearningInterface({
             .update(updateData)
             .eq("id", enrollment.id);
           
-          // Update local enrollment object
+          // Update local enrollment object and state
           enrollment.progress_percentage = overallProgress;
+          setCurrentEnrollmentProgress(overallProgress);
           
           // Only reload once if milestone is newly completed (not already completed)
           if (completionStatus.isCompleted && !hasReloadedRef.current) {
@@ -356,8 +360,9 @@ export function LearningInterface({
           console.error("Error updating enrollment progress:", enrollmentError.message);
         }
       } else {
-        // Update local enrollment object
+        // Update local enrollment object and state
         enrollment.progress_percentage = overallProgress;
+        setCurrentEnrollmentProgress(overallProgress);
         
         // Only navigate if milestone is newly completed (not already completed)
         // Use router.push instead of reload to avoid infinite loops
@@ -476,7 +481,7 @@ export function LearningInterface({
               </div>
             </div>
             <div className="text-sm text-slate-600">
-              {enrollment.progress_percentage.toFixed(0)}%{" "}
+              {currentEnrollmentProgress.toFixed(0)}%{" "}
               {language === "ar" ? "مكتمل" : "Complete"}
             </div>
           </div>
@@ -799,7 +804,7 @@ export function LearningInterface({
                         startAt={
                           videoProgressMap.get(selectedVideo.id)?.last_watched_position || 0
                         }
-                        onProgress={(progress, currentTime) => {
+                        onProgress={async (progress, currentTime) => {
                           // Track that this video has been played in the current session
                           if (currentTime > 0 && !playedVideos.has(selectedVideo.id)) {
                             setPlayedVideos(prev => new Set(prev).add(selectedVideo.id));
@@ -810,6 +815,31 @@ export function LearningInterface({
                             newMap.set(selectedVideo.id, progress);
                             return newMap;
                           });
+                          
+                          // Update enrollment progress periodically (every 5% change or every 30 seconds)
+                          const shouldUpdateProgress = progress % 5 < 0.5 || Date.now() % 30000 < 500;
+                          if (shouldUpdateProgress && currentMilestone) {
+                            try {
+                              const completionStatus = await checkMilestoneCompletion(userId, currentMilestone.id);
+                              const overallProgress = await calculatePathProgress(userId, path.id);
+                              
+                              // Update local state for real-time display
+                              setCurrentEnrollmentProgress(overallProgress);
+                              
+                              // Update database if progress changed significantly
+                              if (Math.abs(overallProgress - currentEnrollmentProgress) >= 1) {
+                                await supabase
+                                  .from("path_enrollments")
+                                  .update({
+                                    progress_percentage: overallProgress,
+                                    last_activity_at: new Date().toISOString(),
+                                  })
+                                  .eq("id", enrollment.id);
+                              }
+                            } catch (error) {
+                              console.debug("Error updating progress:", error);
+                            }
+                          }
                         }}
                         onComplete={handleVideoComplete}
                       />
@@ -950,8 +980,9 @@ export function LearningInterface({
                             .update(updateData)
                             .eq("id", enrollment.id);
                           
-                          // Update local enrollment object
+                          // Update local enrollment object and state
                           enrollment.progress_percentage = overallProgress;
+                          setCurrentEnrollmentProgress(overallProgress);
                           
                           // Refresh to show updated progress
                           if (completionStatus.isCompleted) {
