@@ -44,8 +44,36 @@ export function HeroSection() {
               </span>
             </h1>
 
-            <p className="text-xl text-slate-600 max-w-xl">
+            <p className="text-lg sm:text-xl text-slate-700 font-medium mb-6">
               {t("hero.subtitle")}
+            </p>
+
+            {/* Points Grid */}
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              <div className="flex items-center gap-2 px-4 py-2.5 bg-[#f0f9f6] rounded-lg border border-[#d4ede3]">
+                <span className="text-[#429874] text-lg">🎓</span>
+                <span className="text-sm font-medium text-slate-700">{t("hero.subtitlePoints.point1")}</span>
+              </div>
+              <div className="flex items-center gap-2 px-4 py-2.5 bg-[#f0f9f6] rounded-lg border border-[#d4ede3]">
+                <span className="text-[#429874] text-lg">🔄</span>
+                <span className="text-sm font-medium text-slate-700">{t("hero.subtitlePoints.point2")}</span>
+              </div>
+              <div className="flex items-center gap-2 px-4 py-2.5 bg-[#f0f9f6] rounded-lg border border-[#d4ede3]">
+                <span className="text-[#429874] text-lg">💻</span>
+                <span className="text-sm font-medium text-slate-700">{t("hero.subtitlePoints.point3")}</span>
+              </div>
+              <div className="flex items-center gap-2 px-4 py-2.5 bg-[#f0f9f6] rounded-lg border border-[#d4ede3]">
+                <span className="text-[#429874] text-lg">📊</span>
+                <span className="text-sm font-medium text-slate-700">{t("hero.subtitlePoints.point4")}</span>
+              </div>
+            </div>
+
+            {/* Footer Text */}
+            <p className="text-sm text-slate-500 flex flex-wrap items-center gap-2">
+              <span className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#429874]"></span>
+                {t("hero.subtitleFooter")}
+              </span>
             </p>
 
             <div className="space-y-4">

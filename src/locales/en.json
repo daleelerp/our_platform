@@ -29,7 +29,14 @@
     "title": "Your Complete Guide",
     "titleHighlight": "to ERP Career Paths",
     "titleSuffix": "",
-    "subtitle": "Whether you're a student starting young, a professional looking to switch careers - we're with you every step of the way. We help developers and technical professionals, and we also help people who want to work in Functional or Business roles. Deep, comprehensive data gathered from thousands of sources online and carefully reviewed to answer all your questions.",
+    "subtitle": "Your complete guide to ERP career paths",
+    "subtitlePoints": {
+      "point1": "Student starting young",
+      "point2": "Professional switching careers",
+      "point3": "Developer or Technical",
+      "point4": "Functional or Business"
+    },
+    "subtitleFooter": "Deep data from thousands of sources • Carefully reviewed • Answers all your questions",
     "cta": "Get Early Access",
     "secondaryCta": "Learn How It Works",
     "socialProof": "professionals on the waitlist",
