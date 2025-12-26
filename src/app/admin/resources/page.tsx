@@ -17,7 +17,12 @@ export default function ResourcesPage() {
       </div>
       
       <div className="mb-6">
-        <YouTubeImporter />
+        <details className="border border-slate-200 rounded-lg p-4 bg-slate-50">
+          <summary className="cursor-pointer text-sm font-semibold text-slate-700 mb-3">
+            Import YouTube Playlist (Click to expand)
+          </summary>
+          <YouTubeImporter />
+        </details>
       </div>
 
       <AdminCrudTable
@@ -46,6 +51,16 @@ export default function ResourcesPage() {
           { key: "title", label: "Title (EN)", type: "text" },
           { key: "title_ar", label: "Title (AR)", type: "text" },
           {
+            key: "description",
+            label: "Content/Description (EN)",
+            type: "textarea",
+          },
+          {
+            key: "description_ar",
+            label: "Content/Description (AR)",
+            type: "textarea",
+          },
+          {
             key: "resource_type",
             label: "Type",
             type: "select",
@@ -55,7 +70,7 @@ export default function ResourcesPage() {
               { value: "test", label: "Test" },
             ],
           },
-          { key: "url", label: "URL", type: "text" },
+          { key: "url", label: "URL (optional for articles)", type: "text" },
           {
             key: "language",
             label: "Language Preference",
