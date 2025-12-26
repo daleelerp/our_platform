@@ -39,8 +39,10 @@ export function FoundersNote() {
 
             <p>{t("founder.paragraph3")}</p>
 
+            <p>{t("founder.paragraph4")}</p>
+
             <p className="text-[#285c46] font-medium">
-              {t("founder.paragraph4")}
+              {t("founder.paragraph5")}
             </p>
           </div>
 
