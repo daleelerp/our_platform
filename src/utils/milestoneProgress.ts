@@ -126,21 +126,10 @@ export async function checkMilestoneCompletion(
   }
 
   // 3. Check Articles/Text Content (if exists in future)
-  // For now, we'll check if there's a text_content or article table
-  // This is a placeholder for future implementation
-  const { data: articles } = await supabase
-    .from("text_content")
-    .select("id")
-    .eq("milestone_id", milestoneId)
-    .eq("is_active", true)
-    .maybeSingle(); // Use maybeSingle since table might not exist
-
-  if (articles) {
-    // If articles table exists, check completion
-    // This will be implemented when articles are added
-    status.articlesTotal = 1; // Placeholder
-    status.articlesCompleted = 0; // Placeholder
-  }
+  // Skip this check as text_content table doesn't exist
+  // Articles are handled via learning_resources table instead
+  status.articlesTotal = 0;
+  status.articlesCompleted = 0;
 
   // 4. Check Learning Resources (from milestone_resources)
   const { data: milestoneResources } = await supabase

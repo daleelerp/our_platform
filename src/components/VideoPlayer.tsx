@@ -93,24 +93,43 @@ export function VideoPlayer({
       lastSavedProgressSecondsRef.current = progressSeconds;
 
       try {
-        const { error } = await supabase.from("user_video_progress").upsert(
-          {
-            user_id: userId,
-            video_id: videoContentId,
-            watch_progress_seconds: progressSeconds,
-            completion_percentage: completionPercent,
-            is_completed: isComplete,
-            last_watched_position: progressSeconds,
-            playback_speed: playbackSpeed,
-            total_watch_time_seconds: progressSeconds, // This should be cumulative, simplified for now
-            last_watched_at: new Date().toISOString(),
-            completed_at: isComplete ? new Date().toISOString() : null,
-            watch_count: 1, // Should increment, simplified for now
-          },
-          {
+        // Convert to integers for database (watch_progress_seconds must be integer)
+        const watchProgressInt = Math.floor(progressSeconds);
+        const lastWatchedPositionInt = Math.floor(progressSeconds);
+        const totalWatchTimeInt = Math.floor(progressSeconds);
+        
+        // Check if this is first time watching
+        const { data: existing } = await supabase
+          .from("user_video_progress")
+          .select("first_watched_at")
+          .eq("user_id", userId)
+          .eq("video_id", videoContentId)
+          .maybeSingle();
+        
+        const updateData: any = {
+          user_id: userId,
+          video_id: videoContentId,
+          watch_progress_seconds: watchProgressInt,
+          completion_percentage: completionPercent,
+          is_completed: isComplete,
+          last_watched_position: lastWatchedPositionInt,
+          playback_speed: playbackSpeed,
+          total_watch_time_seconds: totalWatchTimeInt,
+          last_watched_at: new Date().toISOString(),
+          completed_at: isComplete ? new Date().toISOString() : null,
+          watch_count: 1,
+        };
+        
+        // Set first_watched_at only if not already set
+        if (!existing?.first_watched_at) {
+          updateData.first_watched_at = new Date().toISOString();
+        }
+        
+        const { error } = await supabase
+          .from("user_video_progress")
+          .upsert(updateData, {
             onConflict: "user_id,video_id",
-          }
-        );
+          });
 
         if (error) {
           console.error("Error saving progress:", error);
