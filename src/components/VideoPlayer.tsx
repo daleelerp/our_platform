@@ -51,6 +51,7 @@ export function VideoPlayer({
   const [isCompleted, setIsCompleted] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [hasTriggeredComplete, setHasTriggeredComplete] = useState(false);
+  const [captionsEnabled, setCaptionsEnabled] = useState(true);
   const progressSaveIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastSavedProgressTimeRef = useRef<number>(0); // Store timestamp of last save
   const lastSavedProgressSecondsRef = useRef(0); // Store actual progress in seconds
@@ -403,6 +404,25 @@ export function VideoPlayer({
     }
   };
 
+  // Handle captions toggle
+  const handleCaptionsToggle = () => {
+    if (player) {
+      try {
+        const newState = !captionsEnabled;
+        setCaptionsEnabled(newState);
+        // Toggle captions using YouTube IFrame API
+        if (newState) {
+          player.loadModule('captions');
+          player.setOption('captions', 'track', { languageCode: language === "ar" ? "ar" : "en" });
+        } else {
+          player.unloadModule('captions');
+        }
+      } catch (error) {
+        console.error("Error toggling captions:", error);
+      }
+    }
+  };
+
   // Format time helper
   const formatTime = (seconds: number): string => {
     const hrs = Math.floor(seconds / 3600);
@@ -499,22 +519,38 @@ export function VideoPlayer({
               )}
             </div>
 
-            {/* Right: Speed Control */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-400">
-                {language === "ar" ? "السرعة:" : "Speed:"}
-              </span>
-              <select
-                value={playbackSpeed}
-                onChange={(e) => handleSpeedChange(parseFloat(e.target.value))}
-                className="bg-slate-800 text-white text-xs px-2 py-1 rounded border border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            {/* Right: Speed Control and Captions */}
+            <div className="flex items-center gap-3">
+              {/* Captions Toggle */}
+              <button
+                onClick={handleCaptionsToggle}
+                className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                  captionsEnabled
+                    ? "bg-blue-600 text-white hover:bg-blue-700"
+                    : "bg-slate-700 text-slate-300 hover:bg-slate-600"
+                }`}
+                title={language === "ar" ? "تفعيل/إلغاء الكابشن" : "Toggle Captions"}
               >
-                {speedOptions.map((speed) => (
-                  <option key={speed} value={speed}>
-                    {speed}x
-                  </option>
-                ))}
-              </select>
+                {language === "ar" ? "CC" : "CC"}
+              </button>
+              
+              {/* Speed Control */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-400">
+                  {language === "ar" ? "السرعة:" : "Speed:"}
+                </span>
+                <select
+                  value={playbackSpeed}
+                  onChange={(e) => handleSpeedChange(parseFloat(e.target.value))}
+                  className="bg-slate-800 text-white text-xs px-2 py-1 rounded border border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {speedOptions.map((speed) => (
+                    <option key={speed} value={speed}>
+                      {speed}x
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
