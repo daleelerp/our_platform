@@ -46,47 +46,88 @@ export function useSubscription(): UseSubscriptionReturn {
     const supabase = createClient();
 
     try {
-      // Fetch subscription with plan
-      const { data: subData } = await supabase
-        .from("user_subscriptions")
-        .select(`
-          *,
-          subscription_plans (*)
-        `)
-        .eq("user_id", user.id)
-        .in("status", ["active", "trial", "paused"])
-        .single();
+      // Fetch subscription with plan (only if table exists)
+      try {
+        const { data: subData, error: subError } = await supabase
+          .from("user_subscriptions")
+          .select(`
+            *,
+            subscription_plans (*)
+          `)
+          .eq("user_id", user.id)
+          .in("status", ["active", "trial", "paused"])
+          .maybeSingle();
 
-      if (subData) {
-        setSubscription(subData);
-        setPlan(subData.subscription_plans);
-      } else {
-        // User has no subscription - they get free plan
-        const { data: freePlan } = await supabase
-          .from("subscription_plans")
-          .select("*")
-          .eq("name", "free")
-          .single();
+        // If table doesn't exist (406 error), skip subscription check
+        if (subError && subError.code === "PGRST116" || subError?.message?.includes("406")) {
+          console.debug("Subscription tables not available, using free plan");
+          setSubscription(null);
+          setPlan(null);
+        } else if (subData) {
+          setSubscription(subData);
+          setPlan(subData.subscription_plans);
+        } else {
+          // User has no subscription - try to get free plan
+          try {
+            const { data: freePlan } = await supabase
+              .from("subscription_plans")
+              .select("*")
+              .eq("name", "free")
+              .maybeSingle();
 
-        setPlan(freePlan);
+            setPlan(freePlan);
+            setSubscription(null);
+          } catch {
+            // Plans table doesn't exist either
+            setPlan(null);
+            setSubscription(null);
+          }
+        }
+      } catch (error: any) {
+        // Table doesn't exist or other error
+        if (error?.code === "PGRST116" || error?.message?.includes("406")) {
+          console.debug("Subscription tables not available");
+        } else {
+          console.debug("Error fetching subscription:", error);
+        }
         setSubscription(null);
+        setPlan(null);
       }
 
-      // Fetch current period usage
-      const periodStart = new Date();
-      periodStart.setDate(1);
-      periodStart.setHours(0, 0, 0, 0);
+      // Fetch current period usage (only if table exists)
+      try {
+        const periodStart = new Date();
+        periodStart.setDate(1);
+        periodStart.setHours(0, 0, 0, 0);
 
-      const { data: usageData } = await supabase
-        .from("subscription_usage")
-        .select("*")
-        .eq("user_id", user.id)
-        .gte("period_start", periodStart.toISOString())
-        .single();
+        const { data: usageData, error: usageError } = await supabase
+          .from("subscription_usage")
+          .select("*")
+          .eq("user_id", user.id)
+          .gte("period_start", periodStart.toISOString())
+          .maybeSingle();
 
-      setUsage(usageData);
+        // If table doesn't exist, ignore error
+        if (usageError && (usageError.code === "PGRST116" || usageError?.message?.includes("406"))) {
+          console.debug("Usage table not available");
+          setUsage(null);
+        } else {
+          setUsage(usageData);
+        }
+      } catch (error: any) {
+        // Table doesn't exist
+        if (error?.code === "PGRST116" || error?.message?.includes("406")) {
+          console.debug("Usage table not available");
+        } else {
+          console.debug("Error fetching usage:", error);
+        }
+        setUsage(null);
+      }
     } catch (error) {
-      console.error("Error fetching subscription:", error);
+      console.debug("Error in fetchSubscription:", error);
+      setSubscription(null);
+      setPlan(null);
+      setUsage(null);
     } finally {
       setIsLoading(false);
     }

@@ -81,36 +81,66 @@ export function AIChatAssistant({ initialMessage }: Props) {
       const supabase = createClient();
       
       try {
-        // Check if user has premium subscription
-        const { data: subscription } = await supabase
-          .from("user_subscriptions")
-          .select("*, subscription_plans(*)")
-          .eq("user_id", user.id)
-          .in("status", ["active", "trial"])
-          .single();
+        // Check if user has premium subscription (only if table exists)
+        try {
+          const { data: subscription, error: subError } = await supabase
+            .from("user_subscriptions")
+            .select("*, subscription_plans(*)")
+            .eq("user_id", user.id)
+            .in("status", ["active", "trial"])
+            .maybeSingle();
 
-        if (subscription?.subscription_plans?.name === "premium" || 
-            subscription?.subscription_plans?.name === "team") {
-          setIsPremium(true);
+          // If table doesn't exist (406 error), skip subscription check
+          if (subError && (subError.code === "PGRST116" || subError?.message?.includes("406"))) {
+            console.debug("Subscription tables not available, using free plan");
+            setIsPremium(false);
+          } else if (subscription?.subscription_plans?.name === "premium" || 
+                     subscription?.subscription_plans?.name === "team") {
+            setIsPremium(true);
+          } else {
+            setIsPremium(false);
+          }
+        } catch (error: any) {
+          // Table doesn't exist
+          if (error?.code === "PGRST116" || error?.message?.includes("406")) {
+            console.debug("Subscription table not available");
+          }
+          setIsPremium(false);
         }
 
-        // Get today's message count
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
-        const { data: usage } = await supabase
-          .from("subscription_usage")
-          .select("ai_requests")
-          .eq("user_id", user.id)
-          .gte("period_start", today.toISOString())
-          .single();
+        // Get today's message count (only if table exists)
+        try {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          
+          const { data: usage, error: usageError } = await supabase
+            .from("subscription_usage")
+            .select("ai_requests")
+            .eq("user_id", user.id)
+            .gte("period_start", today.toISOString())
+            .maybeSingle();
 
-        if (usage) {
-          setDailyMessagesUsed(usage.ai_requests || 0);
+          // If table doesn't exist, ignore error
+          if (usageError && (usageError.code === "PGRST116" || usageError?.message?.includes("406"))) {
+            console.debug("Usage table not available");
+            setDailyMessagesUsed(0);
+          } else if (usage) {
+            setDailyMessagesUsed(usage.ai_requests || 0);
+          } else {
+            setDailyMessagesUsed(0);
+          }
+        } catch (error: any) {
+          // Table doesn't exist
+          if (error?.code === "PGRST116" || error?.message?.includes("406")) {
+            console.debug("Usage table not available");
+          }
+          setDailyMessagesUsed(0);
         }
       } catch (error) {
-        // Tables might not exist yet
-        console.log("Subscription check:", error);
+        // General error
+        console.debug("Subscription check error:", error);
+        setIsPremium(false);
+        setDailyMessagesUsed(0);
       }
       
       setIsCheckingSubscription(false);
