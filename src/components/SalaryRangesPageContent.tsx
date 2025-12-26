@@ -332,17 +332,6 @@ export function SalaryRangesPageContent({ jobRoles, salaryRanges, countries, has
           </div>
         )}
 
-        {/* Limited Access Notice for Non-Premium Users */}
-        {!hasPremiumAccess && salaryRanges.length > 0 && (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
-            <p className="text-amber-800 text-center font-medium">
-              {language === "ar"
-                ? "⚠️ عرض محدود: يتم عرض مثالين فقط. اشترك للحصول على وصول كامل لجميع البيانات."
-                : "⚠️ Limited Preview: Only 2 examples shown. Subscribe for full access to all data."}
-            </p>
-          </div>
-        )}
-
         {/* Salary Ranges Display */}
         {Object.keys(groupedByRole).length === 0 ? (
           <div className="text-center py-12 text-slate-500">{t.noData}</div>
