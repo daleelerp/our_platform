@@ -12,6 +12,7 @@ type Column = {
   options?: { value: string; label: string }[];
   readOnly?: boolean;
   hidden?: boolean;
+  hideInTable?: boolean; // Hide from table but show in form
   dependsOn?: string; // Field that must be selected before this field is enabled
   scraper?: {
     enabled: boolean;
@@ -55,7 +56,7 @@ export function AdminCrudTable({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
-  const visibleColumns = columns.filter((c) => !c.hidden);
+  const visibleColumns = columns.filter((c) => !c.hidden && !c.hideInTable);
 
   const loadItems = async () => {
     setLoading(true);

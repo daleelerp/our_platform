@@ -54,11 +54,13 @@ export default function ResourcesPage() {
             key: "description",
             label: "Content/Description (EN)",
             type: "textarea",
+            hideInTable: true, // Hide from table but show in edit form
           },
           {
             key: "description_ar",
             label: "Content/Description (AR)",
             type: "textarea",
+            hideInTable: true, // Hide from table but show in edit form
           },
           {
             key: "resource_type",
