@@ -19,77 +19,77 @@ export default function RoadmapPage() {
 
   const roadmapItems = [
     {
-      status: "completed",
-      quarter: isArabic ? "Q4 2024" : "Q4 2024",
+      status: "inProgress",
+      quarter: isArabic ? "نوفمبر 2025" : "November 2025",
       items: isArabic 
         ? [
-            "إطلاق المنصة الأساسية",
+            "بداية التطوير",
+            "بناء المنصة الأساسية",
             "مسارات تعليمية لـ Oracle ERP",
             "نظام الاشتراكات والدفع",
             "واجهة المستخدم ثنائية اللغة",
           ]
         : [
-            "Core platform launch",
+            "Development Start",
+            "Building core platform",
             "Oracle ERP learning paths",
             "Subscription and payment system",
             "Bilingual user interface",
           ],
     },
     {
-      status: "inProgress",
-      quarter: isArabic ? "Q1 2025" : "Q1 2025",
+      status: "planned",
+      quarter: isArabic ? "يناير 2026" : "January 2026",
       items: isArabic
         ? [
-            "مسارات SAP S/4HANA",
-            "مسارات Microsoft Dynamics 365",
-            "نظام الفريق والاشتراكات المؤسسية",
-            "تطبيق الهاتف المحمول",
-            "منتدى المجتمع",
+            "إطلاق المنصة",
+            "مسارات Oracle ERP كاملة",
+            "نظام المستخدمين والاشتراكات",
+            "واجهة المستخدم ثنائية اللغة",
           ]
         : [
-            "SAP S/4HANA paths",
-            "Microsoft Dynamics 365 paths",
-            "Team and enterprise subscriptions",
-            "Mobile app",
-            "Community forum",
+            "Platform Launch",
+            "Complete Oracle ERP paths",
+            "User and subscription system",
+            "Bilingual user interface",
           ],
     },
     {
       status: "planned",
-      quarter: isArabic ? "Q2 2025" : "Q2 2025",
+      quarter: isArabic ? "2026 - المرحلة الأولى" : "2026 - Phase 1",
       items: isArabic
         ? [
-            "مسارات Odoo و NetSuite",
-            "ميزات الذكاء الاصطناعي المتقدمة",
-            "التعلم التكيفي",
+            "زيادة كل مجالات ERP (SAP، Microsoft Dynamics، Odoo، NetSuite، وغيرها)",
+            "بناء كوميونيتي كامل",
+            "إضافة شركات توظيف",
+            "محاضرات مغلقة",
+            "تغطية كامل أنظمة ERP",
+          ]
+        : [
+            "Expand all ERP domains (SAP, Microsoft Dynamics, Odoo, NetSuite, and more)",
+            "Build complete community",
+            "Add recruitment companies",
+            "Private lectures",
+            "Cover all ERP systems",
+          ],
+    },
+    {
+      status: "planned",
+      quarter: isArabic ? "2026-2027 - المرحلة الثانية" : "2026-2027 - Phase 2",
+      items: isArabic
+        ? [
+            "إضافة محتوى خارج نطاق ERP",
+            "توسيع المنصة لتشمل مجالات أخرى",
+            "ميزات متقدمة للتعلم",
             "شهادات معتمدة",
-            "تكامل مع LinkedIn",
+            "تكامل مع منصات التوظيف",
           ]
         : [
-            "Odoo and NetSuite paths",
-            "Advanced AI features",
-            "Adaptive learning",
+            "Add content beyond ERP",
+            "Expand platform to include other domains",
+            "Advanced learning features",
             "Certified credentials",
-            "LinkedIn integration",
-          ],
-    },
-    {
-      status: "planned",
-      quarter: isArabic ? "Q3-Q4 2025" : "Q3-Q4 2025",
-      items: isArabic
-        ? [
-            "مسارات إضافية لأنظمة ERP",
-            "منصة للمدربين",
-            "ميزات التعلم الاجتماعي",
-            "تحليلات متقدمة للتقدم",
-            "واجهات برمجة التطبيقات (APIs)",
-          ]
-        : [
-            "Additional ERP system paths",
-            "Instructor platform",
-            "Social learning features",
-            "Advanced progress analytics",
-            "API access",
+            "Integration with recruitment platforms",
           ],
     },
   ];
