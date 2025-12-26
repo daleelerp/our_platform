@@ -15,6 +15,21 @@ export function ResourceViewer({ resource, userId, milestoneId, onComplete }: Pr
   const language = useAppStore((state) => state.language);
 
   const getText = (en: string | null, ar: string | null): string => {
+    // Respect the article's language field
+    // If article is English-only, show English
+    if (resource.language === "en") {
+      return en || "";
+    }
+    // If article is Arabic-only, show Arabic
+    if (resource.language === "ar") {
+      return ar || "";
+    }
+    // If article is "both", use user's language preference
+    if (resource.language === "both") {
+      if (language === "ar" && ar) return ar;
+      return en || "";
+    }
+    // Fallback: use user's language preference
     if (language === "ar" && ar) return ar;
     return en || "";
   };
