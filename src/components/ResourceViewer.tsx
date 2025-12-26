@@ -108,20 +108,30 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
   const title = getText(resource.title, resource.title_ar);
   
   // Get description based on resource language and user preference
+  // For articles, we need to get the right description based on user's language preference
   let description = "";
-  if (resource.language === "en") {
+  const resourceLang = resource.language || "en"; // Default to "en" if not set
+  
+  if (resourceLang === "en") {
+    // Article is English-only, use description (English)
     description = resource.description || "";
-  } else if (resource.language === "ar") {
+  } else if (resourceLang === "ar") {
+    // Article is Arabic-only, use description_ar (Arabic)
     description = resource.description_ar || "";
-  } else if (resource.language === "both") {
+  } else if (resourceLang === "both") {
+    // Article supports both languages, use user's preference
     if (language === "ar") {
       description = resource.description_ar || resource.description || "";
     } else {
       description = resource.description || resource.description_ar || "";
     }
   } else {
-    // Legacy: use user preference
-    description = getText(resource.description, resource.description_ar);
+    // Legacy or unknown language: use user preference
+    if (language === "ar") {
+      description = resource.description_ar || resource.description || "";
+    } else {
+      description = resource.description || resource.description_ar || "";
+    }
   }
   
   // Check if URL is valid (not null, not empty, not just whitespace)
