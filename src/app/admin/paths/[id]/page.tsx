@@ -638,6 +638,11 @@ export default function EditPathPage() {
     }
   };
 
+  const handleEditResource = (milestoneId: string, resourceId: string) => {
+    // Navigate to resource edit page
+    window.open(`/admin/resources?edit=${resourceId}`, '_blank');
+  };
+
   const handleDeleteResource = async (milestoneId: string, id: string) => {
     if (!confirm("Are you sure you want to unlink this resource?")) return;
     try {
@@ -1004,7 +1009,7 @@ export default function EditPathPage() {
           title_ar: articleData.title_ar.trim() || null,
           description: articleData.content.trim() || null,
           description_ar: articleData.content_ar.trim() || null,
-          url: articleData.url.trim() || null,
+          url: articleData.url.trim() || "",
           resource_type: "article",
           language: articleData.language || "en",
           is_free: articleData.is_free !== false,
@@ -2122,28 +2127,43 @@ export default function EditPathPage() {
                       {resourcesByMilestone[m.id].map((r) => (
                         <div
                           key={r.id}
-                          className="flex items-center justify-between text-xs"
+                          className="flex items-center justify-between text-xs border border-slate-200 rounded-lg p-2"
                         >
-                          <div className="flex-1">
-                            <div className="font-medium text-slate-800">
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-slate-800 truncate">
                               {r.resource_title}
                             </div>
-                            <a
-                              href={r.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-[11px] text-teal-600 hover:text-teal-700 break-all"
-                            >
-                              {r.url}
-                            </a>
+                            {r.url && r.url.trim() ? (
+                              <a
+                                href={r.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-[11px] text-teal-600 hover:text-teal-700 break-all block truncate"
+                              >
+                                {r.url}
+                              </a>
+                            ) : (
+                              <span className="text-[11px] text-slate-400 italic">
+                                No URL (content only)
+                              </span>
+                            )}
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteResource(m.id, r.id)}
-                            className="ml-3 text-[11px] text-red-600 hover:text-red-700"
-                          >
-                            Remove
-                          </button>
+                          <div className="flex items-center gap-2 ml-3">
+                            <button
+                              type="button"
+                              onClick={() => handleEditResource(m.id, r.resource_id)}
+                              className="text-[11px] text-blue-600 hover:text-blue-700 px-2 py-1 border border-blue-200 rounded hover:bg-blue-50"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteResource(m.id, r.id)}
+                              className="text-[11px] text-red-600 hover:text-red-700 px-2 py-1 border border-red-200 rounded hover:bg-red-50"
+                            >
+                              Remove
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
