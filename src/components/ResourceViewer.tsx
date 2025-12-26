@@ -210,6 +210,20 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
     }
 
     case "article": {
+      // Debug: Log resource data to help diagnose issues
+      if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
+        console.log("Article Resource Data:", {
+          id: resource.id,
+          title,
+          description,
+          description_en: resource.description,
+          description_ar: resource.description_ar,
+          language: resource.language,
+          url: resource.url,
+          hasValidUrl,
+        });
+      }
+
       // Format article content with proper styling
       const formatArticleContent = (content: string) => {
         if (!content) return [];
