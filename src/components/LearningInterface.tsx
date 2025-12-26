@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/store/useAppStore";
 import { VideoPlayer } from "./VideoPlayer";
@@ -245,56 +245,68 @@ export function LearningInterface({
     return en || "";
   };
 
+  // Function to recalculate and update progress
+  const recalculateProgress = useCallback(async () => {
+    if (!currentMilestone || !userId) return;
+    
+    try {
+      const completionStatus = await checkMilestoneCompletion(userId, currentMilestone.id);
+      
+      // Update milestone progress in database
+      await updateMilestoneProgress(userId, currentMilestone.id, completionStatus);
+      
+      // Update local state
+      setCurrentMilestoneProgress(completionStatus.progressPercentage);
+
+      // Calculate and update path progress
+      const overallProgress = await calculatePathProgress(userId, path.id);
+      
+      // Update enrollment progress
+      await supabase
+        .from("path_enrollments")
+        .update({
+          progress_percentage: overallProgress,
+          last_activity_at: new Date().toISOString(),
+        })
+        .eq("id", enrollment.id);
+
+      // Update local enrollment progress state
+      setCurrentEnrollmentProgress(overallProgress);
+    } catch (error) {
+      console.debug("Error calculating progress:", error);
+    }
+  }, [currentMilestone?.id, userId, path.id, enrollment.id, supabase]);
+
   // Calculate milestone progress on mount and when milestone changes
-  // Simplified: just calculate progress when entering milestone
   useEffect(() => {
     if (!currentMilestone || !userId) return;
     hasReloadedRef.current = false; // Reset on milestone change
+    recalculateProgress();
+  }, [currentMilestone?.id, userId, path.id, enrollment.id, supabase]);
 
-    // Calculate milestone progress when entering milestone
-    const calculateInitialProgress = async () => {
-      try {
-        const completionStatus = await checkMilestoneCompletion(userId, currentMilestone.id);
-        
-        // Update milestone progress in database
-        await updateMilestoneProgress(userId, currentMilestone.id, completionStatus);
-        
-        // Update local state
-        setCurrentMilestoneProgress(completionStatus.progressPercentage);
-
-        // Calculate and update path progress
-        const overallProgress = await calculatePathProgress(userId, path.id);
-        
-        // Update enrollment progress
-        await supabase
-          .from("path_enrollments")
-          .update({
-            progress_percentage: overallProgress,
-            last_activity_at: new Date().toISOString(),
-          })
-          .eq("id", enrollment.id);
-
-        // Update local enrollment progress state
-        setCurrentEnrollmentProgress(overallProgress);
-      } catch (error) {
-        console.debug("Error calculating initial progress:", error);
-      }
+  // Listen for resource completion events and recalculate progress immediately
+  useEffect(() => {
+    const handleResourceCompleted = () => {
+      // Recalculate progress immediately when resource is marked as read
+      recalculateProgress();
     };
 
-    // Always calculate progress when entering milestone (simplified)
-    calculateInitialProgress();
-  }, [currentMilestone?.id, userId, path.id, enrollment.id, supabase]);
+    window.addEventListener("resourceCompleted", handleResourceCompleted);
+    
+    return () => {
+      window.removeEventListener("resourceCompleted", handleResourceCompleted);
+    };
+  }, [recalculateProgress]);
 
   // State for current milestone progress
   const [currentMilestoneProgress, setCurrentMilestoneProgress] = useState<number>(
     milestoneProgress?.progress_percentage || 0
   );
 
-  // Simplified: Progress is calculated when entering milestone
-  // No need for real-time updates - just recalculate on milestone entry
+  // Handle video completion - recalculate progress immediately
   const handleVideoComplete = async () => {
-    // Progress will be recalculated when milestone changes or page refreshes
-    // No need for immediate update to keep it simple
+    // Recalculate progress immediately when video is completed
+    await recalculateProgress();
   };
 
   if (!currentMilestone) {
