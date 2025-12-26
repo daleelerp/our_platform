@@ -332,20 +332,23 @@ export async function calculatePathProgress(
   (allQuizzes || []).forEach((q: any) => milestonesWithContent.add(q.milestone_id));
   (allResources || []).forEach((r: any) => milestonesWithContent.add(r.milestone_id));
 
-  // Get completion status for all milestones
+  // Get completion status and progress for all milestones
   const { data: milestoneProgress } = await supabase
     .from("user_milestone_progress")
-    .select("milestone_id, status")
+    .select("milestone_id, status, progress_percentage")
     .eq("user_id", userId)
     .in("milestone_id", milestoneIds);
 
-  const progressMap = new Map<string, string>();
+  const progressMap = new Map<string, { status: string; progress: number }>();
   (milestoneProgress || []).forEach((mp: any) => {
-    progressMap.set(mp.milestone_id, mp.status);
+    progressMap.set(mp.milestone_id, {
+      status: mp.status || "not_started",
+      progress: mp.progress_percentage || 0
+    });
   });
 
-  // Count completed milestones
-  let completedCount = 0;
+  // Calculate total progress based on actual milestone progress percentages
+  let totalProgress = 0;
   let totalMilestonesToCount = 0;
 
   for (const milestone of milestones) {
@@ -353,24 +356,36 @@ export async function calculatePathProgress(
     
     if (hasContent) {
       totalMilestonesToCount++;
-      // Check if milestone is marked as completed
-      const status = progressMap.get(milestone.id);
-      if (status === "completed") {
-        completedCount++;
+      // Get milestone progress (0-100)
+      const milestoneData = progressMap.get(milestone.id);
+      if (milestoneData) {
+        // Use actual progress percentage
+        // If status is completed, use 100%, otherwise use saved progress_percentage
+        if (milestoneData.status === "completed") {
+          totalProgress += 100;
+        } else {
+          totalProgress += milestoneData.progress;
+        }
+      } else {
+        // No progress record yet - calculate it on the fly
+        const completionStatus = await checkMilestoneCompletion(userId, milestone.id, supabase);
+        totalProgress += completionStatus.progressPercentage;
+        // Save it for next time
+        await updateMilestoneProgress(userId, milestone.id, completionStatus, supabase);
       }
     } else {
       // Milestone has no content - count as completed automatically
-      completedCount++;
+      totalProgress += 100;
       totalMilestonesToCount++;
     }
   }
 
-  // Calculate progress
+  // Calculate average progress across all milestones
   if (totalMilestonesToCount === 0) {
     return 0;
   }
 
-  return Math.round((completedCount / totalMilestonesToCount) * 100);
+  return Math.round(totalProgress / totalMilestonesToCount);
 }
 
 /**

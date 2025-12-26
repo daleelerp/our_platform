@@ -253,6 +253,11 @@ export function LearningInterface({
     // Progress tracking removed - simplified
   }, [currentMilestone, userId, path.id, milestones, enrollment.id, supabase, path.slug, router]);
 
+  // State for current milestone progress
+  const [currentMilestoneProgress, setCurrentMilestoneProgress] = useState<number>(
+    milestoneProgress?.progress_percentage || 0
+  );
+
   // Simple progress update when video is completed
   const handleVideoComplete = async () => {
     if (!currentMilestone || !userId) return;
@@ -263,6 +268,9 @@ export function LearningInterface({
       
       // Update milestone progress
       await updateMilestoneProgress(userId, currentMilestone.id, completionStatus);
+      
+      // Update local milestone progress state
+      setCurrentMilestoneProgress(completionStatus.progressPercentage);
 
       // Calculate and update path progress
       const overallProgress = await calculatePathProgress(userId, path.id);
@@ -348,6 +356,23 @@ export function LearningInterface({
                   {language === "ar" ? "المرحلة" : "Milestone"} {currentMilestone.milestone_number}{" "}
                   {language === "ar" ? "من" : "of"} {milestones.length}
                 </p>
+                {/* Milestone Progress */}
+                <div className="mt-2">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs text-slate-500">
+                      {language === "ar" ? "تقدمك" : "Your Progress"}
+                    </span>
+                    <span className="text-xs font-semibold text-teal-600">
+                      {currentMilestoneProgress}%
+                    </span>
+                  </div>
+                  <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden w-32">
+                    <div
+                      className="h-full bg-teal-500 transition-all duration-300"
+                      style={{ width: `${currentMilestoneProgress}%` }}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
             <div className="text-sm text-slate-600">
