@@ -274,14 +274,14 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
       };
 
       // Use description (content) if available, otherwise show empty state
-      const articleContent = description ? formatArticleContent(description) : [];
+      const articleContent = description && description.trim() ? formatArticleContent(description) : [];
 
       return (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
           {/* Header */}
           <div className="border-b border-slate-200 px-8 py-6">
             <h2 className="text-2xl font-bold text-slate-900 mb-2 leading-tight">
-              {title}
+              {title || (language === "ar" ? "مقال بدون عنوان" : "Untitled Article")}
             </h2>
             {resource.platform && (
               <div className="flex items-center gap-2 mt-3 flex-wrap">
@@ -310,11 +310,18 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
               </div>
             ) : (
               <div className="text-center py-12">
-                <p className="text-slate-500">
+                <p className="text-slate-500 mb-4">
                   {language === "ar" 
-                    ? "لا يوجد محتوى متاح حالياً." 
-                    : "No content available at the moment."}
+                    ? "لا يوجد محتوى نصي متاح حالياً." 
+                    : "No text content available at the moment."}
                 </p>
+                {hasValidUrl && (
+                  <p className="text-sm text-slate-400">
+                    {language === "ar"
+                      ? "يمكنك فتح المقال من الرابط أدناه"
+                      : "You can open the article from the link below"}
+                  </p>
+                )}
               </div>
             )}
           </div>
