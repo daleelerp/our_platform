@@ -107,9 +107,13 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
 
   const title = getText(resource.title, resource.title_ar);
   const description = getText(resource.description, resource.description_ar);
+  
+  // Check if URL is valid (not null, not empty, not just whitespace)
+  const hasValidUrl = resource.url && typeof resource.url === 'string' && resource.url.trim().length > 0;
 
   // Extract YouTube video ID if it's a YouTube URL
-  const extractVideoId = (url: string): string | null => {
+  const extractVideoId = (url: string | null | undefined): string | null => {
+    if (!url || typeof url !== 'string' || url.trim().length === 0) return null;
     const patterns = [
       /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
       /youtube\.com\/watch\?.*v=([^&\n?#]+)/,
@@ -144,24 +148,47 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
           </div>
         );
       }
-      // Other video URLs - use iframe
+      // Other video URLs - use iframe only if URL is valid
+      if (hasValidUrl) {
+        return (
+          <div className="bg-white rounded-xl border border-slate-200 p-6">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-slate-900 mb-2">{title}</h3>
+              {description && (
+                <p className="text-slate-600 text-sm">{description}</p>
+              )}
+            </div>
+            <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
+              <iframe
+                src={resource.url}
+                className="absolute top-0 left-0 w-full h-full rounded-lg"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                title={title}
+              />
+            </div>
+          </div>
+        );
+      }
+      // No valid URL - show description as content
       return (
         <div className="bg-white rounded-xl border border-slate-200 p-6">
           <div className="mb-4">
             <h3 className="text-lg font-semibold text-slate-900 mb-2">{title}</h3>
-            {description && (
-              <p className="text-slate-600 text-sm">{description}</p>
-            )}
           </div>
-          <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
-            <iframe
-              src={resource.url}
-              className="absolute top-0 left-0 w-full h-full rounded-lg"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-              title={title}
-            />
-          </div>
+          {description ? (
+            <div className="prose max-w-none">
+              <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">{description}</p>
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <p className="text-slate-500">
+                {language === "ar" 
+                  ? "لا يوجد محتوى متاح حالياً." 
+                  : "No content available at the moment."}
+              </p>
+            </div>
+          )}
         </div>
       );
     }
@@ -295,7 +322,7 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
           {/* Footer with Link Button and Mark as Read */}
           <div className="border-t border-slate-200 px-8 py-6 bg-slate-50 rounded-b-xl">
             <div className="flex items-center justify-between gap-4">
-              {resource.url && (
+              {hasValidUrl && (
                 <a
                   href={resource.url}
                   target="_blank"
@@ -347,7 +374,7 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
 
     case "test": {
       // For tests, show content or URL link
-      if (!resource.url) {
+      if (!hasValidUrl) {
         // No URL - show description as content
         const testContent = description ? (
           <div className="prose max-w-none">
@@ -410,7 +437,7 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
 
     default:
       // Default case - show content or URL link
-      if (!resource.url) {
+      if (!hasValidUrl) {
         // No URL - show description as content
         const defaultContent = description ? (
           <div className="prose max-w-none">
