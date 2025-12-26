@@ -246,6 +246,7 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
         return elements;
       };
 
+      // Use description (content) if available, otherwise show empty state
       const articleContent = description ? formatArticleContent(description) : [];
 
       return (
@@ -345,8 +346,34 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
     }
 
     case "test": {
-      // For tests, we'll need to create a test/quiz interface
-      // For now, show as embedded content
+      // For tests, show content or URL link
+      if (!resource.url) {
+        // No URL - show description as content
+        const testContent = description ? (
+          <div className="prose max-w-none">
+            <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">{description}</p>
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <p className="text-slate-500">
+              {language === "ar" 
+                ? "لا يوجد محتوى متاح حالياً." 
+                : "No content available at the moment."}
+            </p>
+          </div>
+        );
+
+        return (
+          <div className="bg-white rounded-xl border border-slate-200 p-6">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-slate-900 mb-2">{title}</h3>
+            </div>
+            {testContent}
+          </div>
+        );
+      }
+
+      // Has URL - show as embedded content
       return (
         <div className="bg-white rounded-xl border border-slate-200 p-6">
           <div className="mb-4">
@@ -362,6 +389,9 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
               style={{ minHeight: "600px" }}
               title={title}
               sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+              onError={(e) => {
+                console.error("Iframe load error:", e);
+              }}
             />
           </div>
           <div className="mt-4 pt-4 border-t border-slate-200">
@@ -379,6 +409,34 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
     }
 
     default:
+      // Default case - show content or URL link
+      if (!resource.url) {
+        // No URL - show description as content
+        const defaultContent = description ? (
+          <div className="prose max-w-none">
+            <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">{description}</p>
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <p className="text-slate-500">
+              {language === "ar" 
+                ? "لا يوجد محتوى متاح حالياً." 
+                : "No content available at the moment."}
+            </p>
+          </div>
+        );
+
+        return (
+          <div className="bg-white rounded-xl border border-slate-200 p-6">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-slate-900 mb-2">{title}</h3>
+            </div>
+            {defaultContent}
+          </div>
+        );
+      }
+
+      // Has URL - show as embedded content
       return (
         <div className="bg-white rounded-xl border border-slate-200 p-6">
           <div className="mb-4">
@@ -394,6 +452,9 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
               style={{ minHeight: "600px" }}
               title={title}
               sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+              onError={(e) => {
+                console.error("Iframe load error:", e);
+              }}
             />
           </div>
           <div className="mt-4 pt-4 border-t border-slate-200">
