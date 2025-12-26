@@ -8,10 +8,9 @@ type Props = {
   resource: LearningResource;
   userId?: string;
   milestoneId?: string;
-  onComplete?: () => void;
 };
 
-export function ResourceViewer({ resource, userId, milestoneId, onComplete }: Props) {
+export function ResourceViewer({ resource, userId, milestoneId }: Props) {
   const language = useAppStore((state) => state.language);
 
   const getText = (en: string | null, ar: string | null): string => {
@@ -69,7 +68,6 @@ export function ResourceViewer({ resource, userId, milestoneId, onComplete }: Pr
               videoContentId={resource.id}
               userId={userId}
               milestoneId={milestoneId}
-              onComplete={onComplete}
             />
           </div>
         );
@@ -97,45 +95,154 @@ export function ResourceViewer({ resource, userId, milestoneId, onComplete }: Pr
     }
 
     case "article": {
-      // For articles, we'll fetch and display the content
-      // For now, show in an iframe or fetch content
+      // Format article content with proper styling
+      const formatArticleContent = (content: string) => {
+        if (!content) return [];
+        
+        // Split by double newlines to create paragraphs
+        const paragraphs = content.split(/\n\n+/).filter(p => p.trim());
+        const elements: JSX.Element[] = [];
+        let currentListItems: string[] = [];
+        
+        paragraphs.forEach((para, idx) => {
+          const trimmed = para.trim();
+          
+          // Check if it's a heading (starts with bullet or dash)
+          if (trimmed.match(/^[•\-\*]\s*(.+)/)) {
+            // Close any open list first
+            if (currentListItems.length > 0) {
+              elements.push(
+                <ul key={`list-${idx}`} className="list-disc list-inside mb-6 space-y-2 text-slate-700 leading-relaxed">
+                  {currentListItems.map((item, i) => (
+                    <li key={i}>{item}</li>
+                  ))}
+                </ul>
+              );
+              currentListItems = [];
+            }
+            
+            const match = trimmed.match(/^[•\-\*]\s*(.+)/);
+            elements.push(
+              <div key={`heading-${idx}`} className="mb-4">
+                <h4 className="text-lg font-semibold text-slate-900 mb-3 flex items-start">
+                  <span className="text-teal-600 mr-2 mt-1.5">•</span>
+                  <span>{match?.[1]}</span>
+                </h4>
+              </div>
+            );
+          }
+          // Check if it's a list item
+          else if (trimmed.match(/^-\s+(.+)/)) {
+            const match = trimmed.match(/^-\s+(.+)/);
+            if (match?.[1]) {
+              currentListItems.push(match[1]);
+            }
+          }
+          // Regular paragraph
+          else {
+            // Close any open list first
+            if (currentListItems.length > 0) {
+              elements.push(
+                <ul key={`list-${idx}`} className="list-disc list-inside mb-6 space-y-2 text-slate-700 leading-relaxed">
+                  {currentListItems.map((item, i) => (
+                    <li key={i}>{item}</li>
+                  ))}
+                </ul>
+              );
+              currentListItems = [];
+            }
+            
+            elements.push(
+              <p key={`para-${idx}`} className="mb-6 text-slate-700 leading-relaxed text-[16px]">
+                {trimmed}
+              </p>
+            );
+          }
+        });
+        
+        // Close any remaining list
+        if (currentListItems.length > 0) {
+          elements.push(
+            <ul key={`list-final`} className="list-disc list-inside mb-6 space-y-2 text-slate-700 leading-relaxed">
+              {currentListItems.map((item, i) => (
+                <li key={i}>{item}</li>
+              ))}
+            </ul>
+          );
+        }
+        
+        return elements;
+      };
+
+      const articleContent = description ? formatArticleContent(description) : [];
+
       return (
-        <div className="bg-white rounded-xl border border-slate-200 p-6">
-          <div className="mb-4">
-            <h3 className="text-lg font-semibold text-slate-900 mb-2">{title}</h3>
-            {description && (
-              <p className="text-slate-600 text-sm mb-4">{description}</p>
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+          {/* Header */}
+          <div className="border-b border-slate-200 px-8 py-6">
+            <h2 className="text-2xl font-bold text-slate-900 mb-2 leading-tight">
+              {title}
+            </h2>
+            {resource.platform && (
+              <div className="flex items-center gap-2 mt-3 flex-wrap">
+                <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">
+                  {resource.platform.name}
+                </span>
+                {resource.difficulty_level && (
+                  <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">
+                    {resource.difficulty_level}
+                  </span>
+                )}
+                {resource.estimated_duration_minutes && (
+                  <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">
+                    {resource.estimated_duration_minutes} {language === "ar" ? "دقيقة" : "min"}
+                  </span>
+                )}
+              </div>
             )}
           </div>
-          {resource.url ? (
-            <>
-              <div className="border border-slate-200 rounded-lg overflow-hidden">
-                <iframe
-                  src={resource.url}
-                  className="w-full"
-                  style={{ minHeight: "600px" }}
-                  title={title}
-                  sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
-                />
+
+          {/* Article Content */}
+          <div className="px-8 py-8">
+            {articleContent && articleContent.length > 0 ? (
+              <div className="article-content max-w-4xl mx-auto">
+                {articleContent}
               </div>
-              <div className="mt-4 pt-4 border-t border-slate-200">
-                <a
-                  href={resource.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-teal-600 hover:text-teal-700 text-sm font-medium"
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-slate-500">
+                  {language === "ar" 
+                    ? "لا يوجد محتوى متاح حالياً." 
+                    : "No content available at the moment."}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Footer with Link Button */}
+          {resource.url && (
+            <div className="border-t border-slate-200 px-8 py-6 bg-slate-50 rounded-b-xl">
+              <a
+                href={resource.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-teal-600 hover:bg-teal-700 text-white font-medium rounded-lg transition-colors duration-200 shadow-sm hover:shadow-md"
+              >
+                <svg 
+                  className="w-5 h-5" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
                 >
-                  {language === "ar" ? "فتح في نافذة جديدة" : "Open in new window"}
-                </a>
-              </div>
-            </>
-          ) : (
-            <div className="border border-slate-200 rounded-lg p-8 text-center">
-              <p className="text-slate-600">
-                {language === "ar" 
-                  ? "هذا المقال لا يحتوي على رابط. سيتم إضافة المحتوى قريباً." 
-                  : "This article doesn't have a URL. Content will be added soon."}
-              </p>
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    strokeWidth={2} 
+                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" 
+                  />
+                </svg>
+                {language === "ar" ? "فتح المقال في نافذة جديدة" : "Open Article in New Window"}
+              </a>
             </div>
           )}
         </div>

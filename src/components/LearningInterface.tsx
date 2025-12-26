@@ -10,7 +10,7 @@ import { ContentTierBadge } from "./ContentTierBadge";
 import { LockedContent } from "./LockedContent";
 import { getContentTierFromBudget, hasAccessToTier, type ContentTier } from "@/utils/contentTiers";
 import { createClient } from "@/utils/supabase/client";
-import { checkMilestoneCompletion, updateMilestoneProgress, calculatePathProgress } from "@/utils/milestoneProgress";
+// Progress tracking removed - simplified
 import Link from "next/link";
 import { CheckCircleIcon, PlayIcon } from "@heroicons/react/24/outline";
 import { LearningResource } from "@/types/learning";
@@ -250,167 +250,13 @@ export function LearningInterface({
     if (!currentMilestone) return;
     hasReloadedRef.current = false; // Reset on milestone change
 
-    const checkAndUpdateProgress = async () => {
-      try {
-        // Use the milestone progress utility to check actual completion
-        const completionStatus = await checkMilestoneCompletion(userId, currentMilestone.id);
-        
-        // Update milestone progress in database (this will mark milestones with no content as completed)
-        await updateMilestoneProgress(userId, currentMilestone.id, completionStatus);
-
-        // Always update progress (even if milestone is not completed yet)
-        // This ensures progress reflects partial completion
-        const overallProgress = await calculatePathProgress(userId, path.id);
-        
-        // Update progress if it changed (can increase or stay same, but recalculate to be accurate)
-        const currentProgress = enrollment.progress_percentage || 0;
-        
-        // Update if progress changed (increased or recalculated to be more accurate)
-        if (overallProgress !== currentProgress || completionStatus.isCompleted) {
-          // Find next milestone if current one is completed
-          let nextMilestone = null;
-          if (completionStatus.isCompleted) {
-            nextMilestone = milestones.find(
-              (m) => m.milestone_number > currentMilestone.milestone_number
-            );
-          }
-
-          // Update enrollment progress
-          const updateData: any = {
-            progress_percentage: overallProgress,
-            last_activity_at: new Date().toISOString(),
-          };
-
-          if (completionStatus.isCompleted) {
-            if (nextMilestone) {
-              updateData.current_milestone_number = nextMilestone.milestone_number;
-            } else {
-              // All milestones completed
-              updateData.current_milestone_number = milestones.length;
-              updateData.status = "completed";
-              updateData.completed_at = new Date().toISOString();
-            }
-          }
-
-          await supabase
-            .from("path_enrollments")
-            .update(updateData)
-            .eq("id", enrollment.id);
-          
-          // Update local enrollment object and state
-          enrollment.progress_percentage = overallProgress;
-          setCurrentEnrollmentProgress(overallProgress);
-          
-          // Only reload once if milestone is newly completed (not already completed)
-          if (completionStatus.isCompleted && !hasReloadedRef.current) {
-            // Check if milestone was already completed before this check
-            const { data: existingProgress } = await supabase
-              .from("user_milestone_progress")
-              .select("status")
-              .eq("user_id", userId)
-              .eq("milestone_id", currentMilestone.id)
-              .single();
-            
-            // Only reload if this is a new completion (wasn't already completed)
-            if (existingProgress?.status !== "completed") {
-              hasReloadedRef.current = true;
-              // Use router.push instead of reload to avoid infinite loops
-              router.push(`/paths/${path.slug}/learn?milestone=${updateData.current_milestone_number || currentMilestone.milestone_number}`);
-            }
-          }
-        }
-      } catch (error: any) {
-        // Only log error message
-        if (error?.message) {
-          console.error("Error checking milestone progress:", error.message);
-        }
-      }
-    };
-
-    // Check immediately and then every 30 seconds
-    checkAndUpdateProgress();
-    const interval = setInterval(checkAndUpdateProgress, 30000);
-    return () => clearInterval(interval);
+    // Progress tracking removed - simplified
   }, [currentMilestone, userId, path.id, milestones, enrollment.id, supabase, path.slug, router]);
 
+  // Simplified - removed complex progress tracking
   const handleVideoComplete = async () => {
-    if (!currentMilestone) return;
-
-    // Use the milestone progress utility to check actual completion
-    // This checks videos, quizzes, articles, and external tests
-    const completionStatus = await checkMilestoneCompletion(userId, currentMilestone.id);
-    
-    // Update milestone progress
-    await updateMilestoneProgress(userId, currentMilestone.id, completionStatus);
-
-    // Always update progress to reflect current state
-    const overallProgress = await calculatePathProgress(userId, path.id);
-    
-    // Update progress (recalculate to ensure accuracy)
-    const currentProgress = enrollment.progress_percentage || 0;
-    
-    // Update if progress changed or milestone is completed
-    if (overallProgress !== currentProgress || completionStatus.isCompleted) {
-      // Find next milestone if current one is completed
-      let nextMilestone = null;
-      if (completionStatus.isCompleted) {
-        nextMilestone = milestones.find(
-          (m) => m.milestone_number > currentMilestone.milestone_number
-        );
-      }
-
-      // Update enrollment progress
-      const updateData: any = {
-        progress_percentage: overallProgress,
-        last_activity_at: new Date().toISOString(),
-      };
-
-      if (completionStatus.isCompleted) {
-        if (nextMilestone) {
-          updateData.current_milestone_number = nextMilestone.milestone_number;
-        } else {
-          // All milestones completed
-          updateData.current_milestone_number = milestones.length;
-          updateData.status = "completed";
-          updateData.completed_at = new Date().toISOString();
-        }
-      }
-
-      const { error: enrollmentError } = await supabase
-        .from("path_enrollments")
-        .update(updateData)
-        .eq("id", enrollment.id);
-
-      if (enrollmentError) {
-        // Only log error message
-        if (enrollmentError.message) {
-          console.error("Error updating enrollment progress:", enrollmentError.message);
-        }
-      } else {
-        // Update local enrollment object and state
-        enrollment.progress_percentage = overallProgress;
-        setCurrentEnrollmentProgress(overallProgress);
-        
-        // Only navigate if milestone is newly completed (not already completed)
-        // Use router.push instead of reload to avoid infinite loops
-        if (completionStatus.isCompleted && !hasReloadedRef.current) {
-          // Check if milestone was already completed
-          const { data: existingProgress } = await supabase
-            .from("user_milestone_progress")
-            .select("status")
-            .eq("user_id", userId)
-            .eq("milestone_id", currentMilestone.id)
-            .single();
-          
-          // Only navigate if this is a new completion
-          if (existingProgress?.status !== "completed") {
-            hasReloadedRef.current = true;
-            const targetMilestone = updateData.current_milestone_number || currentMilestone.milestone_number;
-            router.push(`/paths/${path.slug}/learn?milestone=${targetMilestone}`);
-          }
-        }
-      }
-    }
+    // Progress tracking removed - videos will still save their own progress
+    // but milestone completion tracking is disabled
   };
 
   if (!currentMilestone) {
@@ -816,32 +662,8 @@ export function LearningInterface({
                             return newMap;
                           });
                           
-                          // Update enrollment progress periodically (every 5% change or every 30 seconds)
-                          const shouldUpdateProgress = progress % 5 < 0.5 || Date.now() % 30000 < 500;
-                          if (shouldUpdateProgress && currentMilestone) {
-                            try {
-                              const completionStatus = await checkMilestoneCompletion(userId, currentMilestone.id);
-                              const overallProgress = await calculatePathProgress(userId, path.id);
-                              
-                              // Update local state for real-time display
-                              setCurrentEnrollmentProgress(overallProgress);
-                              
-                              // Update database if progress changed significantly
-                              if (Math.abs(overallProgress - currentEnrollmentProgress) >= 1) {
-                                await supabase
-                                  .from("path_enrollments")
-                                  .update({
-                                    progress_percentage: overallProgress,
-                                    last_activity_at: new Date().toISOString(),
-                                  })
-                                  .eq("id", enrollment.id);
-                              }
-                            } catch (error) {
-                              console.debug("Error updating progress:", error);
-                            }
-                          }
+                          // Progress tracking removed
                         }}
-                        onComplete={handleVideoComplete}
                       />
                     ) : (
                       <div className="bg-slate-100 rounded-lg aspect-video flex items-center justify-center p-8">
@@ -944,54 +766,7 @@ export function LearningInterface({
                     questions={selectedQuiz.quiz_questions}
                     userId={userId}
                     onComplete={async (score, isPassed) => {
-                      // Check if milestone should be marked as completed after quiz
-                      if (currentMilestone && isPassed) {
-                        const completionStatus = await checkMilestoneCompletion(userId, currentMilestone.id);
-                        await updateMilestoneProgress(userId, currentMilestone.id, completionStatus);
-                        
-                        // Always update progress to reflect current state
-                        const overallProgress = await calculatePathProgress(userId, path.id);
-                        const currentProgress = enrollment.progress_percentage || 0;
-                        
-                        // Update if progress changed or milestone is completed
-                        if (overallProgress !== currentProgress || completionStatus.isCompleted) {
-                          const updateData: any = {
-                            progress_percentage: overallProgress,
-                            last_activity_at: new Date().toISOString(),
-                          };
-
-                          if (completionStatus.isCompleted) {
-                            // Find next milestone
-                            const nextMilestone = milestones.find(
-                              (m) => m.milestone_number > currentMilestone.milestone_number
-                            );
-                            
-                            if (nextMilestone) {
-                              updateData.current_milestone_number = nextMilestone.milestone_number;
-                            } else {
-                              updateData.current_milestone_number = milestones.length;
-                              updateData.status = "completed";
-                              updateData.completed_at = new Date().toISOString();
-                            }
-                          }
-
-                          await supabase
-                            .from("path_enrollments")
-                            .update(updateData)
-                            .eq("id", enrollment.id);
-                          
-                          // Update local enrollment object and state
-                          enrollment.progress_percentage = overallProgress;
-                          setCurrentEnrollmentProgress(overallProgress);
-                          
-                          // Refresh to show updated progress
-                          if (completionStatus.isCompleted) {
-                            // Use router.push instead of reload to avoid infinite loops
-                            const targetMilestone = updateData.current_milestone_number || currentMilestone.milestone_number;
-                            router.push(`/paths/${path.slug}/learn?milestone=${targetMilestone}`);
-                          }
-                        }
-                      }
+                      // Progress tracking removed - quiz completion is still tracked by QuizPlayer
                     }}
                   />
                 ) : (
@@ -1010,7 +785,6 @@ export function LearningInterface({
                 resource={selectedResource}
                 userId={userId}
                 milestoneId={currentMilestone?.id}
-                onComplete={handleVideoComplete}
               />
             )}
 
