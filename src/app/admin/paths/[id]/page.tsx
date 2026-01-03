@@ -443,6 +443,10 @@ export default function EditPathPage() {
         }),
       });
       const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || "Failed to add video");
+      }
+
       setVideosByMilestone((prev) => ({
         ...prev,
         [milestoneId]: [...(prev[milestoneId] || []), json.data],
@@ -523,6 +527,10 @@ export default function EditPathPage() {
         }),
       });
       const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || "Failed to add quiz");
+      }
+
       setQuizzesByMilestone((prev) => ({
         ...prev,
         [milestoneId]: [...(prev[milestoneId] || []), json.data],
@@ -598,6 +606,14 @@ export default function EditPathPage() {
         }
       );
       const resJson = await resourceRes.json();
+      if (!resourceRes.ok) {
+        throw new Error(resJson.error || "Failed to create resource");
+      }
+      
+      if (!resJson.data?.id) {
+        throw new Error("Resource was created but no ID was returned");
+      }
+
       await handleAddResource(milestoneId, resJson.data.id);
 
       // Reset form
@@ -616,7 +632,8 @@ export default function EditPathPage() {
 
       setShowAddArticleModal(null);
     } catch (err: any) {
-      alert(err.message);
+      console.error("Error adding article:", err);
+      alert(err.message || "Failed to add article");
     }
   };
 
