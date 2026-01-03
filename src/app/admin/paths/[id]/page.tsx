@@ -113,6 +113,7 @@ export default function EditPathPage() {
   >({});
 
   const [showAddMilestoneModal, setShowAddMilestoneModal] = useState(false);
+  const [openMilestoneModal, setOpenMilestoneModal] = useState<string | null>(null);
   
   const [newMilestone, setNewMilestone] = useState<NewMilestone>({
     title: "",
@@ -2014,34 +2015,102 @@ export default function EditPathPage() {
                     </div>
                   </div>
                 ) : (
-                  // Display Mode
-                  <>
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <div className="text-xs text-slate-500">
+                  // Display Mode - Compact List View
+                  <div className="flex items-center justify-between p-3 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3">
+                        <div className="text-xs font-medium text-slate-500">
                           Milestone {m.milestone_number}
                         </div>
                         <div className="font-medium text-slate-900">
                           {m.title}
                         </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleEditMilestone(m)}
-                          className="text-xs px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDeleteMilestone(m.id)}
-                          className="text-xs px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
-                        >
-                          Delete
-                        </button>
+                        <div className="flex items-center gap-2 text-xs text-slate-500">
+                          <span>
+                            {(videosByMilestone[m.id] || []).length} video{(videosByMilestone[m.id] || []).length !== 1 ? 's' : ''}
+                          </span>
+                          <span>•</span>
+                          <span>
+                            {(resourcesByMilestone[m.id] || []).length} resource{(resourcesByMilestone[m.id] || []).length !== 1 ? 's' : ''}
+                          </span>
+                          <span>•</span>
+                          <span>
+                            {(quizzesByMilestone[m.id] || []).length} quiz{(quizzesByMilestone[m.id] || []).length !== 1 ? 'zes' : ''}
+                          </span>
+                        </div>
                       </div>
                     </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setOpenMilestoneModal(m.id)}
+                        className="text-xs px-3 py-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors font-medium"
+                      >
+                        Open
+                      </button>
+                      <button
+                        onClick={() => handleEditMilestone(m)}
+                        className="text-xs px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteMilestone(m.id)}
+                        className="text-xs px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
 
-                {/* Existing videos */}
+            {/* Milestone Modal */}
+            {openMilestoneModal && (() => {
+              const m = milestones.find(ms => ms.id === openMilestoneModal);
+              if (!m) return null;
+              
+              return (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                  <div className="bg-white rounded-xl shadow-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
+                    <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between z-10">
+                      <div>
+                        <div className="text-xs text-slate-500">Milestone {m.milestone_number}</div>
+                        <h2 className="text-xl font-semibold text-slate-900">{m.title}</h2>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setOpenMilestoneModal(null)}
+                        className="text-slate-400 hover:text-slate-600 text-2xl leading-none"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    
+                    <div className="p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleEditMilestone(m)}
+                            className="text-xs px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                          >
+                            Edit Milestone
+                          </button>
+                          <button
+                            onClick={() => handleDeleteMilestone(m.id)}
+                            className="text-xs px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                          >
+                            Delete Milestone
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="space-y-6">
+                        {/* Videos Section */}
+                        <div className="border-b border-slate-200 pb-4">
+                          <h3 className="text-sm font-semibold text-slate-900 mb-3">Videos</h3>
+                          
+                          {/* Existing videos */}
                 {(videosByMilestone[m.id] || []).length > 0 ? (
                   <div className="mb-3">
                     <div className="text-xs font-medium text-slate-500 mb-1">
@@ -2161,9 +2230,14 @@ export default function EditPathPage() {
                     </button>
                   </div>
                 </div>
+                        </div>
 
-                {/* Existing resources */}
-                <div className="mt-4">
+                        {/* Resources Section */}
+                        <div className="border-b border-slate-200 pb-4">
+                          <h3 className="text-sm font-semibold text-slate-900 mb-3">Resources</h3>
+                          
+                          {/* Existing resources */}
+                          <div className="mt-2">
                   <div className="text-xs font-medium text-slate-500 mb-1">
                     Linked resources
                   </div>
@@ -2269,9 +2343,9 @@ export default function EditPathPage() {
                   </button>
                 </div>
 
-                {/* Add Article Modal */}
-                {showAddArticleModal === m.id && (
-                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                          {/* Add Article Modal */}
+                          {showAddArticleModal === m.id && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
                     <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full">
                       <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
                         <h2 className="text-lg font-semibold text-slate-900">Add Article Manually</h2>
@@ -2499,11 +2573,11 @@ export default function EditPathPage() {
                   </div>
                 )}
 
-                {/* Scrape Articles */}
-                <div className="mt-3 border-t border-slate-100 pt-3">
-                  <div className="text-xs font-medium text-slate-500 mb-1">
-                    Scrape Articles (Oracle Docs, Medium, etc.)
-                  </div>
+                          {/* Scrape Articles */}
+                          <div className="mt-3 border-t border-slate-100 pt-3">
+                            <div className="text-xs font-medium text-slate-500 mb-1">
+                              Scrape Articles (Oracle Docs, Medium, etc.)
+                            </div>
                   <div className="space-y-2">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                       <input
@@ -2552,15 +2626,17 @@ export default function EditPathPage() {
                     </button>
                     <p className="text-[10px] text-slate-400">
                       This will search for articles and automatically add the first result to this milestone.
-                    </p>
-                  </div>
-                </div>
+                            </p>
+                          </div>
+                        </div>
+                        </div>
 
-                {/* Existing quizzes */}
-                <div className="mt-4">
-                  <div className="text-xs font-medium text-slate-500 mb-1">
-                    Quizzes/Tests
-                  </div>
+                        {/* Quizzes Section */}
+                        <div>
+                          <h3 className="text-sm font-semibold text-slate-900 mb-3">Quizzes/Tests</h3>
+                          
+                          {/* Existing quizzes */}
+                          <div className="mt-2">
                   {(quizzesByMilestone[m.id] || []).length > 0 ? (
                     <div className="space-y-2">
                       {quizzesByMilestone[m.id].map((q) => (
@@ -2591,11 +2667,11 @@ export default function EditPathPage() {
                     <p className="text-xs text-slate-400">
                       No quizzes added yet for this milestone.
                     </p>
-                  )}
-                </div>
+                          )}
+                          </div>
 
-                {/* Add new quiz */}
-                <div className="mt-3 border-t border-slate-100 pt-3">
+                          {/* Add new quiz */}
+                          <div className="mt-3 border-t border-slate-100 pt-3">
                   <div className="text-xs font-medium text-slate-500 mb-1">
                     Add Quiz/Test
                   </div>
@@ -2827,13 +2903,16 @@ export default function EditPathPage() {
                       </button>
                     </div>
                   </div>
-                </div>
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
