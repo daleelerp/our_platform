@@ -137,9 +137,19 @@ export default function EditPathPage() {
         const newResourceMap: Record<string, any> = {};
         const newQuizMap: Record<string, any> = {};
         const scrapMap: Record<string, any> = {};
+        const newArticleMap: Record<string, any> = {};
 
         await Promise.all(
           ms.map(async (m) => {
+            newArticleMap[m.id] = {
+              title: "",
+              title_ar: "",
+              url: "",
+              content: "",
+              content_ar: "",
+              language: "en",
+              is_free: false,
+            };
             newVideoMap[m.id] = {
               youtube_url: "",
               title: "",
@@ -213,6 +223,7 @@ export default function EditPathPage() {
         setNewResource(newResourceMap);
         setNewQuiz(newQuizMap);
         setScrapingArticle(scrapMap);
+        setNewArticle(newArticleMap);
       } catch (err: any) {
         console.error(err);
         setError(err.message || "Failed to load data");
@@ -306,6 +317,46 @@ export default function EditPathPage() {
       setVideosByMilestone((prev) => ({ ...prev, [created.id]: [] }));
       setResourcesByMilestone((prev) => ({ ...prev, [created.id]: [] }));
       setQuizzesByMilestone((prev) => ({ ...prev, [created.id]: [] }));
+      setNewVideo((prev) => ({
+        ...prev,
+        [created.id]: {
+          youtube_url: "",
+          title: "",
+          title_ar: "",
+          language: "en",
+        },
+      }));
+      setNewResource((prev) => ({ ...prev, [created.id]: { resource_id: "" } }));
+      setNewQuiz((prev) => ({
+        ...prev,
+        [created.id]: {
+          title: "",
+          title_ar: "",
+          description: "",
+          description_ar: "",
+          quiz_type: "checkpoint",
+          passing_score: 70,
+          time_limit_minutes: "",
+          max_attempts: "",
+          is_required: false,
+        },
+      }));
+      setScrapingArticle((prev) => ({
+        ...prev,
+        [created.id]: { query: "", source: "oracle_docs", isScraping: false },
+      }));
+      setNewArticle((prev) => ({
+        ...prev,
+        [created.id]: {
+          title: "",
+          title_ar: "",
+          url: "",
+          content: "",
+          content_ar: "",
+          language: "en",
+          is_free: false,
+        },
+      }));
       setShowAddMilestoneModal(false);
     } catch (err: any) {
       alert(err.message);
@@ -542,11 +593,27 @@ export default function EditPathPage() {
             resource_type: "article",
             language: data.language,
             is_active: true,
+            is_free: data.is_free || false,
           }),
         }
       );
       const resJson = await resourceRes.json();
       await handleAddResource(milestoneId, resJson.data.id);
+
+      // Reset form
+      setNewArticle((prev) => ({
+        ...prev,
+        [milestoneId]: {
+          title: "",
+          title_ar: "",
+          url: "",
+          content: "",
+          content_ar: "",
+          language: "en",
+          is_free: false,
+        },
+      }));
+
       setShowAddArticleModal(null);
     } catch (err: any) {
       alert(err.message);
