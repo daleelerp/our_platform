@@ -587,34 +587,56 @@ export default function EditPathPage() {
   const handleAddArticle = async (milestoneId: string) => {
     const data = newArticle[milestoneId];
     try {
-      const resourceRes = await fetch(
-        "/api/admin/data?table=learning_resources",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: data.title,
-            title_ar: data.title_ar,
-            description: data.content,
-            description_ar: data.content_ar,
-            url: data.url,
-            resource_type: "article",
-            language: data.language,
-            is_active: true,
-            is_free: data.is_free || false,
-          }),
+      let resourceId = "";
+
+      // 1. Check if URL already exists
+      if (data.url && data.url.trim()) {
+        const checkRes = await fetch(
+          `/api/admin/data?table=learning_resources&filterColumn=url&filterValue=${encodeURIComponent(
+            data.url.trim()
+          )}`
+        );
+        const checkJson = await checkRes.json();
+        if (checkRes.ok && checkJson.data && checkJson.data.length > 0) {
+          // If resource exists, use its ID
+          resourceId = checkJson.data[0].id;
+          console.log("Using existing resource for URL:", data.url);
         }
-      );
-      const resJson = await resourceRes.json();
-      if (!resourceRes.ok) {
-        throw new Error(resJson.error || "Failed to create resource");
-      }
-      
-      if (!resJson.data?.id) {
-        throw new Error("Resource was created but no ID was returned");
       }
 
-      await handleAddResource(milestoneId, resJson.data.id);
+      // 2. If not found, create new learning resource
+      if (!resourceId) {
+        const resourceRes = await fetch(
+          "/api/admin/data?table=learning_resources",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: data.title,
+              title_ar: data.title_ar,
+              description: data.content,
+              description_ar: data.content_ar,
+              url: data.url,
+              resource_type: "article",
+              language: data.language,
+              is_active: true,
+              is_free: data.is_free || false,
+            }),
+          }
+        );
+        const resJson = await resourceRes.json();
+        if (!resourceRes.ok) {
+          throw new Error(resJson.error || "Failed to create resource");
+        }
+
+        if (!resJson.data?.id) {
+          throw new Error("Resource was created but no ID was returned");
+        }
+        resourceId = resJson.data.id;
+      }
+
+      // 3. Link resource to milestone
+      await handleAddResource(milestoneId, resourceId);
 
       // Reset form
       setNewArticle((prev) => ({
