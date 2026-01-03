@@ -1000,30 +1000,70 @@ export default function EditPathPage() {
     }
 
     try {
-      // First create the resource
-      const resourceRes = await fetch("/api/admin/data?table=learning_resources", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: articleData.title.trim(),
-          title_ar: articleData.title_ar.trim() || null,
-          description: articleData.content.trim() || null,
-          description_ar: articleData.content_ar.trim() || null,
-          url: articleData.url.trim() || "",
-          resource_type: "article",
-          language: articleData.language || "en",
-          is_free: articleData.is_free !== false,
-          is_active: true,
-        }),
-      });
+      let resourceId: string;
+      const articleUrl = articleData.url.trim();
 
-      const resourceJson = await resourceRes.json();
-      if (!resourceRes.ok) {
-        throw new Error(resourceJson.error || "Failed to create article");
+      // Check if resource with same URL already exists (only if URL is provided)
+      if (articleUrl) {
+        const checkRes = await fetch(
+          `/api/admin/data?table=learning_resources&filterColumn=url&filterValue=${encodeURIComponent(articleUrl)}`
+        );
+        const checkJson = await checkRes.json();
+        
+        if (checkRes.ok && checkJson.data && checkJson.data.length > 0) {
+          // Resource with this URL already exists, reuse it
+          resourceId = checkJson.data[0].id;
+        } else {
+          // Resource doesn't exist, create new one
+          const resourceRes = await fetch("/api/admin/data?table=learning_resources", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: articleData.title.trim(),
+              title_ar: articleData.title_ar.trim() || null,
+              description: articleData.content.trim() || null,
+              description_ar: articleData.content_ar.trim() || null,
+              url: articleUrl,
+              resource_type: "article",
+              language: articleData.language || "en",
+              is_free: articleData.is_free !== false,
+              is_active: true,
+            }),
+          });
+
+          const resourceJson = await resourceRes.json();
+          if (!resourceRes.ok) {
+            throw new Error(resourceJson.error || "Failed to create article");
+          }
+          resourceId = resourceJson.data.id;
+        }
+      } else {
+        // No URL provided, create new resource with empty URL
+        const resourceRes = await fetch("/api/admin/data?table=learning_resources", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: articleData.title.trim(),
+            title_ar: articleData.title_ar.trim() || null,
+            description: articleData.content.trim() || null,
+            description_ar: articleData.content_ar.trim() || null,
+            url: "",
+            resource_type: "article",
+            language: articleData.language || "en",
+            is_free: articleData.is_free !== false,
+            is_active: true,
+          }),
+        });
+
+        const resourceJson = await resourceRes.json();
+        if (!resourceRes.ok) {
+          throw new Error(resourceJson.error || "Failed to create article");
+        }
+        resourceId = resourceJson.data.id;
       }
 
       // Then link it to milestone
-      await handleAddResource(milestoneId, resourceJson.data.id);
+      await handleAddResource(milestoneId, resourceId);
       
       // Close modal and clear form
       handleCloseAddArticleModal();

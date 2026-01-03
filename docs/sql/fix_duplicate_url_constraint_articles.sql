@@ -1,0 +1,24 @@
+-- =====================================================
+-- Fix: Allow same URL in different milestones
+-- =====================================================
+-- 
+-- Issue: When adding an article with the same URL to a different milestone,
+-- the system tried to create a new resource, violating the UNIQUE(url) constraint.
+--
+-- Solution: Modified the code to check if a resource with the same URL exists
+-- before creating a new one. If it exists, the existing resource is reused
+-- and linked to the new milestone.
+--
+-- The UNIQUE(url) constraint is kept as it prevents duplicate resources.
+-- The same resource can be linked to multiple milestones via milestone_resources table.
+--
+-- Files modified:
+-- - src/app/admin/paths/[id]/page.tsx (handleAddArticle function)
+--
+-- No database schema changes needed - constraint is correct.
+-- =====================================================
+
+-- Note: This migration file documents the code fix.
+-- The database constraint UNIQUE(url) on learning_resources table is correct
+-- and should remain. The fix was implemented in the application code.
+
