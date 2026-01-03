@@ -1003,42 +1003,24 @@ export default function EditPathPage() {
       let resourceId: string;
       const articleUrl = articleData.url.trim();
 
-      // Check if resource with same URL already exists (only if URL is provided)
-      if (articleUrl) {
-        const checkRes = await fetch(
-          `/api/admin/data?table=learning_resources&filterColumn=url&filterValue=${encodeURIComponent(articleUrl)}`
-        );
-        const checkJson = await checkRes.json();
-        
-        if (checkRes.ok && checkJson.data && checkJson.data.length > 0) {
-          // Resource with this URL already exists, reuse it
-          resourceId = checkJson.data[0].id;
-        } else {
-          // Resource doesn't exist, create new one
-          const resourceRes = await fetch("/api/admin/data?table=learning_resources", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              title: articleData.title.trim(),
-              title_ar: articleData.title_ar.trim() || null,
-              description: articleData.content.trim() || null,
-              description_ar: articleData.content_ar.trim() || null,
-              url: articleUrl,
-              resource_type: "article",
-              language: articleData.language || "en",
-              is_free: articleData.is_free !== false,
-              is_active: true,
-            }),
-          });
-
-          const resourceJson = await resourceRes.json();
-          if (!resourceRes.ok) {
-            throw new Error(resourceJson.error || "Failed to create article");
+      // Helper function to find existing resource by URL
+      const findExistingResource = async (url: string): Promise<string | null> => {
+        try {
+          const checkRes = await fetch(
+            `/api/admin/data?table=learning_resources&filterColumn=url&filterValue=${encodeURIComponent(url)}`
+          );
+          const checkJson = await checkRes.json();
+          if (checkRes.ok && checkJson.data && Array.isArray(checkJson.data) && checkJson.data.length > 0) {
+            return checkJson.data[0].id;
           }
-          resourceId = resourceJson.data.id;
+        } catch (err) {
+          console.error("Error checking for existing resource:", err);
         }
-      } else {
-        // No URL provided, create new resource with empty URL
+        return null;
+      };
+
+      // Helper function to create new resource
+      const createNewResource = async (url: string) => {
         const resourceRes = await fetch("/api/admin/data?table=learning_resources", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1047,7 +1029,7 @@ export default function EditPathPage() {
             title_ar: articleData.title_ar.trim() || null,
             description: articleData.content.trim() || null,
             description_ar: articleData.content_ar.trim() || null,
-            url: "",
+            url: url,
             resource_type: "article",
             language: articleData.language || "en",
             is_free: articleData.is_free !== false,
@@ -1057,9 +1039,32 @@ export default function EditPathPage() {
 
         const resourceJson = await resourceRes.json();
         if (!resourceRes.ok) {
+          // If duplicate key error, try to find existing resource
+          if (resourceJson.error && resourceJson.error.includes("duplicate key") && resourceJson.error.includes("url")) {
+            const existingId = await findExistingResource(url);
+            if (existingId) {
+              return existingId;
+            }
+          }
           throw new Error(resourceJson.error || "Failed to create article");
         }
-        resourceId = resourceJson.data.id;
+        return resourceJson.data.id;
+      };
+
+      // Check if resource with same URL already exists (only if URL is provided)
+      if (articleUrl) {
+        const existingId = await findExistingResource(articleUrl);
+        if (existingId) {
+          // Resource with this URL already exists, reuse it
+          resourceId = existingId;
+        } else {
+          // Resource doesn't exist, create new one
+          resourceId = await createNewResource(articleUrl);
+        }
+      } else {
+        // No URL provided, create new resource with empty URL
+        // For empty URLs, we don't check for duplicates as multiple articles can have empty URLs
+        resourceId = await createNewResource("");
       }
 
       // Then link it to milestone
