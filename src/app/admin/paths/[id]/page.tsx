@@ -588,19 +588,20 @@ export default function EditPathPage() {
     const data = newArticle[milestoneId];
     try {
       let resourceId = "";
+      const normalizedUrl = data.url?.trim() || null;
 
       // 1. Check if URL already exists
-      if (data.url && data.url.trim()) {
+      if (normalizedUrl) {
         const checkRes = await fetch(
           `/api/admin/data?table=learning_resources&filterColumn=url&filterValue=${encodeURIComponent(
-            data.url.trim()
+            normalizedUrl
           )}`
         );
         const checkJson = await checkRes.json();
         if (checkRes.ok && checkJson.data && checkJson.data.length > 0) {
           // If resource exists, use its ID
           resourceId = checkJson.data[0].id;
-          console.log("Using existing resource for URL:", data.url);
+          console.log("Using existing resource for URL:", normalizedUrl);
         }
       }
 
@@ -616,7 +617,7 @@ export default function EditPathPage() {
               title_ar: data.title_ar,
               description: data.content,
               description_ar: data.content_ar,
-              url: data.url,
+              url: normalizedUrl,
               resource_type: "article",
               language: data.language,
               is_active: true,
