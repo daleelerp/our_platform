@@ -1,5 +1,4 @@
 "use client";
-
 import { useAppStore } from "@/store/useAppStore";
 import Link from "next/link";
 import Image from "next/image";
@@ -12,7 +11,7 @@ export function AboutContent() {
     en: {
       title: "About Daleel",
       subtitle: "Your complete guide to ERP career paths. Whether you're a student starting young, or a professional looking to switch careers - we're with you every step of the way. We help developers and technical professionals, and we also help people who want to work in Functional or Business roles.",
-      
+
       story: {
         title: "Our Story",
         paragraphs: [
@@ -117,7 +116,7 @@ export function AboutContent() {
     ar: {
       title: "عن دليل",
       subtitle: "دليلك الكامل للمسارات المهنية في ERP. سواء كنت طالب عاوز تبدأ من سن صغير، أو محترف عاوز تغير مجالك - احنا معاك في كل خطوة. نساعد المبرمجين والتقنيين، ونساعد كمان الناس اللي هتشتغل Functional أو Business.",
-      
+
       story: {
         title: "قصتنا",
         paragraphs: [
@@ -341,7 +340,7 @@ export function AboutContent() {
         <div className="max-w-3xl mx-auto px-4 text-center">
           <h2 className="text-2xl font-bold text-slate-900 mb-4">{t.contact.title}</h2>
           <p className="text-slate-600 mb-4">{t.contact.text}</p>
-          <a 
+          <a
             href={`mailto:${t.contact.email}`}
             className="text-teal-600 font-medium hover:text-teal-700 text-lg"
           >
