@@ -26,7 +26,7 @@ export default function BudgetRangesPage() {
           icon: "",
           min_amount: null,
           max_amount: null,
-          currency: "USD",
+          currency: "EGP",
           display_order: 0,
           is_active: true,
         }}

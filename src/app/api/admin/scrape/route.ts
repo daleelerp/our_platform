@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
+import { getAdminSession } from "@/utils/admin-auth";
 
 // YouTube Data API (free tier: 10,000 units/day)
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
@@ -10,21 +11,33 @@ export async function POST(request: NextRequest) {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    // Verify admin access
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    // Verify admin access (Check both Supabase auth and Admin Session)
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    const adminSession = await getAdminSession();
+
+    if (!authUser && !adminSession) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { data: adminUser } = await supabase
-      .from("admin_users")
-      .select("*, admin_roles(*)")
-      .eq("user_id", user.id)
-      .eq("is_active", true)
-      .single();
+    // Determine current user ID for job creation
+    const currentUserId = authUser?.id || (adminSession && 'adminId' in adminSession ? adminSession.adminId : null);
 
-    if (!adminUser) {
-      return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+    if (!currentUserId) {
+      return NextResponse.json({ error: "User identity required" }, { status: 401 });
+    }
+
+    // If it's a Supabase user, verify they have admin role in admin_users
+    if (authUser) {
+      const { data: adminUser } = await supabase
+        .from("admin_users")
+        .select("*, admin_roles(*)")
+        .eq("user_id", authUser.id)
+        .eq("is_active", true)
+        .single();
+
+      if (!adminUser && !adminSession) {
+        return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+      }
     }
 
     const { job_type, search_query, target_url } = await request.json();
@@ -37,7 +50,7 @@ export async function POST(request: NextRequest) {
         search_query,
         target_url,
         status: "running",
-        created_by: user.id,
+        created_by: currentUserId,
         started_at: new Date().toISOString(),
       })
       .select()
@@ -132,21 +145,21 @@ async function scrapeYouTube(query: string): Promise<any[]> {
   }
 
   const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query + " Oracle Cloud ERP tutorial")}&type=video&maxResults=20&key=${YOUTUBE_API_KEY}`;
-  
+
   const response = await fetch(searchUrl);
   if (!response.ok) {
     throw new Error("YouTube API error");
   }
 
   const data = await response.json();
-  
+
   // Get video details for duration and stats
   const videoIds = data.items.map((item: any) => item.id.videoId).join(",");
   const detailsUrl = `https://www.googleapis.com/youtube/v3/videos?part=contentDetails,statistics&id=${videoIds}&key=${YOUTUBE_API_KEY}`;
-  
+
   const detailsResponse = await fetch(detailsUrl);
   const detailsData = await detailsResponse.json();
-  
+
   const detailsMap = new Map<string, any>(
     detailsData.items.map((item: any) => [item.id as string, item])
   );

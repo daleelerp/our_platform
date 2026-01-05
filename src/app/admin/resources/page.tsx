@@ -15,7 +15,7 @@ export default function ResourcesPage() {
           ← Back to Admin Home
         </Link>
       </div>
-      
+
       <div className="mb-6">
         <details className="border border-slate-200 rounded-lg p-4 bg-slate-50">
           <summary className="cursor-pointer text-sm font-semibold text-slate-700 mb-3">
@@ -42,7 +42,7 @@ export default function ResourcesPage() {
           estimated_duration_minutes: null,
           is_free: true,
           price: null,
-          price_currency: "USD",
+          price_currency: "EGP",
           is_verified: false,
           is_active: true,
         }}

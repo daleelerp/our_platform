@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     // Admin credentials table requires service role access
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    
+
     if (!supabaseServiceKey) {
       console.error("SUPABASE_SERVICE_ROLE_KEY not set - admin login will fail");
       return NextResponse.json(
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-    
+
     // Use service role client to bypass RLS
     const { createClient: createServiceClient } = await import("@supabase/supabase-js");
     const supabase = createServiceClient(supabaseUrl, supabaseServiceKey, {
@@ -140,22 +140,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Store session in cookie
-    const response = NextResponse.json({ success: true });
-    
-    response.cookies.set("admin_session", sessionToken, {
+    const response = NextResponse.json({ success: true, message: "Logged in successfully. Session valid for 24 hours." });
+
+    const cookieOptions = {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      sameSite: "lax" as const,
       maxAge: 60 * 60 * 24, // 1 day (86400 seconds)
       path: "/",
-    });
+    };
+
+    response.cookies.set("admin_session", sessionToken, cookieOptions);
 
     response.cookies.set("admin_username", username, {
+      ...cookieOptions,
       httpOnly: false, // Allow client-side access for display
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24, // 1 day (86400 seconds)
-      path: "/",
     });
 
     return response;

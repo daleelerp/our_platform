@@ -1,5 +1,7 @@
 "use client";
 
+import { LinkPreview } from "@/components/admin/LinkPreview";
+
 interface AddArticleModalProps {
     milestoneId: string;
     isOpen: boolean;
@@ -27,6 +29,14 @@ export default function AddArticleModal({
 }: AddArticleModalProps) {
     if (!isOpen) return null;
     if (!articleData) return null;
+
+    const handleDataFetched = (data: { title: string; description: string }) => {
+        setArticleData((prev: any) => ({
+            ...prev,
+            title: prev.title || data.title,
+            content: prev.content || data.description,
+        }));
+    };
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
@@ -101,6 +111,11 @@ export default function AddArticleModal({
                             <p className="text-xs text-slate-500 mt-1">
                                 يمكنك إدخال رابط المقالة أو محتوى المقالة أو الاثنين معاً
                             </p>
+
+                            <LinkPreview
+                                url={articleData.url}
+                                onDataFetched={handleDataFetched}
+                            />
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

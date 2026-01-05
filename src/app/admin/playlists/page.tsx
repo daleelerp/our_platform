@@ -32,7 +32,7 @@ export default function PlaylistsPage() {
           resource_count: 0,
           is_free: true,
           price: null,
-          price_currency: "USD",
+          price_currency: "EGP",
           is_verified: false,
           is_active: true,
         }}
