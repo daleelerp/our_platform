@@ -105,7 +105,7 @@ export function LearningInterface({
   const language = useAppStore((state) => state.language);
   const router = useRouter();
   const hasReloadedRef = useRef(false);
-  
+
   // Filter videos by language preference
   const filteredVideos = videos.filter((video: any) => {
     // If user prefers Arabic, show Arabic videos (primary_language = 'ar')
@@ -122,12 +122,12 @@ export function LearningInterface({
   // Filter resources by language preference
   const filteredResources = resources.filter((resource) => {
     // Check if resource has content in the selected language
-    const hasContentInLanguage = (resource.language === "both") || 
+    const hasContentInLanguage = (resource.language === "both") ||
       (language === "ar" && (resource.language === "ar" || !resource.language)) ||
       (language === "en" && (resource.language === "en" || !resource.language));
-    
+
     if (!hasContentInLanguage) return false;
-    
+
     // Check if resource actually has content (title or description) in the selected language
     // For articles, we only need title to display them (they can have URL instead of description)
     if (resource.language === "en") {
@@ -147,7 +147,7 @@ export function LearningInterface({
     // Legacy resources without language field - show if they have at least a title or URL (for articles)
     return !!(resource.title || resource.title_ar || resource.description || resource.description_ar || (resource.resource_type === "article" && resource.url));
   });
-  
+
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(
     filteredVideos.length > 0 ? filteredVideos[0] : null
   );
@@ -160,14 +160,14 @@ export function LearningInterface({
   );
   const [isArticleModalOpen, setIsArticleModalOpen] = useState(false);
   const [articleToShow, setArticleToShow] = useState<LearningResource | null>(null);
-  
+
   // Update selected resource when resources change or when switching to resources tab
   useEffect(() => {
     if (activeTab === "resources" && filteredResources.length > 0) {
       // Find first non-article resource, or first resource if no non-article exists
       const nonArticleResources = filteredResources.filter((r) => r.resource_type !== "article");
       const resourceToSelect = nonArticleResources.length > 0 ? nonArticleResources[0] : filteredResources[0];
-      
+
       // If no resource is selected, or selected resource is not in filtered list, select first one
       if (!selectedResource || !filteredResources.find((r) => r.id === selectedResource.id)) {
         setSelectedResource(resourceToSelect);
@@ -177,7 +177,7 @@ export function LearningInterface({
   const [currentEnrollmentProgress, setCurrentEnrollmentProgress] = useState<number>(
     enrollment.progress_percentage || 0
   );
-  
+
   // Update selected video when language changes
   useEffect(() => {
     const currentFilteredVideos = videos.filter((video: any) => {
@@ -199,12 +199,12 @@ export function LearningInterface({
       setSelectedVideo(null);
       // Filter resources by language
       const currentFilteredResources = resources.filter((resource: any) => {
-        const hasContentInLanguage = (resource.language === "both") || 
+        const hasContentInLanguage = (resource.language === "both") ||
           (language === "ar" && (resource.language === "ar" || !resource.language)) ||
           (language === "en" && (resource.language === "en" || !resource.language));
-        
+
         if (!hasContentInLanguage) return false;
-        
+
         if (resource.language === "en") {
           return !!(resource.title || resource.description);
         }
@@ -220,7 +220,7 @@ export function LearningInterface({
         }
         return !!(resource.title || resource.title_ar || resource.description || resource.description_ar);
       });
-      
+
       if (currentFilteredResources.length > 0) {
         setActiveTab("resources");
         setSelectedResource(currentFilteredResources[0]);
@@ -267,19 +267,19 @@ export function LearningInterface({
   // Function to recalculate and update progress
   const recalculateProgress = useCallback(async () => {
     if (!currentMilestone || !userId) return;
-    
+
     try {
       const completionStatus = await checkMilestoneCompletion(userId, currentMilestone.id);
-      
+
       // Update milestone progress in database
       await updateMilestoneProgress(userId, currentMilestone.id, completionStatus);
-      
+
       // Update local state
       setCurrentMilestoneProgress(completionStatus.progressPercentage);
 
       // Calculate and update path progress
       const overallProgress = await calculatePathProgress(userId, path.id);
-      
+
       // Update enrollment progress
       await supabase
         .from("path_enrollments")
@@ -311,7 +311,7 @@ export function LearningInterface({
     };
 
     window.addEventListener("resourceCompleted", handleResourceCompleted);
-    
+
     return () => {
       window.removeEventListener("resourceCompleted", handleResourceCompleted);
     };
@@ -414,32 +414,29 @@ export function LearningInterface({
                     <Link
                       key={milestone.id}
                       href={`/paths/${path.slug}/learn?milestone=${milestone.milestone_number}`}
-                      className={`block p-3 rounded-lg border transition-colors ${
-                        isCurrent
+                      className={`block p-3 rounded-lg border transition-colors ${isCurrent
                           ? "border-teal-500 bg-teal-50"
                           : isCompleted
-                          ? "border-green-200 bg-green-50"
-                          : "border-slate-200 hover:border-slate-300"
-                      }`}
+                            ? "border-green-200 bg-green-50"
+                            : "border-slate-200 hover:border-slate-300"
+                        }`}
                     >
                       <div className="flex items-center gap-2">
                         {isCompleted ? (
                           <CheckCircleIcon className="w-5 h-5 text-green-600" />
                         ) : (
                           <div
-                            className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-semibold ${
-                              isCurrent
+                            className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-semibold ${isCurrent
                                 ? "bg-teal-500 text-white"
                                 : "bg-slate-200 text-slate-600"
-                            }`}
+                              }`}
                           >
                             {milestone.milestone_number}
                           </div>
                         )}
                         <span
-                          className={`text-sm ${
-                            isCurrent ? "font-semibold text-teal-900" : "text-slate-700"
-                          }`}
+                          className={`text-sm ${isCurrent ? "font-semibold text-teal-900" : "text-slate-700"
+                            }`}
                         >
                           {milestoneTitle}
                         </span>
@@ -471,19 +468,17 @@ export function LearningInterface({
                           setSelectedQuiz(null);
                           setSelectedResource(null);
                         }}
-                        className={`w-full text-left p-3 rounded-lg border transition-colors ${
-                          isSelected
+                        className={`w-full text-left p-3 rounded-lg border transition-colors ${isSelected
                             ? "border-teal-500 bg-teal-50"
                             : "border-slate-200 hover:border-slate-300"
-                        }`}
+                          }`}
                       >
                         <div className="flex items-start gap-2">
                           <PlayIcon className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
                           <div className="flex-1 min-w-0">
                             <p
-                              className={`text-sm ${
-                                isSelected ? "font-semibold text-teal-900" : "text-slate-700"
-                              }`}
+                              className={`text-sm ${isSelected ? "font-semibold text-teal-900" : "text-slate-700"
+                                }`}
                             >
                               {videoTitle}
                             </p>
@@ -492,7 +487,7 @@ export function LearningInterface({
                                 <div className="h-1 bg-slate-200 rounded-full overflow-hidden">
                                   <div
                                     className="h-full bg-teal-500"
-                                    style={{ 
+                                    style={{
                                       width: `${(() => {
                                         // Use real-time progress if available (video is currently being watched)
                                         const realTimeProgress = currentVideoProgress.get(video.id);
@@ -505,7 +500,7 @@ export function LearningInterface({
                                           return 0;
                                         }
                                         return progress.completion_percentage;
-                                      })()}%` 
+                                      })()}%`
                                     }}
                                   />
                                 </div>
@@ -536,8 +531,8 @@ export function LearningInterface({
                 <div className="text-center py-6">
                   <div className="text-4xl mb-2">📹</div>
                   <p className="text-sm text-slate-500">
-                    {language === "ar" 
-                      ? "لا يوجد فيديو بالعربية في الوقت الحالي" 
+                    {language === "ar"
+                      ? "لا يوجد فيديو بالعربية في الوقت الحالي"
                       : "No videos available yet"}
                   </p>
                   <p className="text-xs text-slate-400 mt-1">
@@ -553,7 +548,7 @@ export function LearningInterface({
             {filteredResources.length > 0 && (
               <div className="bg-white rounded-xl border border-slate-200 p-4">
                 <h3 className="font-semibold text-slate-900 mb-3">
-                  {language === "ar" ? "الموارد" : "Resources"}
+                  {language === "ar" ? "موارد هامة" : "Important Resources"}
                 </h3>
                 <div className="space-y-2">
                   {accessibleResources.map((resource) => {
@@ -576,30 +571,28 @@ export function LearningInterface({
                             setSelectedQuiz(null);
                           }
                         }}
-                        className={`w-full text-left p-3 rounded-lg border transition-colors ${
-                          isSelected
+                        className={`w-full text-left p-3 rounded-lg border transition-colors ${isSelected
                             ? "border-teal-500 bg-teal-50"
                             : "border-slate-200 hover:border-slate-300"
-                        }`}
+                          }`}
                       >
                         <div className="flex items-start gap-2">
                           <PlayIcon className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
                           <div className="flex-1 min-w-0">
                             <p
-                              className={`text-sm ${
-                                isSelected ? "font-semibold text-teal-900" : "text-slate-700"
-                              }`}
+                              className={`text-sm ${isSelected ? "font-semibold text-teal-900" : "text-slate-700"
+                                }`}
                             >
                               {resourceTitle}
                             </p>
                             <p className="text-xs text-slate-500 mt-1">
-                              {resource.resource_type === "video" 
+                              {resource.resource_type === "video"
                                 ? (language === "ar" ? "فيديو" : "Video")
                                 : resource.resource_type === "article"
-                                ? (language === "ar" ? "مقال" : "Article")
-                                : resource.resource_type === "test"
-                                ? (language === "ar" ? "اختبار" : "Test")
-                                : resource.resource_type}
+                                  ? (language === "ar" ? "مقال" : "Article")
+                                  : resource.resource_type === "test"
+                                    ? (language === "ar" ? "اختبار" : "Test")
+                                    : resource.resource_type}
                             </p>
                           </div>
                         </div>
@@ -630,18 +623,16 @@ export function LearningInterface({
                           setSelectedVideo(null);
                           setSelectedResource(null);
                         }}
-                        className={`w-full text-left p-3 rounded-lg border transition-colors ${
-                          isSelected
+                        className={`w-full text-left p-3 rounded-lg border transition-colors ${isSelected
                             ? "border-teal-500 bg-teal-50"
                             : "border-slate-200 hover:border-slate-300"
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-semibold">📝</span>
                           <span
-                            className={`text-sm ${
-                              isSelected ? "font-semibold text-teal-900" : "text-slate-700"
-                            }`}
+                            className={`text-sm ${isSelected ? "font-semibold text-teal-900" : "text-slate-700"
+                              }`}
                           >
                             {quizTitle}
                           </span>
@@ -654,8 +645,8 @@ export function LearningInterface({
                 <div className="text-center py-6">
                   <div className="text-4xl mb-2">📝</div>
                   <p className="text-sm text-slate-500">
-                    {language === "ar" 
-                      ? "لا توجد اختبارات متاحة بعد" 
+                    {language === "ar"
+                      ? "لا توجد اختبارات متاحة بعد"
                       : "No quizzes available yet"}
                   </p>
                   <p className="text-xs text-slate-400 mt-1">
@@ -729,7 +720,7 @@ export function LearningInterface({
                             newMap.set(selectedVideo.id, progress);
                             return newMap;
                           });
-                          
+
                           // Progress tracking removed
                         }}
                         onComplete={handleVideoComplete}
@@ -737,8 +728,8 @@ export function LearningInterface({
                     ) : (
                       <div className="bg-slate-100 rounded-lg aspect-video flex items-center justify-center p-8">
                         <p className="text-slate-600 text-center">
-                          {language === "ar" 
-                            ? "معرف الفيديو غير متوفر. يرجى التحقق من إعدادات الفيديو." 
+                          {language === "ar"
+                            ? "معرف الفيديو غير متوفر. يرجى التحقق من إعدادات الفيديو."
                             : "Video ID not available. Please check video settings."}
                         </p>
                       </div>
@@ -800,7 +791,7 @@ export function LearningInterface({
                 </p>
               </div>
             )}
-            
+
             {/* Empty State - No Video Selected but filtered videos exist */}
             {activeTab === "videos" && !selectedVideo && filteredVideos.length > 0 && (
               <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
