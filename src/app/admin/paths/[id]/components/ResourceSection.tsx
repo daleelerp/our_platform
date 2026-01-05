@@ -137,7 +137,7 @@ export default function ResourceSection({
             </div>
 
             {/* Scrape Articles */}
-            <div className="mt-3 border-t border-slate-100 pt-3">
+            {/* <div className="mt-3 border-t border-slate-100 pt-3">
                 <div className="text-xs font-medium text-slate-500 mb-1">
                     Scrape Articles (Oracle Docs, Medium, etc.)
                 </div>
@@ -188,7 +188,7 @@ export default function ResourceSection({
                         This will search for articles and automatically add the first result to this milestone.
                     </p>
                 </div>
-            </div>
+            </div> */}
         </div>
     );
 }
