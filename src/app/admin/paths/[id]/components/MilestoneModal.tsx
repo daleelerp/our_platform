@@ -3,7 +3,7 @@
 import { Milestone, VideoContent, MilestoneResource, LearningResource, Quiz } from "../types";
 import VideoSection from "./VideoSection";
 import ResourceSection from "./ResourceSection";
-import QuizSection from "./QuizSection";
+// import QuizSection from "./QuizSection";
 import AddArticleModal from "./AddArticleModal";
 
 interface MilestoneModalProps {
@@ -135,13 +135,13 @@ export default function MilestoneModal({
                             onScrapeArticle={() => onScrapeArticle(milestone.id)}
                         />
 
-                        <QuizSection
+                        {/* <QuizSection
                             quizzes={quizzes}
                             onDeleteQuiz={(id) => onDeleteQuiz(milestone.id, id)}
                             newQuiz={newQuiz[milestone.id]}
                             setNewQuiz={(updater) => setNewQuiz(updater)}
                             onAddQuiz={() => onAddQuiz(milestone.id)}
-                        />
+                        /> */}
                     </div>
                 </div>
             </div>
