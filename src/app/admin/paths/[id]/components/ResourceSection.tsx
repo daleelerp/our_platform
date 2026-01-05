@@ -1,7 +1,7 @@
 "use client";
 
 import { MilestoneResource, LearningResource } from "../types";
-
+import { LinkPreview } from "@/components/admin/LinkPreview";
 interface ResourceSectionProps {
     resources: MilestoneResource[];
     onDeleteResource: (id: string) => void;
@@ -171,6 +171,11 @@ export default function ResourceSection({
                             <option value="medium">Medium</option>
                         </select>
                     </div>
+
+                    <LinkPreview
+                        url={scrapingArticle?.query || ""}
+                    />
+
                     <button
                         type="button"
                         onClick={onScrapeArticle}

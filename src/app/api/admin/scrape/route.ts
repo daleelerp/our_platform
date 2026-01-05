@@ -76,6 +76,10 @@ export async function POST(request: NextRequest) {
         case "oracle_docs":
           results = await scrapeOracleDocs(search_query);
           break;
+        case "article":
+        case "medium":
+          results = await scrapeArticle(target_url || search_query);
+          break;
         case "job_postings":
           results = await scrapeJobPostings(search_query);
           break;
@@ -272,5 +276,58 @@ async function scrapeJobPostings(query: string): Promise<any[]> {
       platform: "Job Analysis",
     },
   ];
+}
+
+// Generic article scraper using cheerio
+async function scrapeArticle(url: string): Promise<any[]> {
+  if (!url || !url.startsWith("http")) {
+    throw new Error("Invalid URL for article scraping");
+  }
+
+  try {
+    const { load } = await import("cheerio");
+
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Cache-Control": "no-cache",
+        "Pragma": "no-cache",
+      },
+    });
+
+    if (!response.ok) {
+      if (response.status === 403) {
+        throw new Error("Access denied (403) by the target website. Many sites like Medium block simple scraping. Try adding manually instead.");
+      }
+      throw new Error(`Failed to fetch article: ${response.statusText}`);
+    }
+
+    const html = await response.text();
+    const $ = load(html);
+
+    const title = $("title").text() || $('meta[property="og:title"]').attr("content") || $('meta[name="twitter:title"]').attr("content") || "Untitled Article";
+    const description = $('meta[name="description"]').attr("content") || $('meta[property="og:description"]').attr("content") || $('meta[name="twitter:description"]').attr("content") || "";
+    const thumbnail = $('meta[property="og:image"]').attr("content") || $('meta[name="twitter:image"]').attr("content") || "";
+
+    const platform = url.includes("medium.com") ? "Medium" :
+      url.includes("oracle.com") ? "Oracle" : "External Article";
+
+    return [
+      {
+        title: title.trim(),
+        description: description.trim(),
+        url: url,
+        type: "article",
+        platform: platform,
+        author: $('meta[name="author"]').attr("content") || platform,
+        thumbnail: thumbnail,
+      },
+    ];
+  } catch (error: any) {
+    console.error("Scrape article error:", error);
+    throw error;
+  }
 }
 

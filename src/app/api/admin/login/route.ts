@@ -154,6 +154,7 @@ export async function POST(request: NextRequest) {
 
     response.cookies.set("admin_username", username, {
       ...cookieOptions,
+      maxAge: 60 * 60 * 24, // 1 day
       httpOnly: false, // Allow client-side access for display
     });
 

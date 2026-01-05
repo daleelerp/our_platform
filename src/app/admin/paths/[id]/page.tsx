@@ -555,28 +555,69 @@ export default function EditPathPage() {
 
   const handleScrapeArticle = async (milestoneId: string) => {
     const data = scrapingArticle[milestoneId];
+    if (!data.query.trim()) return alert("Please enter a search query or URL");
+
     setScrapingArticle((prev) => ({
       ...prev,
       [milestoneId]: { ...data, isScraping: true },
     }));
+
     try {
+      const isUrl = data.query.startsWith("http");
+      let jobType = data.source;
+
+      if (isUrl) {
+        jobType = "article";
+      } else if (data.source === "medium") {
+        jobType = "medium";
+      }
+
       const res = await fetch("/api/admin/scrape", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          job_type: data.source === "oracle_docs" ? "oracle_docs" : "youtube",
+          job_type: jobType,
           search_query: data.query,
+          target_url: isUrl ? data.query : undefined,
         }),
       });
+
       const json = await res.json();
-      // Simple polling simulation or just assume success if API ok
-      setTimeout(() => {
+
+      if (!res.ok) {
+        throw new Error(json.error || "Scraping failed");
+      }
+
+      alert("Scrape job started successfully! Check the resources list in a few moments.");
+
+      // Check results after a delay
+      setTimeout(async () => {
+        // Refresh resources for this milestone
+        const resourcesRes = await fetch(
+          `/api/admin/data?table=milestone_resources_view&filterColumn=milestone_id&filterValue=${encodeURIComponent(
+            milestoneId
+          )}`
+        );
+        const resJson = await resourcesRes.json();
+        if (resourcesRes.ok) {
+          setResourcesByMilestone((prev) => ({
+            ...prev,
+            [milestoneId]: resJson.data.map((r: any) => ({
+              id: r.id,
+              resource_id: r.resource_id,
+              resource_title: r.resource_title || r.title,
+              url: r.url,
+            })),
+          }));
+        }
+
         setScrapingArticle((prev) => ({
           ...prev,
           [milestoneId]: { ...data, isScraping: false },
         }));
-      }, 2000);
-    } catch (err) {
+      }, 5000);
+    } catch (err: any) {
+      alert(err.message);
       setScrapingArticle((prev) => ({
         ...prev,
         [milestoneId]: { ...data, isScraping: false },
