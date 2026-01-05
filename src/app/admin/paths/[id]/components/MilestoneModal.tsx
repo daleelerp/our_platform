@@ -117,7 +117,12 @@ export default function MilestoneModal({
                             videos={videos}
                             onDeleteVideo={onDeleteVideo}
                             newVideo={newVideo[milestone.id]}
-                            setNewVideo={(updater) => setNewVideo(updater)}
+                            setNewVideo={(updater) => {
+                                setNewVideo((prev: any) => ({
+                                    ...prev,
+                                    [milestone.id]: typeof updater === "function" ? updater(prev[milestone.id] || {}) : updater,
+                                }));
+                            }}
                             onAddVideo={() => onAddVideo(milestone.id)}
                         />
 
@@ -127,11 +132,21 @@ export default function MilestoneModal({
                             onEditResource={(resId) => onEditResource(milestone.id, resId)}
                             allResources={allResources}
                             newResource={newResource[milestone.id]}
-                            setNewResource={(updater) => setNewResource(updater)}
+                            setNewResource={(updater) => {
+                                setNewResource((prev: any) => ({
+                                    ...prev,
+                                    [milestone.id]: typeof updater === "function" ? updater(prev[milestone.id] || {}) : updater,
+                                }));
+                            }}
                             onAddResource={() => onAddResource(milestone.id)}
                             onOpenAddArticleModal={() => onOpenAddArticleModal(milestone.id)}
                             scrapingArticle={scrapingArticle[milestone.id]}
-                            setScrapingArticle={(updater) => setScrapingArticle(updater)}
+                            setScrapingArticle={(updater) => {
+                                setScrapingArticle((prev: any) => ({
+                                    ...prev,
+                                    [milestone.id]: typeof updater === "function" ? updater(prev[milestone.id] || {}) : updater,
+                                }));
+                            }}
                             onScrapeArticle={() => onScrapeArticle(milestone.id)}
                         />
 
@@ -139,7 +154,12 @@ export default function MilestoneModal({
                             quizzes={quizzes}
                             onDeleteQuiz={(id) => onDeleteQuiz(milestone.id, id)}
                             newQuiz={newQuiz[milestone.id]}
-                            setNewQuiz={(updater) => setNewQuiz(updater)}
+                            setNewQuiz={(updater) => {
+                                setNewQuiz((prev: any) => ({
+                                    ...prev,
+                                    [milestone.id]: typeof updater === "function" ? updater(prev[milestone.id] || {}) : updater,
+                                }));
+                            }}
                             onAddQuiz={() => onAddQuiz(milestone.id)}
                         /> */}
                     </div>
@@ -153,7 +173,12 @@ export default function MilestoneModal({
                     onClose={onCloseAddArticleModal}
                     onSubmit={onAddArticle}
                     articleData={newArticle[milestone.id]}
-                    setArticleData={setNewArticle}
+                    setArticleData={(updater) => {
+                        setNewArticle((prev: any) => ({
+                            ...prev,
+                            [milestone.id]: typeof updater === "function" ? updater(prev[milestone.id] || {}) : updater,
+                        }));
+                    }}
                 />
             )}
         </div>

@@ -56,7 +56,7 @@ export default function AddArticleModal({
                                     onChange={(e) =>
                                         setArticleData((prev: any) => ({
                                             ...prev,
-                                            [milestoneId]: { ...prev[milestoneId], title: e.target.value },
+                                            title: e.target.value,
                                         }))
                                     }
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
@@ -73,7 +73,7 @@ export default function AddArticleModal({
                                     onChange={(e) =>
                                         setArticleData((prev: any) => ({
                                             ...prev,
-                                            [milestoneId]: { ...prev[milestoneId], title_ar: e.target.value },
+                                            title_ar: e.target.value,
                                         }))
                                     }
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
@@ -92,7 +92,7 @@ export default function AddArticleModal({
                                 onChange={(e) =>
                                     setArticleData((prev: any) => ({
                                         ...prev,
-                                        [milestoneId]: { ...prev[milestoneId], url: e.target.value },
+                                        url: e.target.value,
                                     }))
                                 }
                                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
@@ -113,7 +113,7 @@ export default function AddArticleModal({
                                     onChange={(e) =>
                                         setArticleData((prev: any) => ({
                                             ...prev,
-                                            [milestoneId]: { ...prev[milestoneId], content: e.target.value },
+                                            content: e.target.value,
                                         }))
                                     }
                                     rows={4}
@@ -130,7 +130,7 @@ export default function AddArticleModal({
                                     onChange={(e) =>
                                         setArticleData((prev: any) => ({
                                             ...prev,
-                                            [milestoneId]: { ...prev[milestoneId], content_ar: e.target.value },
+                                            content_ar: e.target.value,
                                         }))
                                     }
                                     rows={4}
@@ -150,7 +150,7 @@ export default function AddArticleModal({
                                     onChange={(e) =>
                                         setArticleData((prev: any) => ({
                                             ...prev,
-                                            [milestoneId]: { ...prev[milestoneId], language: e.target.value },
+                                            language: e.target.value,
                                         }))
                                     }
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
@@ -168,7 +168,7 @@ export default function AddArticleModal({
                                     onChange={(e) =>
                                         setArticleData((prev: any) => ({
                                             ...prev,
-                                            [milestoneId]: { ...prev[milestoneId], is_free: e.target.checked },
+                                            is_free: e.target.checked,
                                         }))
                                     }
                                     className="w-4 h-4 text-teal-600 border-slate-300 rounded focus:ring-teal-500"
