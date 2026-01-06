@@ -95,9 +95,9 @@ export default function ResourcesPage() {
             ],
             hideInTable: true,
           },
-          { key: "estimated_duration_minutes", label: "Minutes", type: "number", hideInTable: true, },
-          { key: "price", label: "Price", type: "number", hideInTable: true, },
-          { key: "price_currency", label: "Currency", type: "text", hideInTable: true, },
+          // { key: "estimated_duration_minutes", label: "Minutes", type: "number", hideInTable: true, },
+          // { key: "price", label: "Price", type: "number", hideInTable: true, },
+          // { key: "price_currency", label: "Currency", type: "text", hideInTable: true, },
           { key: "is_free", label: "Free", type: "checkbox", hideInTable: true, },
           { key: "is_active", label: "Active", type: "checkbox", hideInTable: true, },
         ]}
