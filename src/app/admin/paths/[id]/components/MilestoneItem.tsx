@@ -84,6 +84,7 @@ export default function MilestoneItem({
                             </label>
                             <input
                                 type="number"
+                                readOnly
                                 min={1}
                                 required
                                 value={editingMilestone.milestone_number}

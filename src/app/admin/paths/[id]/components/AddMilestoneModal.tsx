@@ -84,6 +84,7 @@ export default function AddMilestoneModal({
                                 </label>
                                 <input
                                     type="number"
+                                    readOnly
                                     min={1}
                                     required
                                     value={newMilestone.milestone_number}
