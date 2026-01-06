@@ -49,7 +49,7 @@ export default function ResourcesPage() {
         columns={[
           { key: "id", label: "ID", hidden: true, readOnly: true },
           { key: "title", label: "Title (EN)", type: "text" },
-          { key: "title_ar", label: "Title (AR)", type: "text" },
+          { key: "title_ar", label: "Title (AR)", type: "text", hideInTable: true, },
           {
             key: "description",
             label: "Content/Description (EN)",
@@ -72,7 +72,7 @@ export default function ResourcesPage() {
               { value: "test", label: "Test" },
             ],
           },
-          { key: "url", label: "URL (optional for articles)", type: "text" },
+          { key: "url", label: "URL (optional for articles)", type: "text", hideInTable: true, },
           {
             key: "language",
             label: "Language Preference",
@@ -93,12 +93,13 @@ export default function ResourcesPage() {
               { value: "advanced", label: "Advanced (متقدم)" },
               { value: "expert", label: "Expert (خبير)" },
             ],
+            hideInTable: true,
           },
-          { key: "estimated_duration_minutes", label: "Minutes", type: "number" },
-          { key: "price", label: "Price", type: "number" },
-          { key: "price_currency", label: "Currency", type: "text" },
-          { key: "is_free", label: "Free", type: "checkbox" },
-          { key: "is_active", label: "Active", type: "checkbox" },
+          { key: "estimated_duration_minutes", label: "Minutes", type: "number", hideInTable: true, },
+          { key: "price", label: "Price", type: "number", hideInTable: true, },
+          { key: "price_currency", label: "Currency", type: "text", hideInTable: true, },
+          { key: "is_free", label: "Free", type: "checkbox", hideInTable: true, },
+          { key: "is_active", label: "Active", type: "checkbox", hideInTable: true, },
         ]}
       />
     </div>
