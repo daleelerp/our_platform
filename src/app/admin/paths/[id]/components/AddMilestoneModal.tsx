@@ -213,7 +213,8 @@ export default function AddMilestoneModal({
                             </div>
                         </div>
 
-                        <div className="border-t border-slate-200 pt-3">
+                        {/* Currently there is no ability adding checkpoints */}
+                        {/* <div className="border-t border-slate-200 pt-3">
                             <p className="text-[10px] font-medium text-slate-600 mb-2">Checkpoint</p>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                 <div>
@@ -269,9 +270,12 @@ export default function AddMilestoneModal({
                                     />
                                 </div>
                             </div>
-                        </div>
+                        </div> */}
 
-                        <div className="border-t border-slate-200 pt-3">
+
+                        {/* This is part not in use */}
+                        {/* Job Skills Unlocked */}
+                        {/* <div className="border-t border-slate-200 pt-3">
                             <label className="block text-[11px] font-medium text-slate-600 mb-1">
                                 Job Skills Unlocked
                             </label>
@@ -289,7 +293,7 @@ export default function AddMilestoneModal({
                                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                                 placeholder="One skill per line"
                             />
-                        </div>
+                        </div> */}
 
                         <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 mt-4">
                             <button
