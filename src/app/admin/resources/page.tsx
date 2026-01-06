@@ -83,22 +83,22 @@ export default function ResourcesPage() {
               { value: "both", label: "Both Languages - Shows for all users regardless of preference" },
             ],
           },
-          {
-            key: "difficulty_level",
-            label: "Difficulty Level",
-            type: "select",
-            options: [
-              { value: "beginner", label: "Beginner (مبتدئ)" },
-              { value: "intermediate", label: "Intermediate (متوسط)" },
-              { value: "advanced", label: "Advanced (متقدم)" },
-              { value: "expert", label: "Expert (خبير)" },
-            ],
-            hideInTable: true,
-          },
+          // {
+          //   key: "difficulty_level",
+          //   label: "Difficulty Level",
+          //   type: "select",
+          //   options: [
+          //     { value: "beginner", label: "Beginner (مبتدئ)" },
+          //     { value: "intermediate", label: "Intermediate (متوسط)" },
+          //     { value: "advanced", label: "Advanced (متقدم)" },
+          //     { value: "expert", label: "Expert (خبير)" },
+          //   ],
+          //   hideInTable: true,
+          // },
           // { key: "estimated_duration_minutes", label: "Minutes", type: "number", hideInTable: true, },
           // { key: "price", label: "Price", type: "number", hideInTable: true, },
           // { key: "price_currency", label: "Currency", type: "text", hideInTable: true, },
-          { key: "is_free", label: "Free", type: "checkbox", hideInTable: true, },
+          // { key: "is_free", label: "Free", type: "checkbox", hideInTable: true, },
           { key: "is_active", label: "Active", type: "checkbox", hideInTable: true, },
         ]}
       />
