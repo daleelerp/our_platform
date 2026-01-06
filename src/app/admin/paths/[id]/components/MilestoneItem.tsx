@@ -15,7 +15,7 @@ interface MilestoneItemProps {
     counts: {
         videos: number;
         resources: number;
-        quizzes: number;
+        // quizzes: number;
     };
 }
 
@@ -346,10 +346,10 @@ export default function MilestoneItem({
                                 <span>
                                     {counts.resources} resource{counts.resources !== 1 ? 's' : ''}
                                 </span>
-                                <span>•</span>
+                                {/* <span>•</span>
                                 <span>
                                     {counts.quizzes} quiz{counts.quizzes !== 1 ? 'zes' : ''}
-                                </span>
+                                </span> */}
                             </div>
                         </div>
                     </div>
