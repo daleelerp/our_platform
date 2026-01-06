@@ -764,7 +764,7 @@ export default function EditPathPage() {
                 counts={{
                   videos: (videosByMilestone[m.id] || []).length,
                   resources: (resourcesByMilestone[m.id] || []).length,
-                  quizzes: (quizzesByMilestone[m.id] || []).length,
+                  // quizzes: (quizzesByMilestone[m.id] || []).length,
                 }}
               />
             ))
