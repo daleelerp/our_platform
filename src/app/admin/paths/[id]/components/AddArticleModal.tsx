@@ -204,7 +204,7 @@ export default function AddArticleModal({
                                     <option value="both">Both</option>
                                 </select>
                             </div>
-                            <div className="flex items-center gap-2 pt-6">
+                            {/* <div className="flex items-center gap-2 pt-6">
                                 <input
                                     type="checkbox"
                                     id={`article_free_${milestoneId}`}
@@ -220,7 +220,7 @@ export default function AddArticleModal({
                                 <label htmlFor={`article_free_${milestoneId}`} className="text-sm text-slate-700">
                                     Free
                                 </label>
-                            </div>
+                            </div> */}
                         </div>
 
                         <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 mt-4">
