@@ -137,7 +137,7 @@ export default function MilestoneItem({
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
                             <label className="block text-[11px] font-medium text-slate-600 mb-1">
                                 Estimated hours
@@ -161,7 +161,7 @@ export default function MilestoneItem({
                                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                             />
                         </div>
-                        {/* <div className="flex items-start pt-6">
+                        <div className="flex items-start pt-6">
                             <input
                                 type="checkbox"
                                 id={`edit_is_optional_${milestone.id}`}
@@ -179,8 +179,8 @@ export default function MilestoneItem({
                             >
                                 Optional milestone
                             </label>
-                        </div> */}
-                    </div>
+                        </div>
+                    </div> */}
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
