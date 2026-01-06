@@ -43,11 +43,11 @@ export interface NewMilestone {
     estimated_hours: number | string;
     learning_objectives: string[];
     learning_objectives_ar: string[];
-    checkpoint_type: string;
-    checkpoint_description: string;
-    checkpoint_description_ar: string;
-    job_skills_unlocked: string[];
-    is_optional: boolean;
+    // checkpoint_type: string;
+    // checkpoint_description: string;
+    // checkpoint_description_ar: string;
+    // job_skills_unlocked: string[];
+    // is_optional: boolean;
 }
 
 export interface VideoContent {

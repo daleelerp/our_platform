@@ -151,7 +151,7 @@ export default function AddMilestoneModal({
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                                 />
                             </div>
-                            <div className="flex items-start pt-6">
+                            {/* <div className="flex items-start pt-6">
                                 <input
                                     type="checkbox"
                                     id="chk_is_optional"
@@ -170,7 +170,7 @@ export default function AddMilestoneModal({
                                 >
                                     Optional milestone
                                 </label>
-                            </div>
+                            </div> */}
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

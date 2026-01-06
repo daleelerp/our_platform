@@ -54,12 +54,12 @@ export default function EditPathPage() {
     milestone_number: "",
     estimated_hours: "",
     learning_objectives: [],
-    learning_objectives_ar: [],
-    checkpoint_type: "quiz",
-    checkpoint_description: "",
-    checkpoint_description_ar: "",
-    job_skills_unlocked: [],
-    is_optional: false,
+    learning_objectives_ar: []
+    // checkpoint_type: "quiz",
+    // checkpoint_description: "",
+    // checkpoint_description_ar: "",
+    // job_skills_unlocked: [],
+    // is_optional: false,
   });
 
   const [editingMilestoneId, setEditingMilestoneId] = useState<string | null>(
@@ -374,11 +374,11 @@ export default function EditPathPage() {
       estimated_hours: milestone.estimated_hours || "",
       learning_objectives: milestone.learning_objectives || [],
       learning_objectives_ar: milestone.learning_objectives_ar || [],
-      checkpoint_type: milestone.checkpoint_type || "quiz",
-      checkpoint_description: milestone.checkpoint_description || "",
-      checkpoint_description_ar: milestone.checkpoint_description_ar || "",
-      job_skills_unlocked: milestone.job_skills_unlocked || [],
-      is_optional: milestone.is_optional || false,
+      // checkpoint_type: milestone.checkpoint_type || "quiz",
+      // checkpoint_description: milestone.checkpoint_description || "",
+      // checkpoint_description_ar: milestone.checkpoint_description_ar || "",
+      // job_skills_unlocked: milestone.job_skills_unlocked || [],
+      // is_optional: milestone.is_optional || false,
     });
   };
 
