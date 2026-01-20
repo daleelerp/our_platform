@@ -8,72 +8,56 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const PAYMOB_HMAC_SECRET = process.env.PAYMOB_HMAC_SECRET;
+const FAWRY_SECRET_KEY = process.env.FAWRY_SECRET_KEY;
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     
-    // Verify HMAC signature if configured
-    if (PAYMOB_HMAC_SECRET) {
-      const hmacHeader = request.headers.get("hmac");
+    // Verify signature if configured
+    if (FAWRY_SECRET_KEY) {
+      // Fawry signature verification
+      // The signature should be in the header: X-Fawry-Signature
+      const signatureHeader = request.headers.get("X-Fawry-Signature");
       
-      // Paymob HMAC calculation
-      const hmacString = [
-        body.obj.amount_cents,
-        body.obj.created_at,
-        body.obj.currency,
-        body.obj.error_occured,
-        body.obj.has_parent_transaction,
-        body.obj.id,
-        body.obj.integration_id,
-        body.obj.is_3d_secure,
-        body.obj.is_auth,
-        body.obj.is_capture,
-        body.obj.is_refunded,
-        body.obj.is_standalone_payment,
-        body.obj.is_voided,
-        body.obj.order.id,
-        body.obj.owner,
-        body.obj.pending,
-        body.obj.source_data.pan,
-        body.obj.source_data.sub_type,
-        body.obj.source_data.type,
-        body.obj.success,
+      // Build the data to verify (Fawry sends this in the webhook)
+      const dataToVerify = [
+        body.chargeId,
+        body.amount,
+        body.currency,
+        body.paymentMethod,
+        body.status,
+        FAWRY_SECRET_KEY
       ].join("");
 
-      const calculatedHmac = crypto
-        .createHmac("sha512", PAYMOB_HMAC_SECRET)
-        .update(hmacString)
+      const expectedSignature = crypto
+        .createHmac("sha256", FAWRY_SECRET_KEY)
+        .update(dataToVerify)
         .digest("hex");
 
-      if (hmacHeader !== calculatedHmac) {
-        console.error("Invalid HMAC signature");
+      if (signatureHeader && signatureHeader !== expectedSignature) {
+        console.error("Invalid Fawry signature");
         return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
       }
     }
 
-    const { obj } = body;
-    const orderId = obj.order.id.toString();
-    const success = obj.success;
-    const transactionId = obj.id;
-    const amountCents = obj.amount_cents;
+    const { chargeId, amount, currency, paymentMethod, status, orderId, referenceNumber } = body;
 
-    console.log(`Webhook received: Order ${orderId}, Success: ${success}`);
+    console.log(`Webhook received: Charge ${chargeId}, Status: ${status}`);
 
-    // Find the subscription by order ID
+    // Find the subscription by charge ID
     const { data: subscription, error: subError } = await supabase
       .from("user_subscriptions")
       .select("*, subscription_plans(*)")
-      .eq("external_subscription_id", orderId)
+      .eq("external_subscription_id", chargeId)
       .single();
 
     if (subError || !subscription) {
-      console.error("Subscription not found for order:", orderId);
+      console.error("Subscription not found for charge:", chargeId);
       return NextResponse.json({ error: "Subscription not found" }, { status: 404 });
     }
 
-    if (success) {
+    if (status === "PAID" || status === "SUCCESS" || status === "success") {
       // Payment successful - activate subscription
       const periodEnd = new Date();
       if (subscription.billing_cycle === "yearly") {
@@ -89,8 +73,8 @@ export async function POST(request: NextRequest) {
           started_at: new Date().toISOString(),
           current_period_start: new Date().toISOString(),
           current_period_end: periodEnd.toISOString(),
-          payment_method: obj.source_data.type, // 'card', 'wallet', etc.
-          payment_provider: "paymob",
+          payment_method: paymentMethod || "fawry",
+          payment_provider: "fawry",
         })
         .eq("id", subscription.id);
 
@@ -100,21 +84,22 @@ export async function POST(request: NextRequest) {
         .insert({
           user_id: subscription.user_id,
           subscription_id: subscription.id,
-          amount_egp: amountCents / 100,
-          currency: "EGP",
+          amount_egp: amount / 100, // Fawry uses fils (smallest unit)
+          currency: currency || "EGP",
           status: "completed",
           type: "subscription",
-          payment_method: obj.source_data.type,
-          payment_provider: "paymob",
-          provider_transaction_id: transactionId.toString(),
-          provider_response: obj,
-          billing_email: obj.order.shipping_data?.email,
-          billing_phone: obj.order.shipping_data?.phone_number,
+          payment_method: paymentMethod || "fawry",
+          payment_provider: "fawry",
+          provider_transaction_id: referenceNumber || chargeId,
+          provider_response: body,
         });
 
-      console.log(`Subscription ${subscription.id} activated successfully`);
+      console.log(`Subscription ${subscription.id} activated successfully via Fawry`);
+    } else if (status === "PENDING") {
+      // Payment pending - keep subscription in pending state
+      console.log(`Payment pending for subscription ${subscription.id}`);
     } else {
-      // Payment failed
+      // Payment failed or cancelled
       await supabase
         .from("user_subscriptions")
         .update({ status: "expired" })
@@ -126,18 +111,18 @@ export async function POST(request: NextRequest) {
         .insert({
           user_id: subscription.user_id,
           subscription_id: subscription.id,
-          amount_egp: amountCents / 100,
-          currency: "EGP",
+          amount_egp: amount / 100,
+          currency: currency || "EGP",
           status: "failed",
           type: "subscription",
-          payment_method: obj.source_data?.type,
-          payment_provider: "paymob",
-          provider_transaction_id: transactionId.toString(),
-          provider_response: obj,
-          description: obj.data?.message || "Payment failed",
+          payment_method: paymentMethod || "fawry",
+          payment_provider: "fawry",
+          provider_transaction_id: referenceNumber || chargeId,
+          provider_response: body,
+          description: `Payment ${status}`,
         });
 
-      console.log(`Payment failed for subscription ${subscription.id}`);
+      console.log(`Payment ${status} for subscription ${subscription.id}`);
     }
 
     return NextResponse.json({ received: true });
@@ -153,6 +138,6 @@ export async function POST(request: NextRequest) {
 
 // Also handle GET for webhook verification
 export async function GET(request: NextRequest) {
-  return NextResponse.json({ status: "Webhook endpoint active" });
+  return NextResponse.json({ status: "Fawry webhook endpoint active" });
 }
 

@@ -22,12 +22,12 @@ const menuItems = [
     icon: "🗺️",
     permission: "manage_paths",
   },
-  {
-    name: "Generate Path",
-    href: "/admin/generate-path",
-    icon: "✨",
-    permission: "manage_paths",
-  },
+  // {
+  //   name: "Generate Path",
+  //   href: "/admin/generate-path",
+  //   icon: "✨",
+  //   permission: "manage_paths",
+  // },
   {
     name: "Resources",
     href: "/admin/resources",

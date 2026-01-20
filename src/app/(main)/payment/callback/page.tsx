@@ -33,20 +33,33 @@ export default function PaymentCallbackPage() {
   };
 
   useEffect(() => {
-    // Paymob returns these parameters
+    // Handle both Paymob and Fawry callback parameters
     const success = searchParams.get("success");
     const pending = searchParams.get("pending");
     const txnResponseCode = searchParams.get("txn_response_code");
+    
+    // Fawry parameters
+    const fawryStatus = searchParams.get("status");
+    const chargeId = searchParams.get("chargeId");
+    const provider = searchParams.get("provider");
 
-    if (success === "true") {
+    // Fawry success responses: PAID or success=true
+    if (provider === "fawry" && (fawryStatus === "PAID" || success === "true")) {
       setStatus("success");
       // Auto redirect after 3 seconds
       setTimeout(() => {
         router.push("/dashboard?subscription=activated");
       }, 3000);
-    } else if (pending === "true") {
+    } else if (success === "true") {
+      // Paymob success
+      setStatus("success");
+      // Auto redirect after 3 seconds
+      setTimeout(() => {
+        router.push("/dashboard?subscription=activated");
+      }, 3000);
+    } else if (pending === "true" || fawryStatus === "PENDING") {
       setStatus("pending");
-    } else if (success === "false" || txnResponseCode) {
+    } else if (success === "false" || txnResponseCode || fawryStatus === "FAILED" || fawryStatus === "CANCELLED") {
       setStatus("failed");
     } else {
       // No params, might be direct access

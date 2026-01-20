@@ -7,7 +7,6 @@ import crypto from "crypto";
 const FAWRY_API_KEY = process.env.FAWRY_API_KEY;
 const FAWRY_MERCHANT_CODE = process.env.FAWRY_MERCHANT_CODE;
 const FAWRY_SECRET_KEY = process.env.FAWRY_SECRET_KEY;
-// Get base URL from environment or use production default
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || process.env.VERCEL_URL 
   ? `https://${process.env.VERCEL_URL}` 
   : "https://www.daleel.site";
@@ -24,9 +23,6 @@ export async function POST(request: NextRequest) {
     }
 
     const { planId, billingCycle, promoCode, paymentMethod } = await request.json();
-    // paymentMethod is optional - if not provided, Fawry will show all enabled payment methods
-    
-    // billingCycle is optional - only needed for recurring plans
 
     // Fetch the plan
     const { data: plan, error: planError } = await supabase
@@ -73,26 +69,22 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Calculate price - check if one-time payment
-    // Treat as one-time if: payment_type is 'one_time' OR if price_one_time_egp exists and monthly/yearly are 0
+    // Calculate price
     const isOneTimePayment = plan.payment_type === 'one_time' || 
                              (plan.price_one_time_egp && plan.price_one_time_egp > 0 && 
                               (!plan.price_monthly_egp || plan.price_monthly_egp === 0) &&
                               (!plan.price_yearly_egp || plan.price_yearly_egp === 0));
     
     let amount: number;
-    let finalBillingCycle = billingCycle || "monthly"; // Default to monthly if not provided
     
     if (isOneTimePayment && plan.price_one_time_egp) {
       amount = plan.price_one_time_egp;
-      finalBillingCycle = "monthly"; // Use monthly as default for one-time payments
     } else {
-      // For recurring plans, use the provided billingCycle or default to monthly
-      amount = finalBillingCycle === "yearly" ? (plan.price_yearly_egp || 0) : (plan.price_monthly_egp || 0);
-    }
-
-    if (amount <= 0) {
-      return NextResponse.json({ error: "Invalid plan price" }, { status: 400 });
+      // For recurring plans, billingCycle is required
+      if (!billingCycle) {
+        return NextResponse.json({ error: "Billing cycle is required for recurring plans" }, { status: 400 });
+      }
+      amount = billingCycle === "yearly" ? plan.price_yearly_egp : plan.price_monthly_egp;
     }
 
     // Apply promo code if provided
@@ -124,12 +116,11 @@ export async function POST(request: NextRequest) {
 
     // If Fawry is not configured, return mock checkout
     if (!FAWRY_API_KEY || !FAWRY_MERCHANT_CODE || !FAWRY_SECRET_KEY) {
-      // For development/testing - simulate checkout
       console.log("Fawry not configured, simulating checkout");
       
       // Create pending subscription (trial / dev mode)
       const periodEnd = new Date();
-      if (finalBillingCycle === "yearly") {
+      if (billingCycle === "yearly") {
         periodEnd.setFullYear(periodEnd.getFullYear() + 1);
       } else {
         periodEnd.setMonth(periodEnd.getMonth() + 1);
@@ -140,15 +131,14 @@ export async function POST(request: NextRequest) {
         .upsert({
           user_id: user.id,
           plan_id: planId,
-          status: "trial", // Start with trial for now
-          billing_cycle: finalBillingCycle,
+          status: "trial",
+          billing_cycle: billingCycle,
           started_at: new Date().toISOString(),
           current_period_start: new Date().toISOString(),
           current_period_end: periodEnd.toISOString(),
-          trial_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days trial
+          trial_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
           price_locked_egp: amount,
           is_founders_club: promoCode?.toUpperCase() === "FOUNDERS2024",
-          // Store percentage discount for reporting (null for fixed/trial)
           discount_applied:
             discountApplied && discountApplied.type === "percentage"
               ? discountApplied.value
@@ -199,9 +189,9 @@ export async function POST(request: NextRequest) {
     // Reference: https://developer.fawry.com/docs
     
     const chargeId = `${user.id}-${Date.now()}`; // Unique identifier
-    const description = `Daleel ${plan.display_name_en} - ${finalBillingCycle || 'one-time'}`;
+    const description = `Daleel ${plan.display_name_en} - ${billingCycle || 'one-time'}`;
     
-    // Build the data to sign for Fawry signature
+    // Build the data to sign
     const dataToSign = [
       FAWRY_MERCHANT_CODE,
       chargeId,
@@ -215,7 +205,7 @@ export async function POST(request: NextRequest) {
       .update(dataToSign)
       .digest("hex");
 
-    // Prepare the checkout URL with all required parameters
+    // Prepare the checkout URL
     const checkoutParams = new URLSearchParams({
       merchantCode: FAWRY_MERCHANT_CODE,
       chargeId: chargeId,
@@ -236,11 +226,10 @@ export async function POST(request: NextRequest) {
         user_id: user.id,
         plan_id: planId,
         status: "pending",
-        billing_cycle: finalBillingCycle,
+        billing_cycle: isOneTimePayment ? "monthly" : billingCycle,
         external_subscription_id: chargeId,
         price_locked_egp: amount,
         is_founders_club: promoCode?.toUpperCase() === "FOUNDERS2024",
-        // Store percentage discount for reporting (null for fixed/trial)
         discount_applied:
           discountApplied && discountApplied.type === "percentage"
             ? discountApplied.value
@@ -290,4 +279,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

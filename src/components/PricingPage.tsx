@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { SubscriptionPlan, SubscriptionFeature, BillingCycle, calculatePricingDisplay } from "@/types/subscription";
 import { createClient } from "@/utils/supabase/client";
@@ -13,6 +13,268 @@ type Props = {
   onProviderChange?: (providerId: string | null) => void;
 };
 
+function PricingCard({
+  plan,
+  price,
+  isPremium,
+  isTeam,
+  isOneTime,
+  isLoading,
+  selectedPlan,
+  allPlanFeatures,
+  isArabic,
+  t,
+  getFeatureName,
+  handleSubscribe,
+}: {
+  plan: SubscriptionPlan;
+  price: any;
+  isPremium: boolean;
+  isTeam: boolean;
+  isOneTime: boolean;
+  isLoading: boolean;
+  selectedPlan: string | null;
+  allPlanFeatures: SubscriptionFeature[];
+  isArabic: boolean;
+  t: Record<string, string>;
+  getFeatureName: (feature: SubscriptionFeature) => string;
+  handleSubscribe: (planId: string) => void;
+}) {
+  const [showIncludes, setShowIncludes] = useState(false);
+  const [showFeatures, setShowFeatures] = useState(false);
+
+  return (
+    <div
+      className={`relative bg-white rounded-2xl transition-all duration-300 flex flex-col h-full ${
+        isPremium
+          ? "border-2 border-[#429874] shadow-xl shadow-[#429874]/20 scale-[1.02] z-10"
+          : "border border-slate-200 hover:border-[#429874]/50 hover:shadow-xl"
+      }`}
+    >
+      {/* Popular Badge */}
+      {plan.is_popular && (
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
+          <span className="bg-gradient-to-r from-[#429874] to-[#357a5d] text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg whitespace-nowrap">
+            ⭐ {t.popular}
+          </span>
+        </div>
+      )}
+
+      {/* Card Content */}
+      <div className={`p-6 flex flex-col h-full ${plan.is_popular ? "pt-8" : ""}`}>
+        {/* Top Section - Fixed Height */}
+        <div className="space-y-4">
+          {/* One-Time Badge */}
+          {isOneTime && (
+            <div>
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 bg-blue-50 px-3 py-1.5 rounded-full border border-blue-200">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {t.oneTimePayment}
+              </span>
+            </div>
+          )}
+
+          {/* Plan Title & Description */}
+          <div>
+            <h3 className="text-xl font-bold text-slate-900 mb-2">
+              {isArabic ? plan.display_name_ar : plan.display_name_en}
+            </h3>
+            <p className="text-slate-500 text-sm leading-relaxed min-h-[40px]">
+              {isArabic ? plan.description_ar : plan.description_en}
+            </p>
+          </div>
+
+          {/* Price Section */}
+          <div className="pb-4 border-b border-slate-100">
+            <div className="flex items-baseline gap-2">
+              <span className="text-4xl font-bold text-slate-900">{price.display}</span>
+              {price.sub && <span className="text-sm text-slate-500 font-medium">{price.sub}</span>}
+            </div>
+
+            {/* One-time benefits */}
+            {isOneTime && (
+              <div className="flex flex-wrap items-center gap-2 mt-3">
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 px-2.5 py-1 rounded-md border border-green-100">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  {t.lifetimeAccess}
+                </span>
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 px-2.5 py-1 rounded-md border border-green-100">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  {t.noSubscription}
+                </span>
+              </div>
+            )}
+
+            {/* Recurring plan savings */}
+            {!isOneTime && price.savings && (
+              <div className="mt-3">
+                <span className="text-[#429874] text-xs font-bold bg-[#f0f9f6] px-3 py-1.5 rounded-full border border-[#429874]/20">
+                  🎉 {price.savings}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* CTA Button */}
+        <div className="py-4">
+          <button
+            onClick={() => handleSubscribe(plan.id)}
+            disabled={isLoading && selectedPlan === plan.id}
+            className={`w-full py-3 px-4 rounded-xl font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2 ${
+              isPremium
+                ? "bg-gradient-to-r from-[#429874] to-[#357a5d] text-white hover:from-[#357a5d] hover:to-[#285c46] shadow-lg hover:shadow-xl hover:-translate-y-0.5"
+                : isTeam
+                ? "bg-slate-900 text-white hover:bg-slate-800 shadow-lg hover:shadow-xl hover:-translate-y-0.5"
+                : plan.name === "free"
+                ? "bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200"
+                : "bg-[#429874] text-white hover:bg-[#357a5d] shadow-lg hover:shadow-xl hover:-translate-y-0.5"
+            } disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0`}
+          >
+            {isLoading && selectedPlan === plan.id ? (
+              <>
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                <span>{t.processing}</span>
+              </>
+            ) : plan.name === "free" ? (
+              t.getStarted
+            ) : isTeam ? (
+              t.contactSales
+            ) : isOneTime ? (
+              t.buyNow
+            ) : (
+              t.upgrade
+            )}
+          </button>
+        </div>
+
+        {/* Expandable Sections */}
+        <div className="flex-grow space-y-2">
+          {/* What's Included - Collapsible */}
+          {isOneTime && (
+            <div className="border border-slate-100 rounded-xl overflow-hidden">
+              <button
+                onClick={() => setShowIncludes(!showIncludes)}
+                className="w-full flex items-center justify-between p-3 hover:bg-slate-50 transition-colors"
+              >
+                <span className="flex items-center gap-2.5">
+                  <span className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-sm">📦</span>
+                  <span className="text-sm font-semibold text-slate-800">{t.includes}</span>
+                  <span className="text-[10px] text-white bg-blue-500 px-2 py-0.5 rounded-full font-bold">3</span>
+                </span>
+                <svg
+                  className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${showIncludes ? "rotate-180" : ""}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              <div
+                className={`transition-all duration-300 ease-in-out ${
+                  showIncludes ? "max-h-48 opacity-100" : "max-h-0 opacity-0"
+                } overflow-hidden`}
+              >
+                <div className="p-3 pt-0 space-y-2">
+                  <div className="flex items-center gap-3 p-2.5 bg-gradient-to-r from-blue-50 to-transparent rounded-lg">
+                    <span className="text-lg">📚</span>
+                    <span className="text-sm text-slate-700 font-medium">{t.learningPaths}</span>
+                  </div>
+                  <div className="flex items-center gap-3 p-2.5 bg-gradient-to-r from-purple-50 to-transparent rounded-lg">
+                    <span className="text-lg">🤖</span>
+                    <span className="text-sm text-slate-700 font-medium">{t.aiAccess}</span>
+                  </div>
+                  <div className="flex items-center gap-3 p-2.5 bg-gradient-to-r from-green-50 to-transparent rounded-lg">
+                    <span className="text-lg">💰</span>
+                    <span className="text-sm text-slate-700 font-medium">{t.jobSalaries}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Features - Collapsible */}
+          <div className="border border-slate-100 rounded-xl overflow-hidden">
+            <button
+              onClick={() => setShowFeatures(!showFeatures)}
+              className="w-full flex items-center justify-between p-3 hover:bg-slate-50 transition-colors"
+            >
+              <span className="flex items-center gap-2.5">
+                <span className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center text-sm">✨</span>
+                <span className="text-sm font-semibold text-slate-800">{t.features}</span>
+                <span className="text-[10px] text-white bg-amber-500 px-2 py-0.5 rounded-full font-bold">
+                  {allPlanFeatures.length}
+                </span>
+              </span>
+              <svg
+                className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${showFeatures ? "rotate-180" : ""}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            <div
+              className={`transition-all duration-300 ease-in-out ${
+                showFeatures ? "max-h-[400px] opacity-100" : "max-h-0 opacity-0"
+              } overflow-hidden`}
+            >
+              <div className="p-3 pt-0">
+                <div className="grid grid-cols-1 gap-1.5">
+                  {allPlanFeatures.map((feature) => (
+                    <div
+                      key={feature.id}
+                      className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-slate-50 transition-colors"
+                    >
+                      <span className="w-6 h-6 rounded-md bg-slate-100 flex items-center justify-center text-xs shrink-0">
+                        {feature.icon || "✓"}
+                      </span>
+                      <span className="text-sm text-slate-600">{getFeatureName(feature)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Preview Icons - Show when collapsed */}
+            {!showFeatures && allPlanFeatures.length > 0 && (
+              <div className="px-3 pb-3 flex items-center gap-1.5">
+                {allPlanFeatures.slice(0, 5).map((feature) => (
+                  <span
+                    key={feature.id}
+                    className="w-7 h-7 rounded-lg bg-slate-50 flex items-center justify-center text-xs border border-slate-100"
+                    title={getFeatureName(feature)}
+                  >
+                    {feature.icon}
+                  </span>
+                ))}
+                {allPlanFeatures.length > 5 && (
+                  <span className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-[10px] text-slate-500 font-bold border border-slate-200">
+                    +{allPlanFeatures.length - 5}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function PricingPage({ plans, features, erpProviders = [], selectedProvider, onProviderChange }: Props) {
   const language = useAppStore((state) => state.language);
   const user = useAppStore((state) => state.user);
@@ -21,14 +283,21 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [promoCode, setPromoCode] = useState("");
   const [promoApplied, setPromoApplied] = useState<{ discount: number; type: string } | null>(null);
+  const [showPromoInput, setShowPromoInput] = useState(false);
 
   const isArabic = language === "ar";
 
+  const hasRecurringPlans = plans.some(
+    (p) =>
+      p.payment_type !== "one_time" &&
+      p.is_active &&
+      ((p.price_monthly_egp && p.price_monthly_egp > 0) || (p.price_yearly_egp && p.price_yearly_egp > 0))
+  );
+
   const t = {
-    title: isArabic ? "اختر خطتك" : "Choose Your Plan",
-    subtitle: isArabic
-      ? "استثمر في مستقبلك المهني مع دليل"
-      : "Invest in your career future with Daleel",
+    title: isArabic ? "اختر باقتك" : "Choose Your Package",
+    subtitle: isArabic ? "استثمر في مستقبلك المهني مع دليل" : "Invest in your career future with Daleel",
+    payOnceAccessForever: isArabic ? "ادفع مرة واحدة، استخدم للأبد" : "Pay once, access forever",
     save: isArabic ? "وفر" : "Save",
     months: isArabic ? "شهرين" : "2 months",
     perMonth: isArabic ? "/شهر" : "/month",
@@ -36,34 +305,48 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
     perUser: isArabic ? "/مستخدم/شهر" : "/user/month",
     minUsers: isArabic ? "الحد الأدنى" : "Minimum",
     users: isArabic ? "مستخدمين" : "users",
+    monthly: isArabic ? "شهري" : "Monthly",
+    yearly: isArabic ? "سنوي" : "Yearly",
     free: isArabic ? "مجاناً" : "Free",
     forever: isArabic ? "للأبد" : "forever",
+    egp: isArabic ? "ج.م" : "EGP",
+    package: isArabic ? "باقة" : "Package",
+    bundle: isArabic ? "مجموعة المسارات" : "Learning Paths Bundle",
+    oneTimePayment: isArabic ? "دفعة واحدة" : "One-Time Payment",
+    lifetimeAccess: isArabic ? "وصول دائم" : "Lifetime Access",
+    noSubscription: isArabic ? "بدون اشتراك" : "No Subscription",
+    instantAccess: isArabic ? "وصول فوري" : "Instant Access",
+    includes: isArabic ? "تشمل الباقة" : "Includes",
+    aiAccess: isArabic ? "الوصول للذكاء الاصطناعي" : "AI Access",
+    jobSalaries: isArabic ? "رواتب الوظائف" : "Job Salaries",
+    learningPaths: isArabic ? "مسارات التعلم" : "Learning Paths",
     popular: isArabic ? "الأكثر شعبية" : "Most Popular",
     currentPlan: isArabic ? "خطتك الحالية" : "Current Plan",
     getStarted: isArabic ? "ابدأ الآن" : "Get Started",
     upgrade: isArabic ? "ترقية" : "Upgrade",
     contactSales: isArabic ? "تواصل معنا" : "Contact Sales",
-    startTrial: isArabic ? "ابدأ تجربة مجانية" : "Start Free Trial",
-    buyNow: isArabic ? "اشتر الآن" : "Buy Now",
-    oneTimePayment: isArabic ? "دفعة واحدة" : "One-Time Payment",
-    lifetimeAccess: isArabic ? "مدى الحياة" : "Lifetime Access",
-    egp: isArabic ? "ج.م" : "EGP",
+    buyNow: isArabic ? "اشتري الآن" : "Buy Now",
     features: isArabic ? "المميزات" : "Features",
-    promoCode: isArabic ? "كود الخصم" : "Promo Code",
+    promoCode: isArabic ? "كود خصم" : "Promo Code",
     apply: isArabic ? "تطبيق" : "Apply",
     promoApplied: isArabic ? "تم تطبيق الخصم!" : "Discount applied!",
     promoInvalid: isArabic ? "كود غير صالح" : "Invalid code",
-    guarantee: isArabic ? "ضمان استرداد الأموال خلال 7 أيام" : "7-day money-back guarantee",
+    havePromoCode: isArabic ? "لديك كود خصم؟" : "Have a promo code?",
+    guarantee: isArabic ? "ضمان استرداد 7 أيام" : "7-day money-back",
     securePayment: isArabic ? "دفع آمن" : "Secure Payment",
-    paymentMethods: isArabic ? "طرق الدفع المتاحة" : "Available Payment Methods",
+    paymentMethods: isArabic ? "طرق الدفع" : "Payment Methods",
     questions: isArabic ? "لديك أسئلة؟" : "Have questions?",
-
     perDay: isArabic ? "يومياً" : "per day",
     lessThan: isArabic ? "أقل من" : "Less than",
-    coffeePrice: isArabic ? "سعر فنجان قهوة" : "price of a coffee",
+    noPlansAvailable: isArabic ? "لا توجد باقات متاحة" : "No Packages Available",
+    noPlansDescription: isArabic
+      ? "لا توجد باقات متاحة لهذا المزود حالياً."
+      : "No packages available for this provider.",
+    viewAllPackages: isArabic ? "عرض جميع الباقات" : "View All Packages",
+    processing: isArabic ? "جاري المعالجة..." : "Processing...",
+    allProviders: isArabic ? "جميع المزودين" : "All Providers",
   };
 
-  // Group features by category
   const featuresByCategory = features.reduce((acc, feature) => {
     if (!acc[feature.category]) {
       acc[feature.category] = [];
@@ -72,30 +355,27 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
     return acc;
   }, {} as Record<string, SubscriptionFeature[]>);
 
-  const categoryNames: Record<string, { ar: string; en: string }> = {
-    learning: { ar: "التعلم", en: "Learning" },
-    ai: { ar: "الذكاء الاصطناعي", en: "AI Features" },
-    career: { ar: "المسار المهني", en: "Career" },
-    community: { ar: "المجتمع", en: "Community" },
-    support: { ar: "الدعم", en: "Support" },
-    team: { ar: "الفريق", en: "Team" },
-    other: { ar: "أخرى", en: "Other" },
+  const isOneTimePlan = (plan: SubscriptionPlan) => {
+    return (
+      plan.payment_type === "one_time" ||
+      (plan.price_one_time_egp &&
+        plan.price_one_time_egp > 0 &&
+        (!plan.price_monthly_egp || plan.price_monthly_egp === 0) &&
+        (!plan.price_yearly_egp || plan.price_yearly_egp === 0))
+    );
   };
 
   const handleSubscribe = async (planId: string) => {
-    const plan = plans.find(p => p.id === planId);
-    
+    const plan = plans.find((p) => p.id === planId);
+
     if (!user) {
-      // Store selected plan and redirect to login
       if (typeof window !== "undefined") {
-        // Only store billingCycle if plan is recurring
         const planData: any = { planId };
-        if (plan && plan.payment_type !== 'one_time') {
+        if (plan && !isOneTimePlan(plan)) {
           planData.billingCycle = billingCycle;
         }
         sessionStorage.setItem("pendingPlan", JSON.stringify(planData));
       }
-      // Trigger Google login directly
       const supabase = createClient();
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
@@ -113,48 +393,17 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
     setSelectedPlan(planId);
 
     try {
-      // Only send billingCycle if plan is recurring
-      const requestBody: any = {
-        planId,
-        promoCode: promoApplied ? promoCode : undefined,
-      };
-      
-      // Only add billingCycle for recurring plans
-      // Check if plan is one-time
-      const isOneTime = plan && (
-        plan.payment_type === 'one_time' || 
-        (plan.price_one_time_egp && plan.price_one_time_egp > 0 && 
-         (!plan.price_monthly_egp || plan.price_monthly_egp === 0) &&
-         (!plan.price_yearly_egp || plan.price_yearly_egp === 0))
-      );
-      
-      if (plan && !isOneTime) {
-        requestBody.billingCycle = billingCycle;
+      const isOneTime = plan && isOneTimePlan(plan);
+      const checkoutParams = new URLSearchParams({ planId });
+      if (!isOneTime) {
+        checkoutParams.append("billingCycle", billingCycle);
       }
-
-      const response = await fetch("/api/subscription/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
-      });
-
-      const data = await response.json();
-
-      if (data.checkoutUrl) {
-        // Redirect to Paymob payment page
-        window.location.href = data.checkoutUrl;
-      } else if (data.redirectUrl) {
-        // Direct redirect (for free plan or trial)
-        window.location.href = data.redirectUrl;
-      } else if (data.success) {
-        // Success without redirect
-        window.location.href = "/dashboard?subscription=activated";
-      } else if (data.error) {
-        alert(data.error);
+      if (promoApplied && promoCode) {
+        checkoutParams.append("promoCode", promoCode);
       }
+      window.location.href = `/checkout?${checkoutParams.toString()}`;
     } catch (error) {
       alert(isArabic ? "حدث خطأ. حاول مرة أخرى." : "An error occurred. Please try again.");
-    } finally {
       setIsLoading(false);
       setSelectedPlan(null);
     }
@@ -162,7 +411,6 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
 
   const handleApplyPromo = async () => {
     if (!promoCode.trim()) return;
-
     try {
       const supabase = createClient();
       const { data: discount } = await supabase
@@ -173,10 +421,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
         .single();
 
       if (discount) {
-        setPromoApplied({
-          discount: discount.value,
-          type: discount.type,
-        });
+        setPromoApplied({ discount: discount.value, type: discount.type });
       } else {
         setPromoApplied(null);
         alert(t.promoInvalid);
@@ -196,13 +441,8 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
       };
     }
 
-    // Check if plan is one-time payment
-    // Treat as one-time if: payment_type is 'one_time' OR if price_one_time_egp exists and monthly/yearly are 0
-    const isOneTime = plan.payment_type === 'one_time' || 
-                     (plan.price_one_time_egp && plan.price_one_time_egp > 0 && 
-                      (!plan.price_monthly_egp || plan.price_monthly_egp === 0) &&
-                      (!plan.price_yearly_egp || plan.price_yearly_egp === 0));
-    
+    const isOneTime = isOneTimePlan(plan);
+
     if (isOneTime && plan.price_one_time_egp) {
       let price = plan.price_one_time_egp;
       if (promoApplied?.type === "percentage") {
@@ -210,15 +450,11 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
       } else if (promoApplied?.type === "fixed") {
         price = promoApplied.discount;
       }
-      return {
-        display: `${Math.round(price)} ${t.egp}`,
-        sub: t.oneTimePayment,
-        perDay: t.lifetimeAccess,
-      };
+      return { display: `${Math.round(price)} ${t.egp}`, sub: null, isOneTime: true };
     }
 
     const pricing = calculatePricingDisplay(plan);
-    
+
     if (billingCycle === "yearly") {
       let price = pricing.yearly.perMonth;
       if (promoApplied?.type === "percentage") {
@@ -231,6 +467,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
         sub: t.perMonth,
         savings: `${t.save} ${pricing.yearly.savingsPercent}%`,
         total: `${pricing.yearly.price} ${t.egp}${t.perYear}`,
+        isOneTime: false,
       };
     }
 
@@ -245,6 +482,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
       display: `${Math.round(price)} ${t.egp}`,
       sub: t.perMonth,
       perDay: `${t.lessThan} ${Math.round(price / 30)} ${t.egp} ${t.perDay}`,
+      isOneTime: false,
     };
   };
 
@@ -261,221 +499,281 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
     return en || "";
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white py-8 md:py-16 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-8 md:mb-12 lg:mb-16">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-slate-900 mb-4 md:mb-6">
-            {t.title}
-          </h1>
-          <p className="text-lg sm:text-xl md:text-2xl text-slate-600 max-w-3xl mx-auto leading-relaxed px-4">
-            {t.subtitle}
-          </p>
-        </div>
+  const activePlans = plans.filter((p) => p.is_active).sort((a, b) => a.sort_order - b.sort_order);
 
-        {/* ERP Provider Filter */}
-        {erpProviders.length > 0 && onProviderChange && (
-          <div className="mb-8 md:mb-12 flex justify-center">
-            <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-6 shadow-sm w-full max-w-md">
-              <label className="block text-sm font-medium text-slate-700 mb-3 text-center">
-                {language === "ar" ? "اختر مزود ERP" : "Filter by ERP Provider"}
-              </label>
-              <select
-                value={selectedProvider || ""}
-                onChange={(e) => onProviderChange && onProviderChange(e.target.value || null)}
-                className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white text-slate-900 cursor-pointer transition-all"
-              >
-                <option value="">{language === "ar" ? "جميع المزودين" : "All Providers"}</option>
-                {erpProviders.map((provider) => (
-                  <option key={provider.id} value={provider.id}>
-                    {getText(provider.name, provider.name_ar)}
-                  </option>
-                ))}
-              </select>
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
+      {/* Compact Sticky Header */}
+      <div className="bg-white/80 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-20">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <div className="py-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              {/* Left Side - Title */}
+              <div className="flex items-center gap-3">
+                <div>
+                  <h1 className="text-xl sm:text-2xl font-bold text-slate-900">{t.title}</h1>
+                  <p className="text-xs text-slate-500 mt-0.5 hidden sm:block">{t.subtitle}</p>
+                </div>
+                {!hasRecurringPlans && (
+                  <span className="inline-flex items-center gap-1.5 bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 px-3 py-1.5 rounded-full text-xs font-semibold border border-green-200 shadow-sm">
+                    💰 {t.payOnceAccessForever}
+                  </span>
+                )}
+              </div>
+
+              {/* Right Side - Filters */}
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Provider Filter */}
+                {erpProviders.length > 0 && onProviderChange && (
+                  <select
+                    value={selectedProvider || ""}
+                    onChange={(e) => onProviderChange && onProviderChange(e.target.value || null)}
+                    className="px-3 py-1.5 text-xs font-medium border border-slate-200 rounded-lg bg-white text-slate-700 cursor-pointer focus:ring-2 focus:ring-[#429874] focus:border-[#429874] transition-all"
+                  >
+                    <option value="">{t.allProviders}</option>
+                    {erpProviders.map((provider) => (
+                      <option key={provider.id} value={provider.id}>
+                        {getText(provider.name, provider.name_ar)}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                {/* Billing Toggle */}
+                {hasRecurringPlans && (
+                  <div className="bg-slate-100 rounded-lg p-1 inline-flex">
+                    <button
+                      onClick={() => setBillingCycle("monthly")}
+                      className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                        billingCycle === "monthly"
+                          ? "bg-white text-slate-900 shadow-sm"
+                          : "text-slate-500 hover:text-slate-700"
+                      }`}
+                    >
+                      {t.monthly}
+                    </button>
+                    <button
+                      onClick={() => setBillingCycle("yearly")}
+                      className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                        billingCycle === "yearly"
+                          ? "bg-white text-slate-900 shadow-sm"
+                          : "text-slate-500 hover:text-slate-700"
+                      }`}
+                    >
+                      {t.yearly}
+                    </button>
+                  </div>
+                )}
+
+                {/* Promo Code */}
+                {!showPromoInput && !promoApplied ? (
+                  <button
+                    onClick={() => setShowPromoInput(true)}
+                    className="text-xs text-[#429874] hover:text-[#357a5d] font-semibold flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-green-50 transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                    </svg>
+                    {t.havePromoCode}
+                  </button>
+                ) : promoApplied ? (
+                  <div className="flex items-center gap-2 bg-green-50 px-3 py-1.5 rounded-lg border border-green-200">
+                    <span className="text-green-700 text-xs font-semibold">
+                      ✓ -{promoApplied.discount}
+                      {promoApplied.type === "percentage" ? "%" : ` ${t.egp}`}
+                    </span>
+                    <button
+                      onClick={() => {
+                        setPromoApplied(null);
+                        setPromoCode("");
+                        setShowPromoInput(false);
+                      }}
+                      className="text-green-600 hover:text-green-800 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      value={promoCode}
+                      onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                      placeholder={t.promoCode}
+                      className="w-24 px-3 py-1.5 text-xs font-medium border border-slate-200 rounded-lg focus:ring-2 focus:ring-[#429874] focus:border-[#429874] transition-all"
+                      onKeyDown={(e) => e.key === "Enter" && handleApplyPromo()}
+                    />
+                    <button
+                      onClick={handleApplyPromo}
+                      className="px-3 py-1.5 bg-[#429874] text-white rounded-lg text-xs font-semibold hover:bg-[#357a5d] transition-colors shadow-sm"
+                    >
+                      {t.apply}
+                    </button>
+                    <button
+                      onClick={() => setShowPromoInput(false)}
+                      className="p-1.5 text-slate-400 hover:text-slate-600 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+
+                {/* Trust Badge */}
+                <div className="hidden lg:flex items-center gap-1.5 text-xs text-slate-500 bg-slate-50 px-3 py-1.5 rounded-lg">
+                  <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                    />
+                  </svg>
+                  {t.securePayment}
+                </div>
+              </div>
             </div>
           </div>
-        )}
+        </div>
+      </div>
 
+      {/* Main Content */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
         {/* Pricing Cards */}
-        {plans.filter((p) => p.is_active).length === 0 ? (
-          <div className="text-center py-12 md:py-16 mb-12 md:mb-16">
-            <div className="bg-white rounded-xl border border-slate-200 p-8 md:p-12 max-w-2xl mx-auto">
-              <div className="text-6xl mb-4">🔍</div>
-              <h3 className="text-xl md:text-2xl font-semibold text-slate-900 mb-2">
-                {isArabic ? "لا توجد خطط متاحة" : "No Plans Available"}
-              </h3>
-              <p className="text-slate-600 text-sm md:text-base">
-                {isArabic 
-                  ? "لا توجد خطط اشتراك متاحة لهذا المزود حالياً. يرجى المحاولة مع مزود آخر أو التحقق مرة أخرى لاحقاً."
-                  : "There are no subscription plans available for this provider at the moment. Please try another provider or check back later."}
-              </p>
+        {activePlans.length === 0 ? (
+          <div className="text-center py-16">
+            <div className="bg-white rounded-2xl border border-slate-200 p-10 max-w-md mx-auto shadow-sm">
+              <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-3xl">🔍</span>
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 mb-2">{t.noPlansAvailable}</h3>
+              <p className="text-slate-500 text-sm mb-6">{t.noPlansDescription}</p>
               {onProviderChange && (
                 <button
                   onClick={() => onProviderChange(null)}
-                  className="mt-6 px-6 py-2.5 bg-[#429874] text-white rounded-lg hover:bg-[#357a5d] transition-colors text-sm font-medium"
+                  className="px-6 py-2.5 bg-[#429874] text-white rounded-xl text-sm font-semibold hover:bg-[#357a5d] transition-colors shadow-md"
                 >
-                  {isArabic ? "عرض جميع الخطط" : "View All Plans"}
+                  {t.viewAllPackages}
                 </button>
               )}
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-12 md:mb-16">
-            {plans
-              .filter((p) => p.is_active)
-              .sort((a, b) => a.sort_order - b.sort_order)
-              .map((plan) => {
+          <div
+            className={`grid gap-6 ${
+              activePlans.length === 1
+                ? "grid-cols-1 max-w-md mx-auto"
+                : activePlans.length === 2
+                ? "grid-cols-1 md:grid-cols-2 max-w-3xl mx-auto"
+                : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+            }`}
+          >
+            {activePlans.map((plan) => {
               const price = getPlanPrice(plan);
               const isPremium = plan.name === "premium";
               const isTeam = plan.name === "team";
+              const isOneTime = isOneTimePlan(plan);
+
+                          const allPlanFeatures = Object.entries(featuresByCategory).flatMap(([_, categoryFeatures]) =>
+                categoryFeatures.filter((f) => planHasFeature(plan, f.key))
+              );
 
               return (
-                <div
+                <PricingCard
                   key={plan.id}
-                  className={`relative bg-white rounded-xl border transition-all flex flex-col ${
-                    isPremium
-                      ? "border-[#429874] shadow-lg shadow-[#429874]/10 md:scale-[1.02]"
-                      : "border-slate-200 hover:border-[#429874]/50 hover:shadow-md"
-                  }`}
-                >
-                  {/* Popular Badge */}
-                  {plan.is_popular && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
-                      <span className="bg-gradient-to-r from-[#429874] to-[#357a5d] text-white text-xs font-semibold px-3 py-1 rounded-full shadow-md">
-                        {t.popular}
-                      </span>
-                    </div>
-                  )}
-
-                  <div className="p-5 sm:p-6 flex flex-col flex-grow">
-                    {/* Plan Header */}
-                    <div className="text-center mb-4">
-                      <h3 className="text-xl sm:text-2xl font-bold text-slate-900 mb-2">
-                        {isArabic ? plan.display_name_ar : plan.display_name_en}
-                      </h3>
-                      <p className="text-slate-600 text-sm leading-snug">
-                        {isArabic ? plan.description_ar : plan.description_en}
-                      </p>
-                    </div>
-
-                    {/* Price */}
-                    <div className="text-center mb-5 border-b border-slate-200 pb-5">
-                      <div className="flex items-baseline justify-center gap-1.5 mb-1.5">
-                        <span className="text-3xl sm:text-4xl font-bold text-slate-900">
-                          {price.display}
-                        </span>
-                        {price.sub && (
-                          <span className="text-sm text-slate-600 font-medium">{price.sub}</span>
-                        )}
-                      </div>
-                      {price.savings && (
-                        <p className="text-[#429874] text-xs font-semibold mt-1.5 bg-[#f0f9f6] inline-block px-2.5 py-0.5 rounded-full">
-                          {price.savings}
-                        </p>
-                      )}
-                      {price.perDay && (
-                        <p className="text-[#429874] text-xs font-medium mt-1.5 flex items-center justify-center gap-1">
-                          <span>✨</span>
-                          {price.perDay}
-                        </p>
-                      )}
-                      {price.note && (
-                        <p className="text-slate-500 text-xs mt-1.5">
-                          {price.note}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* CTA Button */}
-                    <button
-                      onClick={() => handleSubscribe(plan.id)}
-                      disabled={isLoading && selectedPlan === plan.id}
-                      className={`w-full py-2.5 px-4 rounded-lg font-semibold text-sm transition-all duration-200 mb-5 ${
-                        isPremium
-                          ? "bg-gradient-to-r from-[#429874] to-[#357a5d] text-white hover:from-[#357a5d] hover:to-[#285c46] shadow-md hover:shadow-lg"
-                          : isTeam
-                          ? "bg-slate-900 text-white hover:bg-slate-800 shadow-md hover:shadow-lg"
-                          : plan.name === "free"
-                          ? "bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300"
-                          : "bg-[#f0f9f6] text-[#429874] hover:bg-[#d4ede3] border border-[#429874] hover:border-[#357a5d]"
-                      } disabled:opacity-50 disabled:cursor-not-allowed`}
-                    >
-                      {isLoading && selectedPlan === plan.id ? (
-                        <span className="flex items-center justify-center gap-2">
-                          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                          </svg>
-                          <span className="text-xs">{isArabic ? "جاري المعالجة..." : "Processing..."}</span>
-                        </span>
-                      ) : plan.name === "free" ? (
-                        t.getStarted
-                      ) : isTeam ? (
-                        t.contactSales
-                      ) : (
-                        t.buyNow
-                      )}
-                    </button>
-
-                    {/* Features List */}
-                    <div className="mt-4 space-y-1.5">
-                      {Object.entries(featuresByCategory).map(([category, categoryFeatures]) => {
-                        const planFeatures = categoryFeatures.filter((f) =>
-                          planHasFeature(plan, f.key)
-                        );
-                        if (planFeatures.length === 0) return null;
-
-                        return (
-                          <div key={category}>
-                            {planFeatures.map((feature) => (
-                              <div
-                                key={feature.id}
-                                className="flex items-start gap-2 text-xs sm:text-sm py-1"
-                              >
-                                <span className="text-base flex-shrink-0 mt-0.5">{feature.icon}</span>
-                                <span className="text-slate-700 leading-snug">
-                                  {getFeatureName(feature)}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
+                  plan={plan}
+                  price={price}
+                  isPremium={isPremium}
+                  isTeam={isTeam}
+                  isOneTime={isOneTime || false}
+                  isLoading={isLoading}
+                  selectedPlan={selectedPlan}
+                  allPlanFeatures={allPlanFeatures}
+                  isArabic={isArabic}
+                  t={t}
+                  getFeatureName={getFeatureName}
+                  handleSubscribe={handleSubscribe}
+                />
               );
             })}
           </div>
         )}
-        {/* Payment Methods */}
-        <div className="text-center mb-12 md:mb-16">
-          <h3 className="text-base md:text-lg font-medium text-slate-700 mb-4 md:mb-6">
-            {t.paymentMethods}
-          </h3>
-          <div className="flex flex-wrap justify-center gap-3 md:gap-4 px-4 mb-3">
-            <div className="bg-white px-4 py-2 rounded-lg border border-slate-200 text-xs sm:text-sm shadow-sm">
-              💳 Visa / MasterCard / Meeza
-            </div>
-            <div className="bg-white px-4 py-2 rounded-lg border border-slate-200 text-xs sm:text-sm shadow-sm">
-              📱 Vodafone Cash
-            </div>
-            <div className="bg-white px-4 py-2 rounded-lg border border-slate-200 text-xs sm:text-sm shadow-sm">
-              📱 Etisalat Cash
-            </div>
-            <div className="bg-white px-4 py-2 rounded-lg border border-slate-200 text-xs sm:text-sm shadow-sm">
-              📱 Orange Cash
-            </div>
+
+        {/* Trust & Payment Section */}
+        <div className="mt-12 pt-8 border-t border-slate-200">
+          <div className="flex flex-col items-center gap-6">
+            {/* Trust Badges */}
+            {/* <div className="flex flex-wrap justify-center gap-4">
+              <div className="flex items-center gap-2 text-sm text-slate-600 bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm">
+                <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                  />
+                </svg>
+                <span className="font-medium">{t.securePayment}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-slate-600 bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm">
+                <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+                <span className="font-medium">{t.guarantee}</span>
+              </div>
+            </div> */}
+
+            {/* Payment Methods */}
+            {/* <div className="text-center">
+              <p className="text-xs text-slate-400 mb-3 font-medium uppercase tracking-wider">{t.paymentMethods}</p>
+              <div className="flex flex-wrap justify-center gap-2">
+                <span className="inline-flex items-center gap-1.5 text-xs text-slate-600 bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm">
+                  💳 Visa / MasterCard
+                </span>
+                <span className="inline-flex items-center gap-1.5 text-xs text-slate-600 bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm">
+                  📱 Vodafone Cash
+                </span>
+                <span className="inline-flex items-center gap-1.5 text-xs text-slate-600 bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm">
+                  📱 Etisalat Cash
+                </span>
+                <span className="inline-flex items-center gap-1.5 text-xs text-slate-600 bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm">
+                  📱 Orange Cash
+                </span>
+                <span className="inline-flex items-center gap-1.5 text-xs text-slate-600 bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm">
+                  🏦 Fawry
+                </span>
+              </div>
+            </div> */}
+
+            {/* Questions CTA */}
+            {/* <div className="text-center mt-4">
+              <p className="text-sm text-slate-500 mb-2">{t.questions}</p>
+              <a
+                href="mailto:support@daleel.com"
+                className="inline-flex items-center gap-2 text-[#429874] hover:text-[#357a5d] font-semibold text-sm transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                  />
+                </svg>
+                support@daleel.com
+              </a>
+            </div> */}
           </div>
-          <p className="text-xs sm:text-sm text-slate-500">
-            {isArabic 
-              ? "جميع المدفوعات تتم عبر Paymob - بوابة دفع آمنة ومعتمدة"
-              : "All payments are processed securely through Paymob"}
-          </p>
         </div>
       </div>
     </div>
   );
 }
-

@@ -294,6 +294,10 @@ export default function EditPathPage() {
       alert("Please enter a title.");
       return;
     }
+    if (!newMilestone.milestone_number || newMilestone.milestone_number === "") {
+      alert("Milestone number is required.");
+      return;
+    }
 
     try {
       const res = await fetch("/api/admin/data?table=path_milestones", {
@@ -303,6 +307,7 @@ export default function EditPathPage() {
           learning_path_id: pathId,
           ...newMilestone,
           milestone_number: Number(newMilestone.milestone_number),
+          estimated_hours: newMilestone.estimated_hours ? Number(newMilestone.estimated_hours) : null,
         }),
       });
       const json = await res.json();
@@ -393,6 +398,7 @@ export default function EditPathPage() {
           body: JSON.stringify({
             ...editingMilestone,
             milestone_number: Number(editingMilestone.milestone_number),
+            estimated_hours: editingMilestone.estimated_hours ? Number(editingMilestone.estimated_hours) : null,
           }),
         }
       );

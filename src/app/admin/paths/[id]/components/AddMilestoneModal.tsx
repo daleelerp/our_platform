@@ -91,7 +91,7 @@ export default function AddMilestoneModal({
                                     onChange={(e) =>
                                         setNewMilestone((prev) => ({
                                             ...prev,
-                                            milestone_number: e.target.value ? Number(e.target.value) : "",
+                                            milestone_number: e.target.value ? Number(e.target.value) : 0,
                                         }))
                                     }
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
@@ -118,7 +118,7 @@ export default function AddMilestoneModal({
                             </div>
                             <div>
                                 <label className="block text-[11px] font-medium text-slate-600 mb-1">
-                                    Description (Arabic)
+                                    Description (Arabic) 
                                 </label>
                                 <textarea
                                     value={newMilestone.description_ar}
