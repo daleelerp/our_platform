@@ -6,7 +6,7 @@ type Props = {
   searchParams?: Promise<{ error?: string }>;
 };
 
-type PathWithPlans = {
+type PathWithPlanWithMetadata = {
   id: string;
   title: string;
   title_ar: string | null;
@@ -17,6 +17,7 @@ type PathWithPlans = {
   estimated_duration_hours: number | null;
   target_audience: string | null;
   career_outcomes: string[] | null;
+  plans: never[]; // This is required by the type but groupPathsByPathId will populate it
   plan_id: string;
   plan_name: string;
   plan_display_name_en: string | null;
@@ -67,15 +68,16 @@ export default async function PathsPage({ searchParams }: Props) {
     .eq("is_published", true)
     .order("difficulty_level");
 
-  // Transform the data to include plan information in each row
-  const transformedData: PathWithPlans[] = [];
+  // Transform the data to match PathWithPlanWithMetadata type
+  // Each path-plan combination becomes a separate row
+  const transformedData: PathWithPlanWithMetadata[] = [];
   
   if (pathsWithPlans) {
     pathsWithPlans.forEach((path: any) => {
       const planPaths = path.plan_paths || [];
       
-      // If path has no plans, still include it without plan info
       if (planPaths.length === 0) {
+        // Path has no plans - include with empty plan info
         transformedData.push({
           id: path.id,
           title: path.title,
@@ -87,6 +89,7 @@ export default async function PathsPage({ searchParams }: Props) {
           estimated_duration_hours: path.estimated_duration_hours,
           target_audience: path.target_audience,
           career_outcomes: path.career_outcomes,
+          plans: [],
           plan_id: "",
           plan_name: "",
           plan_display_name_en: null,
@@ -99,25 +102,28 @@ export default async function PathsPage({ searchParams }: Props) {
         // Create a row for each plan associated with this path
         planPaths.forEach((planPath: any) => {
           const plan = planPath.subscription_plans;
-          transformedData.push({
-            id: path.id,
-            title: path.title,
-            title_ar: path.title_ar,
-            slug: path.slug,
-            description: path.description,
-            description_ar: path.description_ar,
-            difficulty_level: path.difficulty_level,
-            estimated_duration_hours: path.estimated_duration_hours,
-            target_audience: path.target_audience,
-            career_outcomes: path.career_outcomes,
-            plan_id: plan.id,
-            plan_name: plan.name,
-            plan_display_name_en: plan.display_name_en,
-            plan_price_monthly_egp: plan.price_monthly_egp,
-            plan_price_yearly_egp: plan.price_yearly_egp,
-            plan_price_one_time_egp: plan.price_one_time_egp,
-            plan_payment_type: plan.payment_type,
-          });
+          if (plan) {
+            transformedData.push({
+              id: path.id,
+              title: path.title,
+              title_ar: path.title_ar,
+              slug: path.slug,
+              description: path.description,
+              description_ar: path.description_ar,
+              difficulty_level: path.difficulty_level,
+              estimated_duration_hours: path.estimated_duration_hours,
+              target_audience: path.target_audience,
+              career_outcomes: path.career_outcomes,
+              plans: [],
+              plan_id: plan.id,
+              plan_name: plan.name,
+              plan_display_name_en: plan.display_name_en,
+              plan_price_monthly_egp: plan.price_monthly_egp,
+              plan_price_yearly_egp: plan.price_yearly_egp,
+              plan_price_one_time_egp: plan.price_one_time_egp,
+              plan_payment_type: plan.payment_type,
+            });
+          }
         });
       }
     });
