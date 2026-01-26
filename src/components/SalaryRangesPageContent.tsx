@@ -44,9 +44,17 @@ type Props = {
   countries: Country[];
   hasPremiumAccess: boolean;
   premiumPlan: PremiumPlan;
+  isAuthenticated: boolean; // New prop
 };
 
-export function SalaryRangesPageContent({ jobRoles, salaryRanges, countries, hasPremiumAccess, premiumPlan }: Props) {
+export function SalaryRangesPageContent({ 
+  jobRoles, 
+  salaryRanges, 
+  countries, 
+  hasPremiumAccess, 
+  premiumPlan,
+  isAuthenticated 
+}: Props) {
   const language = useAppStore((state) => state.language);
   const [selectedJobRole, setSelectedJobRole] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
@@ -105,7 +113,6 @@ export function SalaryRangesPageContent({ jobRoles, salaryRanges, countries, has
   ];
 
   // Map country codes to region values used in salary_ranges table
-  // This mapping converts country codes to the format stored in the database
   const countryCodeToRegion: Record<string, string> = {
     'EG': 'egypt',
     'SA': 'saudi_arabia',
@@ -128,21 +135,19 @@ export function SalaryRangesPageContent({ jobRoles, salaryRanges, countries, has
   };
 
   // Create region options from countries database
-  // Map countries to region format and create options
   const allRegionOptions = countries
-    .filter((country) => countryCodeToRegion[country.code]) // Only include countries that have a region mapping
+    .filter((country) => countryCodeToRegion[country.code])
     .map((country) => ({
       value: countryCodeToRegion[country.code],
       label: getText(country.name, country.name_ar),
     }))
-    .sort((a, b) => a.label.localeCompare(b.label)); // Sort alphabetically
+    .sort((a, b) => a.label.localeCompare(b.label));
 
-  // Create region labels map for display (includes all regions from database and any existing in salary data)
+  // Create region labels map for display
   const regionLabels: Record<string, string> = {
     all: t.allRegions,
   };
   
-  // Add labels from countries database
   countries.forEach((country) => {
     const regionValue = countryCodeToRegion[country.code];
     if (regionValue) {
@@ -150,10 +155,9 @@ export function SalaryRangesPageContent({ jobRoles, salaryRanges, countries, has
     }
   });
   
-  // Also include any regions from salary data that might not be in countries table
   salaryRanges.forEach((range) => {
     if (range.region && !regionLabels[range.region]) {
-      regionLabels[range.region] = range.region; // Fallback to region value if no label found
+      regionLabels[range.region] = range.region;
     }
   });
 
@@ -171,16 +175,12 @@ export function SalaryRangesPageContent({ jobRoles, salaryRanges, countries, has
 
   // Filter salary ranges
   const filteredRanges = salaryRanges.filter((range) => {
-    // Filter by category (if selected) - check the job role's category
     if (selectedCategory) {
       const role = jobRoles.find((r) => r.id === range.job_role_id);
       if (!role || role.role_category !== selectedCategory) return false;
     }
-    // Filter by job role (if selected)
     if (selectedJobRole && range.job_role_id !== selectedJobRole) return false;
-    // Filter by region (if selected)
     if (selectedRegion !== "all" && range.region !== selectedRegion) return false;
-    // Filter by experience level (if selected)
     if (selectedExperienceLevel !== "all" && range.experience_level !== selectedExperienceLevel) return false;
     return true;
   });
@@ -202,8 +202,46 @@ export function SalaryRangesPageContent({ jobRoles, salaryRanges, countries, has
           <p className="text-xl text-slate-600">{t.subtitle}</p>
         </div>
 
-        {/* Premium Access CTA - Show when user doesn't have premium */}
-        {!hasPremiumAccess && (
+        {/* CTA for Unauthenticated Users */}
+        {/* {!isAuthenticated && (
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-8 md:p-12 mb-8 text-white shadow-xl">
+            <div className="max-w-3xl mx-auto text-center">
+              <div className="text-6xl mb-4">🔐</div>
+              <h2 className="text-3xl md:text-4xl font-bold mb-4">
+                {language === "ar" 
+                  ? "سجل الدخول للحصول على المزيد" 
+                  : "Sign In to Get More"}
+              </h2>
+              <p className="text-lg md:text-xl mb-6 opacity-95">
+                {language === "ar"
+                  ? "أنشئ حساباً مجانياً أو سجل الدخول للوصول إلى بيانات الرواتب الكاملة في جميع الدول والمستويات."
+                  : "Create a free account or sign in to access complete salary data across all countries and experience levels."}
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                <a
+                  href="/?redirect=/salary-ranges"
+                  className="bg-white text-blue-600 px-8 py-4 rounded-lg font-bold text-lg hover:bg-blue-50 transition-colors shadow-lg"
+                >
+                  {language === "ar" ? "تسجيل الدخول" : "Sign In"}
+                </a>
+                <a
+                  href="/?redirect=/salary-ranges&mode=signup"
+                  className="bg-blue-500 text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-blue-400 transition-colors shadow-lg border-2 border-white/30"
+                >
+                  {language === "ar" ? "إنشاء حساب مجاني" : "Create Free Account"}
+                </a>
+              </div>
+              <p className="mt-6 text-sm opacity-90">
+                {language === "ar"
+                  ? "✨ التسجيل مجاني تماماً - ابدأ الآن!"
+                  : "✨ Registration is completely free - Start now!"}
+              </p>
+            </div>
+          </div>
+        )} */}
+
+        {/* Premium Access CTA - Show when user is authenticated but doesn't have premium */}
+        {isAuthenticated && !hasPremiumAccess && (
           <div className="bg-gradient-to-r from-teal-600 to-emerald-600 rounded-2xl p-8 md:p-12 mb-8 text-white shadow-xl">
             <div className="max-w-3xl mx-auto text-center">
               <div className="text-6xl mb-4">💰</div>
@@ -255,7 +293,7 @@ export function SalaryRangesPageContent({ jobRoles, salaryRanges, countries, has
                 value={selectedCategory}
                 onChange={(e) => {
                   setSelectedCategory(e.target.value);
-                  setSelectedJobRole(null); // Reset job role when category changes
+                  setSelectedJobRole(null);
                 }}
                 className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
               >
@@ -325,9 +363,15 @@ export function SalaryRangesPageContent({ jobRoles, salaryRanges, countries, has
         {!hasPremiumAccess && salaryRanges.length > 0 && (
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
             <p className="text-amber-800 text-center font-medium">
-              {language === "ar"
-                ? "⚠️ عرض محدود: يتم عرض مثالين فقط. اشترك للحصول على وصول كامل لجميع البيانات."
-                : "⚠️ Limited Preview: Only 2 examples shown. Subscribe for full access to all data."}
+              {!isAuthenticated ? (
+                language === "ar"
+                  ? "⚠️ عرض محدود: يتم عرض مثالين فقط. سجل الدخول واشترك للحصول على وصول كامل لبيانات الرواتب."
+                  : "⚠️ Limited Preview: Only 2 examples shown. Sign in and subscribe for full access to salary data."
+              ) : (
+                language === "ar"
+                  ? "⚠️ عرض محدود: يتم عرض مثالين فقط. اشترك للحصول على وصول كامل لجميع بيانات الرواتب."
+                  : "⚠️ Limited Preview: Only 2 examples shown. Subscribe for full access to all salary data."
+              )}
             </p>
           </div>
         )}
@@ -449,4 +493,3 @@ export function SalaryRangesPageContent({ jobRoles, salaryRanges, countries, has
     </div>
   );
 }
-

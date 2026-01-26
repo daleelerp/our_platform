@@ -33,7 +33,6 @@ export function ErpSystemsGrid({ systems }: ErpSystemsGridProps) {
     
     const levels: Record<string, { label: string; range: string }> = {};
     
-    // Match patterns like "Beginner: 11,200-16,800 EGP"
     const regex = /(Beginner|Intermediate|Senior|Expert):\s*([\d,]+)-([\d,]+)\s*EGP/g;
     let match;
     
@@ -55,18 +54,42 @@ export function ErpSystemsGrid({ systems }: ErpSystemsGridProps) {
     return a.priority_order - b.priority_order;
   });
 
+  // Upcoming platforms (not in database yet)
+  const upcomingPlatforms = [
+    { name: "Salesforce", icon: "☁️", color: "bg-[#00A1E0]" },
+    { name: "ServiceNow", icon: "🔧", color: "bg-[#81B5A1]" },
+    { name: "Workday", icon: "👥", color: "bg-[#0066CC]" },
+  ];
+
   return (
     <section className="py-20 bg-slate-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
         <div className="text-center mb-12">
           <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
             {t("erpGrid.title")}
           </h2>
-          <p className="text-slate-600 max-w-2xl mx-auto">
+          <p className="text-slate-600 max-w-3xl mx-auto mb-6">
             {t("erpGrid.subtitle")}
           </p>
+
+          {/* Current Focus vs Expanding To */}
+          <div className="flex flex-wrap items-center justify-center gap-4 max-w-2xl mx-auto">
+            <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-green-50 border border-green-200">
+              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+              <span className="text-sm font-medium text-green-700">
+                {t("erpGrid.currentFocus")}: Oracle ERP
+              </span>
+            </div>
+            <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-100 border border-slate-200">
+              <span className="text-sm text-slate-500">
+                {t("erpGrid.expandingTo")}: SAP, Dynamics, Salesforce...
+              </span>
+            </div>
+          </div>
         </div>
 
+        {/* Systems Grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {sortedSystems.map((system) => (
             <div
@@ -79,7 +102,8 @@ export function ErpSystemsGrid({ systems }: ErpSystemsGridProps) {
             >
               {/* Status badge */}
               {system.is_active ? (
-                <div className="absolute -top-3 left-4 px-3 py-1 rounded-full bg-[#429874] text-white text-xs font-semibold">
+                <div className="absolute -top-3 left-4 px-3 py-1 rounded-full bg-[#429874] text-white text-xs font-semibold flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
                   {t("erpGrid.activeNow")}
                 </div>
               ) : (
@@ -159,7 +183,6 @@ export function ErpSystemsGrid({ systems }: ErpSystemsGridProps) {
                     );
                   }
                   
-                  // Fallback to original display if parsing fails
                   return (
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-slate-500">{t("erpGrid.avgSalary")}</span>
@@ -209,7 +232,6 @@ export function ErpSystemsGrid({ systems }: ErpSystemsGridProps) {
               ) : (
                 <button
                   onClick={() => {
-                    // Open waitlist modal or scroll to waitlist section
                     const waitlistSection = document.getElementById("early-access");
                     if (waitlistSection) {
                       waitlistSection.scrollIntoView({ behavior: "smooth" });
@@ -222,6 +244,45 @@ export function ErpSystemsGrid({ systems }: ErpSystemsGridProps) {
               )}
             </div>
           ))}
+
+          {/* More Coming Soon Card */}
+          <div className="relative rounded-2xl border-2 border-dashed border-slate-300 p-6 bg-gradient-to-br from-slate-50 to-white flex flex-col items-center justify-center text-center min-h-[300px]">
+            <div className="text-4xl mb-4">🚀</div>
+            <h3 className="text-xl font-bold text-slate-900 mb-2">
+              {t("erpGrid.moreComingSoon")}
+            </h3>
+            <p className="text-sm text-slate-600 mb-6">
+              {t("erpGrid.moreComingSoonDesc")}
+            </p>
+
+            {/* Upcoming platforms preview */}
+            <div className="flex flex-wrap justify-center gap-2 mb-6">
+              {upcomingPlatforms.map((platform) => (
+                <div
+                  key={platform.name}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-slate-200 shadow-sm"
+                >
+                  <span>{platform.icon}</span>
+                  <span className="text-xs font-medium text-slate-600">{platform.name}</span>
+                </div>
+              ))}
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-slate-200 shadow-sm">
+                <span className="text-xs text-slate-400">+more</span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => {
+                const waitlistSection = document.getElementById("early-access");
+                if (waitlistSection) {
+                  waitlistSection.scrollIntoView({ behavior: "smooth" });
+                }
+              }}
+              className="px-6 py-2.5 rounded-xl bg-slate-900 text-white font-medium hover:bg-slate-800 transition"
+            >
+              {t("erpGrid.voteForNext")}
+            </button>
+          </div>
         </div>
       </div>
     </section>

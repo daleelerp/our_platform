@@ -145,10 +145,10 @@ export function DashboardContent({ profile, enrolledPaths = [], recommendedPaths
               </div>
               <div className="flex flex-col sm:flex-row gap-3">
                 <Link
-                  href="/pricing"
+                  href="/paths"
                   className="px-6 py-3 bg-white text-[#429874] rounded-lg font-semibold hover:bg-slate-50 transition-colors text-center shadow-md hover:shadow-lg"
                 >
-                  {language === "ar" ? "ترقية الآن" : "Upgrade Now"}
+                  {language === "ar" ? "المسارات المتاحة" : "Available paths"}
                 </Link>
                 <Link
                   href="/pricing"
@@ -228,7 +228,7 @@ export function DashboardContent({ profile, enrolledPaths = [], recommendedPaths
         )}
 
         {/* Recommended Paths - Show saved path finder results or generic recommendations */}
-        {recommendedPaths.length > 0 && (
+        {/* {recommendedPaths.length > 0 && (
           <div>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-slate-900">
@@ -302,7 +302,7 @@ export function DashboardContent({ profile, enrolledPaths = [], recommendedPaths
               })}
             </div>
           </div>
-        )}
+        )} */}
       </div>
     </main>
   );

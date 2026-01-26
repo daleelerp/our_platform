@@ -703,8 +703,8 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
         )}
 
         {/* Trust & Payment Section */}
-        <div className="mt-12 pt-8 border-t border-slate-200">
-          <div className="flex flex-col items-center gap-6">
+        {/* <div className="mt-12 pt-8 border-t border-slate-200">
+          <div className="flex flex-col items-center gap-6"> */}
             {/* Trust Badges */}
             {/* <div className="flex flex-wrap justify-center gap-4">
               <div className="flex items-center gap-2 text-sm text-slate-600 bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm">
@@ -771,8 +771,8 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
                 support@daleel.com
               </a>
             </div> */}
-          </div>
-        </div>
+          {/* </div>
+        </div> */}
       </div>
     </div>
   );

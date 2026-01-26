@@ -26,10 +26,10 @@
   },
   "hero": {
     "badge": "Currently in Beta • Launching Q1 2026",
-    "title": "Your Complete Guide",
-    "titleHighlight": "to ERP Career Paths",
+    "title": "Your Complete Guide to",
+    "titleHighlight": "Tech Career Paths",
     "titleSuffix": "",
-    "subtitle": "Your complete guide to ERP career paths",
+    "subtitle": "Your complete guide to tech career paths in MENA",
     "subtitlePoints": {
       "point1": "Student starting young",
       "point2": "Professional switching careers",
@@ -40,6 +40,8 @@
     "cta": "Get Early Access",
     "secondaryCta": "Learn How It Works",
     "socialProof": "professionals on the waitlist",
+    "startingWith": "Starting with",
+    "comingSoonSystems": "SAP, Microsoft Dynamics, Salesforce & more coming soon",
     "mockPath": {
       "title": "Your Learning Path",
       "path1": {
@@ -56,7 +58,8 @@
         "details": "Coming soon"
       }
     },
-    "floatingBadge": "🎯 Starting with Oracle"
+    "floatingBadge": "🎯 Starting with Oracle ERP",
+    "expandingTo": "Expanding to more systems soon"
   },
   "status": {
     "currentlyActive": "Currently Active:",
@@ -65,7 +68,8 @@
   },
   "erpGrid": {
     "title": "Enterprise Systems We're Mapping",
-    "subtitle": "Comprehensive learning paths for developers and technical professionals, and for people who want to work in Functional or Business roles. From system configuration and setup to financial operations and process management — we cover the ERP systems most in-demand across MENA.",
+    "titleHighlight": "Starting with ERP",
+    "subtitle": "Comprehensive learning paths for developers, consultants, admins, and business analysts. From system configuration to financial operations and process management — we're starting with the most in-demand ERP systems in MENA, and expanding to more platforms soon.",
     "activeNow": "Active Now",
     "comingSoon": "Coming Soon",
     "marketDemand": "Market Demand",
@@ -76,31 +80,38 @@
     "demandVeryHigh": "Very High Demand",
     "demandHigh": "High Demand",
     "demandMedium": "Moderate Demand",
-    "demandLow": "Growing"
+    "demandLow": "Growing",
+    "moreComingSoon": "More Systems Coming Soon",
+    "moreComingSoonDesc": "We're building paths for SAP, Microsoft Dynamics, Salesforce, Odoo, and more. Join the waitlist to influence which systems we add next.",
+    "voteForNext": "Vote for Next System",
+    "currentFocus": "Current Focus",
+    "expandingTo": "Expanding To"
   },
   "howItWorks": {
     "badge": "How It Works",
     "title": "Your Complete Guide",
-    "titleHighlight": "to ERP Career Paths",
+    "titleHighlight": "to Tech Career Paths",
     "subtitle": "Whether you're a student starting young, a professional looking to switch careers, or someone wanting to learn something new - we're with you every step of the way. Deep, comprehensive data gathered from thousands of sources online and carefully reviewed to answer all your questions.",
+    "startingWith": "Starting with",
+    "comingSoon": "Coming soon",
     "step1Title": "Tell us your goal",
-    "step1Quote": "I want to become an Oracle Technical Consultant or Financial Operations Manager",
-    "step1Detail": "Share your current experience, target role (technical or Functional/Business), and timeline. We understand the MENA job market - whether you're a developer or technical professional, or want to work in Functional or Business roles - we're with you.",
+    "step1Quote": "I want to become an Oracle Consultant, SAP Specialist, or Salesforce Admin",
+    "step1Detail": "Share your current experience, target role (technical or Functional/Business), and timeline. We understand the MENA job market - whether you're targeting ERP systems like Oracle & SAP, or platforms like Salesforce & Dynamics - we're building paths for you.",
     "step2Title": "Get AI-curated paths",
     "step2Quote": "We analyze thousands of resources and organize the best ones for you",
-    "step2Detail": "No more endless YouTube tabs or scattered documentation. We filter the noise and create clear roadmaps - whether for technical configuration for developers, or functional and business processes for Functional/Business users. All from deep, comprehensive data gathered from thousands of sources and carefully reviewed.",
+    "step2Detail": "No more endless YouTube tabs or scattered documentation. We filter the noise and create clear roadmaps - whether for technical configuration, functional processes, or business administration. All from deep, comprehensive data gathered from thousands of sources and carefully reviewed.",
     "step3Title": "Follow guided learning",
     "step3Quote": "Learn with context, track progress, reach your career goal",
-    "step3Detail": "Week-by-week guidance with the right resources at the right time. Whether you're a developer configuring systems, or a Functional/Business user managing financial and business operations - we're with you every step of the way.",
+    "step3Detail": "Week-by-week guidance with the right resources at the right time. Whether you're a developer, consultant, admin, or business analyst - we're with you every step of the way.",
     "problemTitle": "The Problem",
-    "problem1": "Lost and don't know where to start",
+    "problem1": "Lost and don't know where to start with enterprise systems",
     "problem2": "20 browser tabs of scattered tutorials and documentation",
     "problem3": "Outdated forum posts and technical guides from 2003",
-    "problem4": "YouTube rabbit holes with no clear path - don't know where to start whether you're technical or Functional/Business",
+    "problem4": "YouTube rabbit holes with no clear path - overwhelming for beginners",
     "problem5": "Expensive courses that don't match MENA market needs or technical requirements",
     "problem6": "Places that take too many unnecessary flows and take a long time to learn without learning adequately",
     "solutionTitle": "Our Solution",
-    "solution1": "We help you choose the right ERP and learn it - whether you're a student or a professional looking to switch careers. We help developers and technical professionals, and we also help people who want to work in Functional or Business roles",
+    "solution1": "We help you choose the right career path and system - starting with Oracle ERP, expanding to SAP, Dynamics, Salesforce & more",
     "solution2": "Complete guide to all career paths - salary and company insights from deep, comprehensive data",
     "solution3": "We help with employment - full community and we recommend the best people to companies",
     "solution4": "Exams and articles at very affordable prices - suitable for students and those starting young",

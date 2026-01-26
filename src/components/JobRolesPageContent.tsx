@@ -26,9 +26,15 @@ type Props = {
   jobRoles: JobRole[];
   hasPremiumAccess: boolean;
   premiumPlan: PremiumPlan;
+  isAuthenticated: boolean; // New prop
 };
 
-export function JobRolesPageContent({ jobRoles, hasPremiumAccess, premiumPlan }: Props) {
+export function JobRolesPageContent({ 
+  jobRoles, 
+  hasPremiumAccess, 
+  premiumPlan,
+  isAuthenticated 
+}: Props) {
   const language = useAppStore((state) => state.language);
   const [selectedRole, setSelectedRole] = useState<JobRole | null>(null);
 
@@ -64,8 +70,46 @@ export function JobRolesPageContent({ jobRoles, hasPremiumAccess, premiumPlan }:
           <p className="text-xl text-slate-600">{t.subtitle}</p>
         </div>
 
-        {/* Premium Access CTA - Show when user doesn't have premium */}
-        {!hasPremiumAccess && (
+        {/* CTA for Unauthenticated Users */}
+        {/* {!isAuthenticated && (
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-8 md:p-12 mb-8 text-white shadow-xl">
+            <div className="max-w-3xl mx-auto text-center">
+              <div className="text-6xl mb-4">🔐</div>
+              <h2 className="text-3xl md:text-4xl font-bold mb-4">
+                {language === "ar" 
+                  ? "سجل الدخول للحصول على المزيد" 
+                  : "Sign In to Get More"}
+              </h2>
+              <p className="text-lg md:text-xl mb-6 opacity-95">
+                {language === "ar"
+                  ? "أنشئ حساباً مجانياً أو سجل الدخول للوصول إلى المزيد من الميزات والمحتوى الحصري."
+                  : "Create a free account or sign in to access more features and exclusive content."}
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                <a
+                  href="/?redirect=/job-roles"
+                  className="bg-white text-blue-600 px-8 py-4 rounded-lg font-bold text-lg hover:bg-blue-50 transition-colors shadow-lg"
+                >
+                  {language === "ar" ? "تسجيل الدخول" : "Sign In"}
+                </a>
+                <a
+                  href="/?redirect=/job-roles&mode=signup"
+                  className="bg-blue-500 text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-blue-400 transition-colors shadow-lg border-2 border-white/30"
+                >
+                  {language === "ar" ? "إنشاء حساب مجاني" : "Create Free Account"}
+                </a>
+              </div>
+              <p className="mt-6 text-sm opacity-90">
+                {language === "ar"
+                  ? "✨ التسجيل مجاني تماماً - ابدأ الآن!"
+                  : "✨ Registration is completely free - Start now!"}
+              </p>
+            </div>
+          </div>
+        )} */}
+
+        {/* Premium Access CTA - Show when user is authenticated but doesn't have premium */}
+        {isAuthenticated && !hasPremiumAccess && (
           <div className="bg-gradient-to-r from-teal-600 to-emerald-600 rounded-2xl p-8 md:p-12 mb-8 text-white shadow-xl">
             <div className="max-w-3xl mx-auto text-center">
               <div className="text-6xl mb-4">💼</div>
@@ -110,9 +154,15 @@ export function JobRolesPageContent({ jobRoles, hasPremiumAccess, premiumPlan }:
         {!hasPremiumAccess && jobRoles.length > 0 && (
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
             <p className="text-amber-800 text-center font-medium">
-              {language === "ar"
-                ? "⚠️ عرض محدود: يتم عرض مثالين فقط. اشترك للحصول على وصول كامل لجميع البيانات."
-                : "⚠️ Limited Preview: Only 2 examples shown. Subscribe for full access to all data."}
+              {!isAuthenticated ? (
+                language === "ar"
+                  ? "⚠️ عرض محدود: يتم عرض مثالين فقط. سجل الدخول واشترك للحصول على وصول كامل."
+                  : "⚠️ Limited Preview: Only 2 examples shown. Sign in and subscribe for full access."
+              ) : (
+                language === "ar"
+                  ? "⚠️ عرض محدود: يتم عرض مثالين فقط. اشترك للحصول على وصول كامل لجميع البيانات."
+                  : "⚠️ Limited Preview: Only 2 examples shown. Subscribe for full access to all data."
+              )}
             </p>
           </div>
         )}
@@ -218,4 +268,3 @@ export function JobRolesPageContent({ jobRoles, hasPremiumAccess, premiumPlan }:
     </div>
   );
 }
-

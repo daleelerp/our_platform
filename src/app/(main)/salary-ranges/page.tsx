@@ -1,19 +1,40 @@
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
-import { redirect } from "next/navigation";
 import { SalaryRangesPageContent } from "@/components/SalaryRangesPageContent";
 
 export default async function SalaryRangesPage() {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
-  // Check if user is authenticated
+  // Check if user is authenticated (no redirect if not)
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    redirect("/?redirect=/salary-ranges");
+  let planName = "free";
+  let hasPremiumAccess = false;
+  let subscription = null;
+
+  // Only check subscription if user is authenticated
+  if (user) {
+    const { data: subscriptionData } = await supabase
+      .from("user_subscriptions")
+      .select(`
+        *,
+        subscription_plans (
+          id,
+          name,
+          display_name_en,
+          display_name_ar
+        )
+      `)
+      .eq("user_id", user.id)
+      .in("status", ["active", "trial", "paused"])
+      .maybeSingle();
+
+    subscription = subscriptionData;
+    planName = subscription?.subscription_plans?.name || "free";
+    hasPremiumAccess = planName === "premium" || planName === "team";
   }
 
   // Fetch job roles with category
@@ -29,25 +50,6 @@ export default async function SalaryRangesPage() {
     .select("code, name, name_ar")
     .eq("is_active", true)
     .order("display_order");
-
-  // Check user's subscription status
-  const { data: subscription } = await supabase
-    .from("user_subscriptions")
-    .select(`
-      *,
-      subscription_plans (
-        id,
-        name,
-        display_name_en,
-        display_name_ar
-      )
-    `)
-    .eq("user_id", user.id)
-    .in("status", ["active", "trial", "paused"])
-    .maybeSingle();
-
-  const planName = subscription?.subscription_plans?.name || "free";
-  const hasPremiumAccess = planName === "premium" || planName === "team";
 
   // Fetch salary ranges with job role category
   const { data: allSalaryRanges } = await supabase
@@ -89,7 +91,7 @@ export default async function SalaryRangesPage() {
       countries={countries || []}
       hasPremiumAccess={hasPremiumAccess}
       premiumPlan={premiumPlan}
+      isAuthenticated={!!user}  // New prop
     />
   );
 }
-

@@ -1,11 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import { useTranslation } from "@/hooks/useTranslation";
 import { LoginButton } from "../auth/LoginButton";
 
 export function HeroSection() {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
 
   return (
     <section className="relative overflow-hidden bg-white">
@@ -24,7 +23,7 @@ export function HeroSection() {
         </svg>
       </div>
 
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-32">
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           {/* Left: Content */}
           <div className="space-y-8">
@@ -44,9 +43,20 @@ export function HeroSection() {
               </span>
             </h1>
 
-            <p className="text-lg sm:text-xl text-slate-700 font-medium mb-6">
+            <p className="text-lg sm:text-xl text-slate-700 font-medium mb-2">
               {t("hero.subtitle")}
             </p>
+
+            {/* "Starting with" indicator - NEW */}
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="text-slate-500">{t("hero.startingWith")}</span>
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-red-50 to-orange-50 border border-red-200">
+                <span className="text-lg">🔴</span>
+                <span className="font-semibold text-red-700">Oracle ERP</span>
+              </div>
+              <span className="text-slate-400">•</span>
+              <span className="text-slate-500 text-xs sm:text-sm">{t("hero.comingSoonSystems")}</span>
+            </div>
 
             {/* Points Grid */}
             <div className="grid grid-cols-2 gap-3 mb-6">
@@ -179,6 +189,28 @@ export function HeroSection() {
                       <div className="font-medium text-slate-500">{t("hero.mockPath.path3.name")}</div>
                       <div className="text-xs text-slate-400">{t("hero.mockPath.path3.details")}</div>
                     </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Coming Soon Systems - NEW */}
+              <div className="mt-6 pt-4 border-t border-slate-100">
+                <div className="text-xs text-slate-400 mb-3">{t("hero.expandingTo")}</div>
+                <div className="flex flex-wrap gap-2">
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200">
+                    <span className="w-4 h-4 rounded bg-blue-600 flex items-center justify-center text-[8px] text-white font-bold">SAP</span>
+                    <span className="text-xs text-slate-500">SAP</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200">
+                    <span className="w-4 h-4 rounded bg-[#00A4EF] flex items-center justify-center text-[8px] text-white font-bold">D</span>
+                    <span className="text-xs text-slate-500">Dynamics</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200">
+                    <span className="w-4 h-4 rounded bg-[#00A1E0] flex items-center justify-center text-[8px] text-white font-bold">SF</span>
+                    <span className="text-xs text-slate-500">Salesforce</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200">
+                    <span className="text-xs text-slate-400">+more</span>
                   </div>
                 </div>
               </div>
