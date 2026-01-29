@@ -390,7 +390,7 @@ export function AIChatAssistant({ initialMessage }: Props) {
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
                 <p className="text-amber-800 text-sm mb-3">{t.limitReached}</p>
                 <Link
-                  href="/pricing"
+                  href="/plans"
                   className="inline-block px-4 py-2 bg-gradient-to-r from-teal-500 to-emerald-500 text-white rounded-lg text-sm font-medium hover:from-teal-600 hover:to-emerald-600 transition"
                 >
                   {t.upgrade} ✨
@@ -406,7 +406,7 @@ export function AIChatAssistant({ initialMessage }: Props) {
             <div className="px-4 py-2 bg-slate-100 border-t border-slate-200 flex-shrink-0">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-slate-600">{t.messagesRemaining(messagesRemaining)}</span>
-                <Link href="/pricing" className="text-teal-600 hover:text-teal-700 font-medium">
+                <Link href="/plans" className="text-teal-600 hover:text-teal-700 font-medium">
                   {t.upgrade}
                 </Link>
               </div>

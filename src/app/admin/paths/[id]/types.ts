@@ -50,15 +50,62 @@ export interface NewMilestone {
     // is_optional: boolean;
 }
 
+// export interface VideoContent {
+//     id: string;
+//     milestone_id: string;
+//     youtube_video_id: string;
+//     youtube_url: string;
+//     title: string;
+//     title_ar: string;
+//     primary_language: "en" | "ar";
+//     is_active: boolean;
+// }
+// types.ts (or wherever you define your types)
+
 export interface VideoContent {
-    id: string;
-    milestone_id: string;
-    youtube_video_id: string;
-    youtube_url: string;
-    title: string;
-    title_ar: string;
-    primary_language: "en" | "ar";
-    is_active: boolean;
+  id: string;
+  youtube_video_id: string;
+  youtube_url: string;
+  channel_name?: string | null;
+  channel_id?: string | null;
+  thumbnail_url?: string | null;
+  duration_seconds?: number | null;
+  view_count?: number | null;
+  like_count?: number | null;
+  published_at?: string | null;
+  milestone_id?: string | null;
+  video_order?: number | null;
+  content_tier?: string | null;
+  title: string;
+  title_ar?: string | null;
+  description?: string | null;
+  description_ar?: string | null;
+  difficulty_level?: string | null;
+  primary_language?: string | null;
+  has_arabic_subtitles?: boolean;
+  has_english_subtitles?: boolean;
+  has_auto_captions?: boolean;
+  transcript_url?: string | null;
+  transcript_text?: string | null;
+  content_quality_score?: number | null;
+  average_completion_rate?: number | null;
+  average_rating?: number | null;
+  total_ratings?: number | null;
+  key_topics?: any;
+  learning_objectives?: any;
+  learning_objectives_ar?: any;
+  tools_covered?: any;
+  prerequisites?: any;
+  ai_summary?: string | null;
+  ai_summary_ar?: string | null;
+  ai_key_takeaways?: any;
+  ai_key_takeaways_ar?: any;
+  requires_subscription?: boolean;
+  is_embedded_allowed?: boolean;
+  is_active?: boolean;
+  created_at?: string;
+  updated_at?: string;
+  last_synced_at?: string | null;
 }
 
 export interface MilestoneResource {

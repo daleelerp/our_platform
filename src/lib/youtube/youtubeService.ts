@@ -429,4 +429,67 @@ export async function getPlaylistItems(playlistId: string, maxResults: number = 
     throw error;
   }
 }
+/**
+ * Get video details for multiple videos at once (batch)
+ * More efficient than calling getVideoDetails for each video
+ */
+export async function getVideoDetailsBatch(videoIds: string[]): Promise<Map<string, VideoData>> {
+  const apiKey = process.env.YOUTUBE_API_KEY;
+  if (!apiKey) {
+    throw new Error('YOUTUBE_API_KEY environment variable is not set');
+  }
 
+  const resultsMap = new Map<string, VideoData>();
+  
+  if (videoIds.length === 0) {
+    return resultsMap;
+  }
+
+  try {
+    // YouTube API allows max 50 video IDs per request
+    for (let i = 0; i < videoIds.length; i += 50) {
+      const batchIds = videoIds.slice(i, i + 50);
+      
+      const response = await fetch(
+        `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,statistics,status&id=${batchIds.join(',')}&key=${apiKey}`
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(`YouTube API error: ${error.error?.message || response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      if (data.items) {
+        for (const video of data.items) {
+          const snippet = video.snippet;
+          const contentDetails = video.contentDetails;
+          const statistics = video.statistics;
+          const status = video.status;
+
+          resultsMap.set(video.id, {
+            videoId: video.id,
+            title: snippet.title,
+            description: snippet.description,
+            thumbnailUrl: snippet.thumbnails?.maxres?.url || snippet.thumbnails?.high?.url || snippet.thumbnails?.default?.url || '',
+            channelName: snippet.channelTitle,
+            channelId: snippet.channelId,
+            durationSeconds: parseDuration(contentDetails.duration),
+            viewCount: parseInt(statistics.viewCount || '0', 10),
+            likeCount: parseInt(statistics.likeCount || '0', 10),
+            publishedAt: snippet.publishedAt,
+            isEmbeddable: status.embeddable === true,
+            hasCaptions: contentDetails.caption !== 'false',
+            availableLanguages: [],
+          });
+        }
+      }
+    }
+
+    return resultsMap;
+  } catch (error) {
+    console.error('Error fetching batch video details:', error);
+    throw error;
+  }
+}

@@ -146,6 +146,7 @@ export default function JobRolesPage() {
               type: "description",
               searchField: "title",
             },
+            hideInTable: true,
           },
           { 
             key: "description_ar", 
@@ -156,6 +157,7 @@ export default function JobRolesPage() {
               type: "description",
               searchField: "title_ar",
             },
+            hideInTable: true,
           },
           { 
             key: "daily_activities", 
@@ -166,6 +168,7 @@ export default function JobRolesPage() {
               type: "custom",
               searchField: "title",
             },
+            hideInTable: true,
           },
           { 
             key: "daily_activities_ar", 
@@ -176,6 +179,7 @@ export default function JobRolesPage() {
               type: "custom",
               searchField: "title_ar",
             },
+            hideInTable: true,
           },
           { key: "is_active", label: "Active", type: "checkbox" },
         ]}

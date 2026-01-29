@@ -2,6 +2,40 @@ import { cookies } from "next/headers";
 import { getAdminSupabaseClient } from "@/utils/admin-supabase";
 
 /**
+ * Retry a function with exponential backoff
+ */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 2,
+  delayMs: number = 500
+): Promise<T> {
+  let lastError: any;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      lastError = error;
+      
+      // Only retry on timeout/network errors
+      const isRetryable = 
+        error.message?.includes('fetch failed') ||
+        error.message?.includes('timeout') ||
+        error.message?.includes('CONNECT_TIMEOUT');
+      
+      if (!isRetryable || attempt === maxRetries) {
+        throw error;
+      }
+      
+      console.log(`Retry attempt ${attempt + 1}/${maxRetries} after ${delayMs}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delayMs * (attempt + 1)));
+    }
+  }
+  
+  throw lastError;
+}
+
+/**
  * Check if user has an active admin session
  * Validates session against database for security
  */
@@ -14,60 +48,72 @@ export async function getAdminSession() {
     return null;
   }
 
-  // Verify session against database
+  // Verify session against database with retry logic
   try {
     const supabase = getAdminSupabaseClient();
     
-    const { data: session, error } = await supabase
-      .from("admin_sessions")
-      .select("*, admin_credentials!inner(id, username, is_active)")
-      .eq("session_token", adminSession.value)
-      .eq("username", adminUsername.value)
-      .gt("expires_at", new Date().toISOString())
-      .single();
+    const result = await withRetry(async () => {
+      const { data: session, error } = await supabase
+        .from("admin_sessions")
+        .select("*, admin_credentials!inner(id, username, is_active)")
+        .eq("session_token", adminSession.value)
+        .eq("username", adminUsername.value)
+        .gt("expires_at", new Date().toISOString())
+        .single();
 
-    if (error) {
-      // PGRST116 = no rows found (expected when no session exists)
-      if (error.code === "PGRST116") {
-        // This is normal - just means no session found
-        return null;
+      if (error) {
+        // PGRST116 = no rows found (expected when no session exists)
+        if (error.code === "PGRST116") {
+          return { session: null, error: null };
+        }
+        
+        // If table doesn't exist
+        if (error.code === "42P01" || error.message?.includes("does not exist")) {
+          console.error("❌ admin_sessions table does not exist!");
+          return { session: null, error: "TABLE_MISSING" };
+        }
+        
+        // Throw other errors to trigger retry
+        throw error;
       }
-      
-      // If table doesn't exist, provide helpful error
-      if (error.code === "42P01" || error.message?.includes("does not exist") || (error.message?.includes("relation") && error.message?.includes("does not exist"))) {
-        console.error("❌ admin_sessions table does not exist!");
-        console.error("Please run: docs/sql/admin_sessions_schema.sql in Supabase SQL Editor");
-        // Return a special error object so we can show a helpful message
-        return { error: "TABLE_MISSING" } as any;
-      }
-      
-      // Other errors - log but don't crash
-      console.error("Session validation error:", error);
+
+      return { session, error: null };
+    }, 2, 500); // 2 retries, 500ms initial delay
+
+    if (result.error === "TABLE_MISSING") {
+      return { error: "TABLE_MISSING" } as any;
+    }
+
+    if (!result.session || !result.session.admin_credentials?.is_active) {
       return null;
     }
 
-    if (!session || !session.admin_credentials?.is_active) {
-      // Session invalid or expired
-      return null;
-    }
-
-    // Update last accessed time
-    await supabase
-      .from("admin_sessions")
-      .update({ last_accessed_at: new Date().toISOString() })
-      .eq("id", session.id);
+    // Update last accessed time (fire and forget - don't await)
+    // Using async IIFE to properly handle the promise
+    (async () => {
+      try {
+        await supabase
+          .from("admin_sessions")
+          .update({ last_accessed_at: new Date().toISOString() })
+          .eq("id", result.session.id);
+      } catch (err: any) {
+        console.warn("Failed to update session access time:", err.message);
+      }
+    })();
 
     return {
-      username: session.username,
-      sessionToken: session.session_token,
-      adminId: session.admin_id,
+      username: result.session.username,
+      sessionToken: result.session.session_token,
+      adminId: result.session.admin_id,
     };
   } catch (error: any) {
-    // Catch any unexpected errors (e.g., table doesn't exist)
-    console.error("Error validating admin session:", error);
+    console.error("Session validation error:", error);
+    
     if (error.message?.includes("does not exist") || error.message?.includes("relation")) {
       return { error: "TABLE_MISSING" } as any;
     }
+    
+    // On network errors, return null (treat as unauthorized)
     return null;
   }
 }
@@ -79,17 +125,24 @@ export async function clearAdminSession() {
   const cookieStore = await cookies();
   const adminSession = cookieStore.get("admin_session");
 
-  // Delete session from database
+  // Delete session from database (fire and forget)
   if (adminSession) {
     const supabase = getAdminSupabaseClient();
-    await supabase
-      .from("admin_sessions")
-      .delete()
-      .eq("session_token", adminSession.value);
+    
+    // Using async IIFE to properly handle the promise
+    (async () => {
+      try {
+        await supabase
+          .from("admin_sessions")
+          .delete()
+          .eq("session_token", adminSession.value);
+      } catch (err: any) {
+        console.warn("Failed to delete session:", err.message);
+      }
+    })();
   }
 
   // Clear cookies
   cookieStore.delete("admin_session");
   cookieStore.delete("admin_username");
 }
-

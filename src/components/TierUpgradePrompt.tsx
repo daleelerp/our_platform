@@ -162,7 +162,7 @@ export function TierUpgradePrompt({
             <button
               onClick={() => {
                 // Navigate to pricing/upgrade page
-                window.location.href = "/pricing";
+                window.location.href = "/plans";
               }}
               className={`flex-1 px-6 py-3 ${colors.bg} ${colors.text} rounded-lg font-medium hover:opacity-90 transition-opacity`}
             >

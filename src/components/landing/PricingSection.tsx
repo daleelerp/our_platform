@@ -170,7 +170,7 @@ export function PricingSection() {
 
               {/* CTA Button */}
               <Link
-                href="/pricing"
+                href="/plans"
                 className={`block w-full text-center py-3 rounded-xl font-semibold transition ${
                   plan.is_popular
                     ? "bg-[#429874] text-white hover:bg-[#357a5d]"
@@ -194,7 +194,7 @@ export function PricingSection() {
         {/* View All Link */}
         <div className="text-center mt-12">
           <Link
-            href="/pricing"
+            href="/plans"
             className="inline-flex items-center gap-2 text-[#429874] font-semibold hover:text-[#357a5d] transition"
           >
             {language === "ar" ? "عرض جميع الخطط والمميزات" : "View All Plans & Features"}

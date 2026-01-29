@@ -94,7 +94,7 @@ export function HeroSection() {
                 
                 {/* Secondary CTA - Get Early Access */}
                 <a
-                  href="/pricing"
+                  href="/plans"
                   className="group relative inline-flex items-center justify-center px-8 py-4 bg-white border-2 border-[#429874] text-[#429874] rounded-xl font-semibold text-base sm:text-lg hover:bg-[#f0f9f6] hover:border-[#357a5d] hover:text-[#285c46] transition-all duration-300 shadow-sm hover:shadow-md hover:scale-[1.02] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-[#429874] focus:ring-offset-2 whitespace-nowrap"
                 >
                   {t("hero.cta")}

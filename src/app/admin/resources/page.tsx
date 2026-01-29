@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { AdminCrudTable } from "@/components/admin/AdminCrudTable";
-import { YouTubeImporter } from "@/components/admin/YouTubeImporter";
 
 export default function ResourcesPage() {
   return (
@@ -16,14 +15,7 @@ export default function ResourcesPage() {
         </Link>
       </div>
 
-      <div className="mb-6">
-        <details className="border border-slate-200 rounded-lg p-4 bg-slate-50">
-          <summary className="cursor-pointer text-sm font-semibold text-slate-700 mb-3">
-            Import YouTube Playlist (Click to expand)
-          </summary>
-          <YouTubeImporter />
-        </details>
-      </div>
+      
 
       <AdminCrudTable
         table="learning_resources"

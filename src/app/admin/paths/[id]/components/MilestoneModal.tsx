@@ -3,7 +3,6 @@
 import { Milestone, VideoContent, MilestoneResource, LearningResource, Quiz } from "../types";
 import VideoSection from "./VideoSection";
 import ResourceSection from "./ResourceSection";
-// import QuizSection from "./QuizSection";
 import AddArticleModal from "./AddArticleModal";
 
 interface MilestoneModalProps {
@@ -12,6 +11,7 @@ interface MilestoneModalProps {
     // Video props
     videos: VideoContent[];
     onDeleteVideo: (videoId: string) => void;
+    onVideosExtracted?: (milestoneId: string, videos: VideoContent[]) => void; // Add this
     newVideo: any;
     setNewVideo: (data: any) => void;
     onAddVideo: (milestoneId: string) => void;
@@ -50,6 +50,7 @@ export default function MilestoneModal({
     onClose,
     videos,
     onDeleteVideo,
+    onVideosExtracted, // Add this
     newVideo,
     setNewVideo,
     onAddVideo,
@@ -114,8 +115,14 @@ export default function MilestoneModal({
 
                     <div className="space-y-6">
                         <VideoSection
+                            milestoneId={milestone.id}
                             videos={videos}
                             onDeleteVideo={onDeleteVideo}
+                            onVideosExtracted={
+                                onVideosExtracted 
+                                    ? (extractedVideos) => onVideosExtracted(milestone.id, extractedVideos)
+                                    : undefined
+                            }
                             newVideo={newVideo[milestone.id]}
                             setNewVideo={(updater) => {
                                 setNewVideo((prev: any) => ({
@@ -149,19 +156,6 @@ export default function MilestoneModal({
                             }}
                             onScrapeArticle={() => onScrapeArticle(milestone.id)}
                         />
-
-                        {/* <QuizSection
-                            quizzes={quizzes}
-                            onDeleteQuiz={(id) => onDeleteQuiz(milestone.id, id)}
-                            newQuiz={newQuiz[milestone.id]}
-                            setNewQuiz={(updater) => {
-                                setNewQuiz((prev: any) => ({
-                                    ...prev,
-                                    [milestone.id]: typeof updater === "function" ? updater(prev[milestone.id] || {}) : updater,
-                                }));
-                            }}
-                            onAddQuiz={() => onAddQuiz(milestone.id)}
-                        /> */}
                     </div>
                 </div>
             </div>

@@ -151,7 +151,7 @@ export function DashboardContent({ profile, enrolledPaths = [], recommendedPaths
                   {language === "ar" ? "المسارات المتاحة" : "Available paths"}
                 </Link>
                 <Link
-                  href="/pricing"
+                  href="/plans"
                   className="px-6 py-3 bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white rounded-lg font-semibold hover:bg-white/20 transition-colors text-center"
                 >
                   {language === "ar" ? "عرض الخطط" : "View Plans"}

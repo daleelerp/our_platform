@@ -104,7 +104,7 @@ export function SpecialOffers() {
               )}
 
               <Link
-                href="/pricing"
+                href="/plans"
                 className="block w-full text-center py-2 bg-white text-[#429874] rounded-lg font-semibold hover:bg-white/90 transition text-sm"
               >
                 {language === "ar" ? "استخدم الكود" : "Use Code"}
@@ -115,7 +115,7 @@ export function SpecialOffers() {
 
         <div className="text-center mt-6">
           <Link
-            href="/pricing"
+            href="/plans"
             className="inline-flex items-center gap-2 text-white font-medium hover:text-white/80 transition underline"
           >
             {language === "ar" ? "عرض جميع العروض" : "View All Offers"}

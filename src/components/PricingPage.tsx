@@ -380,7 +380,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?redirect=/pricing`,
+          redirectTo: `${window.location.origin}/auth/callback?redirect=/plans`,
         },
       });
       if (error) {

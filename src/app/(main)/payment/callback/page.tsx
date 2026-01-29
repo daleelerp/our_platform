@@ -116,7 +116,7 @@ export default function PaymentCallbackPage() {
             <p className="text-slate-600 mb-6">{t.failedMessage}</p>
             <div className="space-y-3">
               <Link
-                href="/pricing"
+                href="/plans"
                 className="block w-full py-3 px-6 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 transition"
               >
                 {t.tryAgain}

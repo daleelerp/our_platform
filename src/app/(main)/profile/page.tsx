@@ -647,13 +647,13 @@ export default function ProfilePage() {
                     {(!subscription || subscription.status === "cancelled" || subscription.status === "expired") && (
                       <>
                         <Link
-                          href="/pricing"
+                          href="/plans"
                           className="px-6 py-3 bg-[#429874] text-white rounded-lg font-medium hover:bg-[#357a5d] transition-colors shadow-md hover:shadow-lg"
                         >
                           {t.subscribeNow}
                         </Link>
                         <Link
-                          href="/pricing"
+                          href="/plans"
                           className="px-6 py-3 bg-white border-2 border-[#429874] text-[#429874] rounded-lg font-medium hover:bg-[#f0f9f6] transition-colors"
                         >
                           {t.viewPricing}
@@ -665,7 +665,7 @@ export default function ProfilePage() {
                     {subscription && subscription.status !== "cancelled" && subscription.status !== "expired" && (
                       <>
                         <Link
-                          href="/pricing"
+                          href="/plans"
                           className="px-6 py-3 bg-[#429874] text-white rounded-lg font-medium hover:bg-[#357a5d] transition-colors shadow-md hover:shadow-lg"
                         >
                           {t.upgradePlan}

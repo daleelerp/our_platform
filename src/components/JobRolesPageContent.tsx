@@ -125,7 +125,7 @@ export function JobRolesPageContent({
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
                 <a
-                  href="/pricing"
+                  href="/plans"
                   className="bg-white text-teal-600 px-8 py-4 rounded-lg font-bold text-lg hover:bg-teal-50 transition-colors shadow-lg"
                 >
                   {language === "ar" ? "اشترك الآن" : "Subscribe Now"}
