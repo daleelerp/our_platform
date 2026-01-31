@@ -137,7 +137,7 @@ export function PricingSection() {
               {/* Popular Badge */}
               {plan.is_popular && (
                 <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 bg-[#429874] text-white rounded-full text-sm font-semibold">
-                  {language === "ar" ? "الأكثر شعبية" : "Most Popular"}
+                  {language === "ar" ? "مطلوبة بكثرة" : "Most Wanted"}
                 </div>
               )}
 
