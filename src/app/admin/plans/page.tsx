@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { Modal } from "@/components/admin/Modal";
 
+type AudienceType = "technical" | "business_functional" | "business_consultant" | "all";
+
 type Plan = {
   id: string;
   name: string;
@@ -31,6 +33,7 @@ type Plan = {
   is_active: boolean;
   is_popular: boolean;
   sort_order: number;
+  target_audience?: AudienceType;
   erp_provider_ids?: string[] | null;
 };
 
@@ -49,6 +52,14 @@ type ErpProvider = {
   slug: string;
   is_active?: boolean;
 };
+
+// Target Audience options
+const audienceOptions: { value: AudienceType; label: string; labelAr: string; icon: string }[] = [
+  { value: "technical", label: "Technical Professionals", labelAr: "المتخصصين التقنيين", icon: "💻" },
+  { value: "business_functional", label: "Business Functional Consultants", labelAr: "الاستشاريين الوظيفيين", icon: "📊" },
+  { value: "business_consultant", label: "Business Consultants", labelAr: "استشاريي الأعمال", icon: "💼" },
+  { value: "all", label: "All Career Tracks", labelAr: "جميع المسارات المهنية", icon: "🎯" },
+];
 
 export default function PlansPage() {
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -93,6 +104,13 @@ export default function PlansPage() {
     }
   };
 
+  // Calculate next sort order
+  const getNextSortOrder = (): number => {
+    if (plans.length === 0) return 1;
+    const maxSortOrder = Math.max(...plans.map((p) => p.sort_order || 0));
+    return maxSortOrder + 1;
+  };
+
   const startCreate = () => {
     setEditingPlan(null);
     setIsCreating(true);
@@ -120,7 +138,8 @@ export default function PlansPage() {
       },
       is_active: true,
       is_popular: false,
-      sort_order: 0,
+      sort_order: getNextSortOrder(), // Auto-increment sort order
+      target_audience: "all", // Default to "all"
       erp_provider_ids: [],
     });
   };
@@ -138,6 +157,7 @@ export default function PlansPage() {
         ai_requests: 0,
         downloads: 0,
       },
+      target_audience: plan.target_audience || "all",
       erp_provider_ids: Array.isArray(plan.erp_provider_ids) ? plan.erp_provider_ids : [],
     });
   };
@@ -204,6 +224,27 @@ export default function PlansPage() {
     return acc;
   }, {} as Record<string, Feature[]>);
 
+  // Get audience label by value
+  const getAudienceLabel = (value: AudienceType | undefined): string => {
+    const option = audienceOptions.find((o) => o.value === value);
+    return option ? `${option.icon} ${option.label}` : "All Tracks";
+  };
+
+  // Get audience badge color
+  const getAudienceBadgeColor = (value: AudienceType | undefined): string => {
+    switch (value) {
+      case "technical":
+        return "bg-blue-100 text-blue-700 border-blue-200";
+      case "business_functional":
+        return "bg-purple-100 text-purple-700 border-purple-200";
+      case "business_consultant":
+        return "bg-amber-100 text-amber-700 border-amber-200";
+      case "all":
+      default:
+        return "bg-green-100 text-green-700 border-green-200";
+    }
+  };
+
   return (
     <div>
       <div className="mb-4">
@@ -238,70 +279,85 @@ export default function PlansPage() {
           <table className="min-w-full text-sm">
             <thead className="bg-slate-50">
               <tr>
+                <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600">Order</th>
                 <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600">Name</th>
+                <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600">Target Audience</th>
                 <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600">Payment Type</th>
                 <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600">One-Time Price</th>
                 <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600">Monthly</th>
-                <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600">Yearly</th>
                 <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600">Max Paths</th>
-                <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600">AI Requests</th>
                 <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600">Active</th>
                 <th className="px-4 py-2 text-right text-xs font-semibold text-slate-600">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {plans.map((plan) => (
-                <tr key={plan.id} className="border-t border-slate-100 hover:bg-slate-50/60">
-                  <td className="px-4 py-2">{plan.display_name_en || plan.name}</td>
-                  <td className="px-4 py-2">
-                    {plan.payment_type === "one_time" ? "One-Time" : "Recurring"}
-                  </td>
-                  <td className="px-4 py-2">
-                    {plan.price_one_time_egp ? `${plan.price_one_time_egp} EGP` : "-"}
-                  </td>
-                  <td className="px-4 py-2">{plan.price_monthly_egp} EGP</td>
-                  <td className="px-4 py-2">{plan.price_yearly_egp} EGP</td>
-                  <td className="px-4 py-2">
-                    {plan.limitations?.max_paths === -1
-                      ? "Unlimited"
-                      : plan.limitations?.max_paths || 0}
-                  </td>
-                  <td className="px-4 py-2">
-                    {plan.limitations?.ai_requests === -1
-                      ? "Unlimited"
-                      : plan.limitations?.ai_requests || 0}
-                  </td>
-                  <td className="px-4 py-2">
-                    <span
-                      className={`inline-flex h-5 w-5 items-center justify-center rounded border ${
-                        plan.is_active ? "bg-green-100 border-green-300" : "bg-slate-100 border-slate-300"
-                      }`}
-                    >
-                      {plan.is_active ? "✓" : ""}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 text-right space-x-2">
-                    <Link
-                      href={`/admin/plans/${plan.id}/paths`}
-                      className="text-xs px-2 py-1 rounded bg-teal-100 text-teal-700 hover:bg-teal-200 inline-block"
-                    >
-                      Manage Paths
-                    </Link>
-                    <button
-                      onClick={() => startEdit(plan)}
-                      className="text-xs px-2 py-1 rounded bg-slate-100 text-slate-700 hover:bg-slate-200"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(plan.id)}
-                      className="text-xs px-2 py-1 rounded bg-red-50 text-red-600 hover:bg-red-100"
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {plans
+                .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+                .map((plan) => (
+                  <tr key={plan.id} className="border-t border-slate-100 hover:bg-slate-50/60">
+                    <td className="px-4 py-2 text-slate-500">{plan.sort_order || 0}</td>
+                    <td className="px-4 py-2 font-medium">{plan.display_name_en || plan.name}</td>
+                    <td className="px-4 py-2">
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${getAudienceBadgeColor(
+                          plan.target_audience
+                        )}`}
+                      >
+                        {audienceOptions.find((o) => o.value === plan.target_audience)?.icon || "🎯"}
+                        {audienceOptions.find((o) => o.value === plan.target_audience)?.label || "All Tracks"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2">
+                      <span
+                        className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                          plan.payment_type === "one_time"
+                            ? "bg-blue-50 text-blue-700"
+                            : "bg-orange-50 text-orange-700"
+                        }`}
+                      >
+                        {plan.payment_type === "one_time" ? "One-Time" : "Recurring"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2">
+                      {plan.price_one_time_egp ? `${plan.price_one_time_egp} EGP` : "-"}
+                    </td>
+                    <td className="px-4 py-2">{plan.price_monthly_egp} EGP</td>
+                    <td className="px-4 py-2">
+                      {plan.limitations?.max_paths === -1
+                        ? "Unlimited"
+                        : plan.limitations?.max_paths || 0}
+                    </td>
+                    <td className="px-4 py-2">
+                      <span
+                        className={`inline-flex h-5 w-5 items-center justify-center rounded border ${
+                          plan.is_active ? "bg-green-100 border-green-300" : "bg-slate-100 border-slate-300"
+                        }`}
+                      >
+                        {plan.is_active ? "✓" : ""}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 text-right space-x-2">
+                      <Link
+                        href={`/admin/plans/${plan.id}/paths`}
+                        className="text-xs px-2 py-1 rounded bg-teal-100 text-teal-700 hover:bg-teal-200 inline-block"
+                      >
+                        Manage Paths
+                      </Link>
+                      <button
+                        onClick={() => startEdit(plan)}
+                        className="text-xs px-2 py-1 rounded bg-slate-100 text-slate-700 hover:bg-slate-200"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(plan.id)}
+                        className="text-xs px-2 py-1 rounded bg-red-50 text-red-600 hover:bg-red-100"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>
@@ -319,510 +375,536 @@ export default function PlansPage() {
         size="xl"
       >
         <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                Plan Key (unique identifier)
+              </label>
+              <input
+                type="text"
+                value={formData.name || ""}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                Payment Type
+              </label>
+              <select
+                value={formData.payment_type || "one_time"}
+                onChange={(e) => setFormData({ ...formData, payment_type: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+              >
+                <option value="one_time">One-Time Payment</option>
+                <option value="recurring">Recurring (Monthly/Yearly)</option>
+              </select>
+            </div>
+
+            {/* Target Audience Dropdown - NEW */}
+            <div className="md:col-span-2">
+              <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                Target Audience
+              </label>
+              <select
+                value={formData.target_audience || "all"}
+                onChange={(e) =>
+                  setFormData({ ...formData, target_audience: e.target.value as AudienceType })
+                }
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+              >
+                {audienceOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.icon} {option.label} ({option.labelAr})
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-slate-500 mt-1">
+                Select who this plan is best suited for. This will be displayed as a badge on the pricing page.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                Name (EN)
+              </label>
+              <input
+                type="text"
+                value={formData.name_en || ""}
+                onChange={(e) => setFormData({ ...formData, name_en: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                Name (AR)
+              </label>
+              <input
+                type="text"
+                value={formData.name_ar || ""}
+                onChange={(e) => setFormData({ ...formData, name_ar: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                Display Name (EN)
+              </label>
+              <input
+                type="text"
+                value={formData.display_name_en || ""}
+                onChange={(e) => setFormData({ ...formData, display_name_en: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                Display Name (AR)
+              </label>
+              <input
+                type="text"
+                value={formData.display_name_ar || ""}
+                onChange={(e) => setFormData({ ...formData, display_name_ar: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                required
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                Description (EN)
+              </label>
+              <textarea
+                value={formData.description_en || ""}
+                onChange={(e) => setFormData({ ...formData, description_en: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                rows={2}
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                Description (AR)
+              </label>
+              <textarea
+                value={formData.description_ar || ""}
+                onChange={(e) => setFormData({ ...formData, description_ar: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                rows={2}
+              />
+            </div>
+          </div>
+
+          {/* Pricing Section */}
+          <div className="border-t border-slate-200 pt-4">
+            <h3 className="text-sm font-semibold text-slate-700 mb-3">Pricing</h3>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1.5">
-                  Plan Key (unique identifier)
+                  One-Time Price (EGP)
                 </label>
                 <input
-                  type="text"
-                  value={formData.name || ""}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  type="number"
+                  step="0.01"
+                  value={formData.price_one_time_egp || 0}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      price_one_time_egp: parseFloat(e.target.value) || 0,
+                    })
+                  }
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                  required
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1.5">
-                  Payment Type
-                </label>
-                <select
-                  value={formData.payment_type || "one_time"}
-                  onChange={(e) => setFormData({ ...formData, payment_type: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                >
-                  <option value="one_time">One-Time Payment</option>
-                  <option value="recurring">Recurring (Monthly/Yearly)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1.5">
-                  Name (EN)
+                  Monthly Price (EGP)
                 </label>
                 <input
-                  type="text"
-                  value={formData.name_en || ""}
-                  onChange={(e) => setFormData({ ...formData, name_en: e.target.value })}
+                  type="number"
+                  step="0.01"
+                  value={formData.price_monthly_egp || 0}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      price_monthly_egp: parseFloat(e.target.value) || 0,
+                    })
+                  }
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                  required
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1.5">
-                  Name (AR)
+                  Yearly Price (EGP)
                 </label>
                 <input
-                  type="text"
-                  value={formData.name_ar || ""}
-                  onChange={(e) => setFormData({ ...formData, name_ar: e.target.value })}
+                  type="number"
+                  step="0.01"
+                  value={formData.price_yearly_egp || 0}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      price_yearly_egp: parseFloat(e.target.value) || 0,
+                    })
+                  }
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                  required
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1.5">
-                  Display Name (EN)
+                  Price Per User (EGP) - Team Plans
                 </label>
                 <input
-                  type="text"
-                  value={formData.display_name_en || ""}
-                  onChange={(e) => setFormData({ ...formData, display_name_en: e.target.value })}
+                  type="number"
+                  step="0.01"
+                  value={formData.price_per_user_egp || ""}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      price_per_user_egp: e.target.value ? parseFloat(e.target.value) : null,
+                    })
+                  }
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                  required
+                  placeholder="Optional"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-medium text-slate-600 mb-1.5">
-                  Display Name (AR)
+                  Min Users (Team Plans)
                 </label>
                 <input
-                  type="text"
-                  value={formData.display_name_ar || ""}
-                  onChange={(e) => setFormData({ ...formData, display_name_ar: e.target.value })}
+                  type="number"
+                  value={formData.min_users || 1}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      min_users: parseInt(e.target.value) || 1,
+                    })
+                  }
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                  required
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-xs font-medium text-slate-600 mb-1.5">
-                  Description (EN)
-                </label>
-                <textarea
-                  value={formData.description_en || ""}
-                  onChange={(e) => setFormData({ ...formData, description_en: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                  rows={2}
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-xs font-medium text-slate-600 mb-1.5">
-                  Description (AR)
-                </label>
-                <textarea
-                  value={formData.description_ar || ""}
-                  onChange={(e) => setFormData({ ...formData, description_ar: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                  rows={2}
                 />
               </div>
             </div>
+          </div>
 
-            {/* Pricing Section */}
-            <div className="border-t border-slate-200 pt-4">
-              <h3 className="text-sm font-semibold text-slate-700 mb-3">Pricing</h3>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1.5">
-                    One-Time Price (EGP)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.price_one_time_egp || 0}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        price_one_time_egp: parseFloat(e.target.value) || 0,
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1.5">
-                    Monthly Price (EGP)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.price_monthly_egp || 0}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        price_monthly_egp: parseFloat(e.target.value) || 0,
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1.5">
-                    Yearly Price (EGP)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.price_yearly_egp || 0}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        price_yearly_egp: parseFloat(e.target.value) || 0,
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1.5">
-                    Price Per User (EGP) - Team Plans
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.price_per_user_egp || ""}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        price_per_user_egp: e.target.value ? parseFloat(e.target.value) : null,
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                    placeholder="Optional"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1.5">
-                    Min Users (Team Plans)
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.min_users || 1}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        min_users: parseInt(e.target.value) || 1,
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Limitations Section */}
-            <div className="border-t border-slate-200 pt-4">
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-700 mb-1">Limitations</h3>
-                  <p className="text-xs text-slate-500">
-                    Use -1 for unlimited, 0 to disable, or a positive number for the limit
-                  </p>
-                </div>
-                {editingPlan?.id && (
-                  <Link
-                    href={`/admin/plans/${editingPlan.id}/paths`}
-                    className="text-xs px-3 py-1.5 rounded bg-teal-100 text-teal-700 hover:bg-teal-200 transition-colors"
-                  >
-                    Manage Paths →
-                  </Link>
-                )}
-              </div>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-                <p className="text-xs text-blue-800">
-                  <strong>Note:</strong> These limits control how many paths/resources users can <em>access</em>, not how many are <em>in the plan</em>. 
-                  {editingPlan?.id ? (
-                    <> To add multiple paths to this plan, use the "Manage Paths" button above. When you add a path to a plan, all its milestones are automatically included.</>
-                  ) : (
-                    <> After saving this plan, you can add multiple paths to it from the plans list. When you add a path to a plan, all its milestones are automatically included.</>
-                  )}
+          {/* Limitations Section */}
+          <div className="border-t border-slate-200 pt-4">
+            <div className="flex items-start justify-between mb-3">
+              <div>
+                <h3 className="text-sm font-semibold text-slate-700 mb-1">Limitations</h3>
+                <p className="text-xs text-slate-500">
+                  Use -1 for unlimited, 0 to disable, or a positive number for the limit
                 </p>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1.5">
-                    Max Paths
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.limitations?.max_paths ?? 1}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        limitations: {
-                          ...formData.limitations!,
-                          max_paths: parseInt(e.target.value) || 0,
-                        },
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                  />
-                  <p className="text-xs text-slate-400 mt-1">
-                    Maximum number of learning paths a user can access/enroll in
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1.5">
-                    Resources Per Milestone
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.limitations?.resources_per_milestone ?? 5}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        limitations: {
-                          ...formData.limitations!,
-                          resources_per_milestone: parseInt(e.target.value) || 0,
-                        },
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                  />
-                  <p className="text-xs text-slate-400 mt-1">
-                    Maximum number of resources (articles, videos, etc.) a user can view per milestone
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1.5">
-                    Monthly Hours
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.limitations?.monthly_hours ?? 10}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        limitations: {
-                          ...formData.limitations!,
-                          monthly_hours: parseInt(e.target.value) || 0,
-                        },
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                  />
-                  <p className="text-xs text-slate-400 mt-1">
-                    Maximum learning hours per month (tracked from video watching and learning activities)
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1.5">
-                    AI Requests
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.limitations?.ai_requests ?? 0}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        limitations: {
-                          ...formData.limitations!,
-                          ai_requests: parseInt(e.target.value) || 0,
-                        },
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                  />
-                  <p className="text-xs text-slate-400 mt-1">
-                    Maximum AI chat requests per month (for AI assistant conversations)
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1.5">
-                    Downloads
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.limitations?.downloads ?? 0}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        limitations: {
-                          ...formData.limitations!,
-                          downloads: parseInt(e.target.value) || 0,
-                        },
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                  />
-                  <p className="text-xs text-slate-400 mt-1">
-                    Maximum resource downloads per month (for offline access)
-                  </p>
-                </div>
-              </div>
+              {editingPlan?.id && (
+                <Link
+                  href={`/admin/plans/${editingPlan.id}/paths`}
+                  className="text-xs px-3 py-1.5 rounded bg-teal-100 text-teal-700 hover:bg-teal-200 transition-colors"
+                >
+                  Manage Paths →
+                </Link>
+              )}
             </div>
-
-            {/* Features Section */}
-            <div className="border-t border-slate-200 pt-4">
-              <h3 className="text-sm font-semibold text-slate-700 mb-3">Features</h3>
-              <p className="text-xs text-slate-500 mb-3">
-                Select features included in this plan (hold Ctrl/Cmd to select multiple)
-              </p>
-              <div className="space-y-4">
-                {Object.entries(groupedFeatures).map(([category, categoryFeatures]) => (
-                  <div key={category}>
-                    <h4 className="text-xs font-semibold text-slate-600 mb-2 capitalize">
-                      {category}
-                    </h4>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                      {categoryFeatures.map((feature) => (
-                        <label
-                          key={feature.id}
-                          className="flex items-center gap-2 p-2 rounded border border-slate-200 hover:bg-slate-50 cursor-pointer"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={(formData.features || []).includes(feature.key)}
-                            onChange={(e) => {
-                              const currentFeatures = formData.features || [];
-                              if (e.target.checked) {
-                                setFormData({
-                                  ...formData,
-                                  features: [...currentFeatures, feature.key],
-                                });
-                              } else {
-                                setFormData({
-                                  ...formData,
-                                  features: currentFeatures.filter((f) => f !== feature.key),
-                                });
-                              }
-                            }}
-                            className="h-4 w-4 text-teal-600 border-slate-300 rounded"
-                          />
-                          <span className="text-xs text-slate-700">{feature.name_en}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* ERP Provider Selection */}
-            <div className="border-t border-slate-200 pt-4">
-              <h3 className="text-sm font-semibold text-slate-700 mb-3">ERP Provider Association</h3>
-              <p className="text-xs text-slate-500 mb-3">
-                Select which ERP provider(s) this plan is associated with. This helps filter plans on the pricing page.
-                Leave empty to show for all providers.
-              </p>
-              <div className="space-y-2">
-                {erpProviders.map((provider) => (
-                  <label
-                    key={provider.id}
-                    className="flex items-center gap-2 p-2 rounded border border-slate-200 hover:bg-slate-50 cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={(formData.erp_provider_ids || []).includes(provider.id)}
-                      onChange={(e) => {
-                        const currentProviders = formData.erp_provider_ids || [];
-                        if (e.target.checked) {
-                          setFormData({
-                            ...formData,
-                            erp_provider_ids: [...currentProviders, provider.id],
-                          });
-                        } else {
-                          setFormData({
-                            ...formData,
-                            erp_provider_ids: currentProviders.filter((id) => id !== provider.id),
-                          });
-                        }
-                      }}
-                      className="h-4 w-4 text-teal-600 border-slate-300 rounded"
-                    />
-                    <span className="text-xs text-slate-700">
-                      {provider.name} {provider.name_ar && `(${provider.name_ar})`}
-                    </span>
-                  </label>
-                ))}
-                {erpProviders.length === 0 && (
-                  <p className="text-xs text-slate-400 italic">No ERP providers found. Please add providers first.</p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+              <p className="text-xs text-blue-800">
+                <strong>Note:</strong> These limits control how many paths/resources users can{" "}
+                <em>access</em>, not how many are <em>in the plan</em>.
+                {editingPlan?.id ? (
+                  <>
+                    {" "}
+                    To add multiple paths to this plan, use the "Manage Paths" button above. When you
+                    add a path to a plan, all its milestones are automatically included.
+                  </>
+                ) : (
+                  <>
+                    {" "}
+                    After saving this plan, you can add multiple paths to it from the plans list.
+                    When you add a path to a plan, all its milestones are automatically included.
+                  </>
                 )}
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">Max Paths</label>
+                <input
+                  type="number"
+                  value={formData.limitations?.max_paths ?? 1}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      limitations: {
+                        ...formData.limitations!,
+                        max_paths: parseInt(e.target.value) || 0,
+                      },
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                />
+                <p className="text-xs text-slate-400 mt-1">
+                  Maximum number of learning paths a user can access/enroll in
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                  Resources Per Milestone
+                </label>
+                <input
+                  type="number"
+                  value={formData.limitations?.resources_per_milestone ?? 5}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      limitations: {
+                        ...formData.limitations!,
+                        resources_per_milestone: parseInt(e.target.value) || 0,
+                      },
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                />
+                <p className="text-xs text-slate-400 mt-1">
+                  Maximum number of resources (articles, videos, etc.) a user can view per milestone
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                  Monthly Hours
+                </label>
+                <input
+                  type="number"
+                  value={formData.limitations?.monthly_hours ?? 10}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      limitations: {
+                        ...formData.limitations!,
+                        monthly_hours: parseInt(e.target.value) || 0,
+                      },
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                />
+                <p className="text-xs text-slate-400 mt-1">
+                  Maximum learning hours per month (tracked from video watching and learning
+                  activities)
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                  AI Requests
+                </label>
+                <input
+                  type="number"
+                  value={formData.limitations?.ai_requests ?? 0}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      limitations: {
+                        ...formData.limitations!,
+                        ai_requests: parseInt(e.target.value) || 0,
+                      },
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                />
+                <p className="text-xs text-slate-400 mt-1">
+                  Maximum AI chat requests per month (for AI assistant conversations)
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">Downloads</label>
+                <input
+                  type="number"
+                  value={formData.limitations?.downloads ?? 0}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      limitations: {
+                        ...formData.limitations!,
+                        downloads: parseInt(e.target.value) || 0,
+                      },
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                />
+                <p className="text-xs text-slate-400 mt-1">
+                  Maximum resource downloads per month (for offline access)
+                </p>
               </div>
             </div>
+          </div>
 
-            {/* Other Settings */}
-            <div className="border-t border-slate-200 pt-4">
-              <h3 className="text-sm font-semibold text-slate-700 mb-3">Settings</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1.5">
-                    Sort Order
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.sort_order || 0}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        sort_order: parseInt(e.target.value) || 0,
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                  />
+          {/* Features Section */}
+          <div className="border-t border-slate-200 pt-4">
+            <h3 className="text-sm font-semibold text-slate-700 mb-3">Features</h3>
+            <p className="text-xs text-slate-500 mb-3">
+              Select features included in this plan (hold Ctrl/Cmd to select multiple)
+            </p>
+            <div className="space-y-4">
+              {Object.entries(groupedFeatures).map(([category, categoryFeatures]) => (
+                <div key={category}>
+                  <h4 className="text-xs font-semibold text-slate-600 mb-2 capitalize">{category}</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {categoryFeatures.map((feature) => (
+                      <label
+                        key={feature.id}
+                        className="flex items-center gap-2 p-2 rounded border border-slate-200 hover:bg-slate-50 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={(formData.features || []).includes(feature.key)}
+                          onChange={(e) => {
+                            const currentFeatures = formData.features || [];
+                            if (e.target.checked) {
+                              setFormData({
+                                ...formData,
+                                features: [...currentFeatures, feature.key],
+                              });
+                            } else {
+                              setFormData({
+                                ...formData,
+                                features: currentFeatures.filter((f) => f !== feature.key),
+                              });
+                            }
+                          }}
+                          className="h-4 w-4 text-teal-600 border-slate-300 rounded"
+                        />
+                        <span className="text-xs text-slate-700">{feature.name_en}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
+              ))}
+            </div>
+          </div>
 
-                <div className="flex items-center gap-2 pt-6">
+          {/* ERP Provider Selection */}
+          <div className="border-t border-slate-200 pt-4">
+            <h3 className="text-sm font-semibold text-slate-700 mb-3">ERP Provider Association</h3>
+            <p className="text-xs text-slate-500 mb-3">
+              Select which ERP provider(s) this plan is associated with. This helps filter plans on
+              the pricing page. Leave empty to show for all providers.
+            </p>
+            <div className="space-y-2">
+              {erpProviders.map((provider) => (
+                <label
+                  key={provider.id}
+                  className="flex items-center gap-2 p-2 rounded border border-slate-200 hover:bg-slate-50 cursor-pointer"
+                >
                   <input
                     type="checkbox"
-                    checked={formData.is_active ?? true}
-                    onChange={(e) =>
-                      setFormData({ ...formData, is_active: e.target.checked })
-                    }
+                    checked={(formData.erp_provider_ids || []).includes(provider.id)}
+                    onChange={(e) => {
+                      const currentProviders = formData.erp_provider_ids || [];
+                      if (e.target.checked) {
+                        setFormData({
+                          ...formData,
+                          erp_provider_ids: [...currentProviders, provider.id],
+                        });
+                      } else {
+                        setFormData({
+                          ...formData,
+                          erp_provider_ids: currentProviders.filter((id) => id !== provider.id),
+                        });
+                      }
+                    }}
                     className="h-4 w-4 text-teal-600 border-slate-300 rounded"
                   />
-                  <label className="text-xs font-medium text-slate-600">Active</label>
-                </div>
+                  <span className="text-xs text-slate-700">
+                    {provider.name} {provider.name_ar && `(${provider.name_ar})`}
+                  </span>
+                </label>
+              ))}
+              {erpProviders.length === 0 && (
+                <p className="text-xs text-slate-400 italic">
+                  No ERP providers found. Please add providers first.
+                </p>
+              )}
+            </div>
+          </div>
 
-                <div className="flex items-center gap-2 pt-6">
-                  <input
-                    type="checkbox"
-                    checked={formData.is_popular ?? false}
-                    onChange={(e) =>
-                      setFormData({ ...formData, is_popular: e.target.checked })
-                    }
-                    className="h-4 w-4 text-teal-600 border-slate-300 rounded"
-                  />
-                  <label className="text-xs font-medium text-slate-600">Popular</label>
-                </div>
+          {/* Other Settings */}
+          <div className="border-t border-slate-200 pt-4">
+            <h3 className="text-sm font-semibold text-slate-700 mb-3">Settings</h3>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1.5">Sort Order</label>
+                <input
+                  type="number"
+                  value={formData.sort_order || 0}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      sort_order: parseInt(e.target.value) || 0,
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                />
+                <p className="text-xs text-slate-400 mt-1">
+                  {isCreating ? "Auto-calculated based on existing plans" : "Lower numbers appear first"}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 pt-6">
+                <input
+                  type="checkbox"
+                  checked={formData.is_active ?? true}
+                  onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                  className="h-4 w-4 text-teal-600 border-slate-300 rounded"
+                />
+                <label className="text-xs font-medium text-slate-600">Active</label>
+              </div>
+
+              <div className="flex items-center gap-2 pt-6">
+                <input
+                  type="checkbox"
+                  checked={formData.is_popular ?? false}
+                  onChange={(e) => setFormData({ ...formData, is_popular: e.target.checked })}
+                  className="h-4 w-4 text-teal-600 border-slate-300 rounded"
+                />
+                <label className="text-xs font-medium text-slate-600">Popular (Show Badge)</label>
               </div>
             </div>
+          </div>
 
-            <div className="flex gap-3 pt-4 border-t border-slate-200">
-              <button
-                type="submit"
-                disabled={saving}
-                className="px-5 py-2 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 disabled:opacity-50"
-              >
-                {saving ? "Saving..." : "Save Plan"}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingPlan(null);
-                  setIsCreating(false);
-                  setFormData({});
-                }}
-                className="px-5 py-2 bg-slate-100 text-slate-700 text-sm rounded-lg hover:bg-slate-200"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
+          <div className="flex gap-3 pt-4 border-t border-slate-200">
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-5 py-2 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 disabled:opacity-50"
+            >
+              {saving ? "Saving..." : "Save Plan"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingPlan(null);
+                setIsCreating(false);
+                setFormData({});
+              }}
+              className="px-5 py-2 bg-slate-100 text-slate-700 text-sm rounded-lg hover:bg-slate-200"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
       </Modal>
     </div>
   );

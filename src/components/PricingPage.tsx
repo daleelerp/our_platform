@@ -13,6 +13,60 @@ type Props = {
   onProviderChange?: (providerId: string | null) => void;
 };
 
+// Define audience types
+type AudienceType = "technical" | "business_functional" | "business_consultant" | "all";
+
+// Audience badge configuration
+const audienceConfig: Record<AudienceType, {
+  en: string;
+  ar: string;
+  icon: string;
+}> = {
+  technical: {
+    en: "Technical",
+    ar: "تقني",
+    icon: "💻",
+  },
+  business_functional: {
+    en: "Business Functional",
+    ar: "وظيفي",
+    icon: "📊",
+  },
+  business_consultant: {
+    en: "Business Consultant",
+    ar: "استشاري أعمال",
+    icon: "💼",
+  },
+  all: {
+    en: "All Tracks",
+    ar: "جميع المسارات",
+    icon: "🎯",
+  },
+};
+
+// Helper to get valid audience type with fallback
+const getValidAudience = (audience: string | null | undefined): AudienceType => {
+  if (audience && audience in audienceConfig) {
+    return audience as AudienceType;
+  }
+  return "all";
+};
+
+// Get static Tailwind classes for each audience type
+const getAudienceClasses = (audience: AudienceType): string => {
+  switch (audience) {
+    case "technical":
+      return "bg-blue-100 text-blue-700 border-blue-200";
+    case "business_functional":
+      return "bg-purple-100 text-purple-700 border-purple-200";
+    case "business_consultant":
+      return "bg-amber-100 text-amber-700 border-amber-200";
+    case "all":
+    default:
+      return "bg-green-100 text-green-700 border-green-200";
+  }
+};
+
 // Helper function to check if a plan is free based on price
 const isFreePlan = (plan: SubscriptionPlan): boolean => {
   const hasNoMonthlyPrice = !plan.price_monthly_egp || plan.price_monthly_egp === 0;
@@ -55,6 +109,11 @@ function PricingCard({
   const [showIncludes, setShowIncludes] = useState(false);
   const [showFeatures, setShowFeatures] = useState(false);
 
+  // Get audience info for this plan
+  const audience = getValidAudience((plan as any).target_audience);
+  const audienceInfo = audienceConfig[audience];
+  const audienceClasses = getAudienceClasses(audience);
+
   return (
     <div
       className={`relative bg-white rounded-2xl transition-all duration-300 flex flex-col h-full ${
@@ -88,17 +147,25 @@ function PricingCard({
       <div className={`p-6 flex flex-col h-full ${plan.is_popular || isFree ? "pt-8" : ""}`}>
         {/* Top Section - Fixed Height */}
         <div className="space-y-4">
-          {/* One-Time Badge */}
-          {isOneTime && !isFree && (
-            <div>
+          {/* Audience Badge - NEW */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${audienceClasses}`}
+            >
+              <span>{audienceInfo.icon}</span>
+              <span>{isArabic ? audienceInfo.ar : audienceInfo.en}</span>
+            </span>
+
+            {/* One-Time Badge */}
+            {isOneTime && !isFree && (
               <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 bg-blue-50 px-3 py-1.5 rounded-full border border-blue-200">
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 {t.oneTimePayment}
               </span>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Plan Title & Description */}
           <div>
@@ -325,6 +392,11 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
       ((p.price_monthly_egp && p.price_monthly_egp > 0) || (p.price_yearly_egp && p.price_yearly_egp > 0))
   );
 
+  // Get unique audiences for the legend
+  const uniqueAudiences = [...new Set(
+    plans.filter(p => p.is_active).map(p => getValidAudience((p as any).target_audience))
+  )];
+
   const t: Record<string, string> = {
     title: isArabic ? "اختر باقتك" : "Choose Your Package",
     subtitle: isArabic ? "استثمر في مستقبلك المهني مع دليل" : "Invest in your career future with Daleel",
@@ -377,6 +449,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
     viewAllPackages: isArabic ? "عرض جميع الباقات" : "View All Packages",
     processing: isArabic ? "جاري المعالجة..." : "Processing...",
     allProviders: isArabic ? "جميع المزودين" : "All Providers",
+    targetAudience: isArabic ? "الفئة المستهدفة" : "Target Audience",
   };
 
   const featuresByCategory = features.reduce((acc, feature) => {

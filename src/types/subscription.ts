@@ -7,24 +7,28 @@ export type PaymentMethod = 'card' | 'vodafone_cash' | 'etisalat_cash' | 'orange
 
 export interface SubscriptionPlan {
   id: string;
-  name: PlanName;
+  name: string;
   name_ar: string;
   name_en: string;
   display_name_ar: string;
   display_name_en: string;
-  description_ar: string;
-  description_en: string;
+  description_ar: string | null;
+  description_en: string | null;
   price_monthly_egp: number;
   price_yearly_egp: number;
-  price_one_time_egp?: number;
-  payment_type?: 'recurring' | 'one_time';
-  price_per_user_egp?: number;
-  min_users?: number;
+  price_one_time_egp: number | null;
+  price_per_user_egp: number | null;
+  min_users: number;
+  payment_type: "recurring" | "one_time";
   features: string[];
   limitations: PlanLimitations;
   is_active: boolean;
   is_popular: boolean;
   sort_order: number;
+  erp_provider_ids: string[];
+  target_audience: "technical" | "business_functional" | "business_consultant" | "all"; // ADD THIS
+  created_at: string;
+  updated_at: string;
 }
 
 export interface PlanLimitations {

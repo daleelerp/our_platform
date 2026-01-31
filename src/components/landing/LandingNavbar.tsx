@@ -111,7 +111,7 @@ export function LandingNavbar() {
   
   const navLinks = [
     { href: homeHref, label: t("nav.home"), exact: true },
-    { href: "/paths", label: t("nav.paths"), exact: false },
+    // { href: "/paths", label: t("nav.paths"), exact: false },
     { href: "/path-finder", label: language === "ar" ? "اكتشف مسارك" : "Find Your Path", exact: true },
     // Only show plans, job roles and salary ranges for logged-in users
     // ...(user ? [
