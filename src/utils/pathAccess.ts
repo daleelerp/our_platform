@@ -1,5 +1,53 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { createClient as createClientClient } from "@/utils/supabase/client";
+
+/**
+ * Helper function to check if a plan is free based on price
+ */
+const isFreePlan = (plan: any): boolean => {
+  if (!plan) return false;
+  
+  const hasNoMonthlyPrice = !plan.price_monthly_egp || plan.price_monthly_egp === 0;
+  const hasNoYearlyPrice = !plan.price_yearly_egp || plan.price_yearly_egp === 0;
+  const hasNoOneTimePrice = !plan.price_one_time_egp || plan.price_one_time_egp === 0;
+  const hasNoPerUserPrice = !plan.price_per_user_egp || plan.price_per_user_egp === 0;
+  
+  return hasNoMonthlyPrice && hasNoYearlyPrice && hasNoOneTimePrice && hasNoPerUserPrice;
+};
+
+/**
+ * Get all free plan IDs based on price
+ */
+async function getFreePlanIds(supabase: SupabaseClient): Promise<string[]> {
+  const { data: allPlans } = await supabase
+    .from("subscription_plans")
+    .select("id, price_monthly_egp, price_yearly_egp, price_one_time_egp, price_per_user_egp")
+    .eq("is_active", true);
+
+  if (!allPlans) return [];
+
+  return allPlans.filter((plan) => isFreePlan(plan)).map((plan) => plan.id);
+}
+
+/**
+ * Check if a path is in any free plan (accessible to everyone)
+ */
+async function isPathInAnyFreePlan(
+  pathId: string,
+  supabase: SupabaseClient
+): Promise<boolean> {
+  const freePlanIds = await getFreePlanIds(supabase);
+  
+  if (freePlanIds.length === 0) return false;
+
+  const { data: planPath } = await supabase
+    .from("plan_paths")
+    .select("id")
+    .in("plan_id", freePlanIds)
+    .eq("learning_path_id", pathId)
+    .maybeSingle();
+
+  return !!planPath;
+}
 
 /**
  * Check if a learning path is available in the user's subscription plan
@@ -15,25 +63,15 @@ export async function isPathInUserPlan(
   userId?: string,
   planId?: string
 ): Promise<boolean> {
+  // First, check if path is in ANY free plan (accessible to everyone)
+  const isInFreePlan = await isPathInAnyFreePlan(pathId, supabase);
+  if (isInFreePlan) {
+    return true;
+  }
 
-  // If no user, check if path is in free plan
+  // If no user and path is not in free plan, deny access
   if (!userId) {
-    const { data: freePlan } = await supabase
-      .from("subscription_plans")
-      .select("id")
-      .eq("name", "free")
-      .single();
-
-    if (!freePlan) return false;
-
-    const { data: planPath } = await supabase
-      .from("plan_paths")
-      .select("id")
-      .eq("plan_id", freePlan.id)
-      .eq("learning_path_id", pathId)
-      .maybeSingle();
-
-    return !!planPath;
+    return false;
   }
 
   // Get user's current plan
@@ -48,15 +86,9 @@ export async function isPathInUserPlan(
       .maybeSingle();
 
     if (!subscription) {
-      // User has no subscription - check free plan
-      const { data: freePlan } = await supabase
-        .from("subscription_plans")
-        .select("id")
-        .eq("name", "free")
-        .single();
-
-      if (!freePlan) return false;
-      userPlanId = freePlan.id;
+      // User has no subscription - they can only access free plan paths
+      // We already checked that above, so return false
+      return false;
     } else {
       userPlanId = subscription.plan_id;
     }
@@ -85,54 +117,51 @@ export async function getPathsInUserPlan(
   userId?: string,
   planId?: string
 ): Promise<string[]> {
+  const accessiblePathIds: Set<string> = new Set();
 
-  // Get user's current plan
-  let userPlanId = planId;
+  // 1. Always include paths from FREE plans (accessible to everyone)
+  const freePlanIds = await getFreePlanIds(supabase);
   
-  if (!userPlanId) {
-    if (!userId) {
-      // No user - get free plan
-      const { data: freePlan } = await supabase
-        .from("subscription_plans")
-        .select("id")
-        .eq("name", "free")
-        .single();
+  if (freePlanIds.length > 0) {
+    const { data: freePlanPaths } = await supabase
+      .from("plan_paths")
+      .select("learning_path_id")
+      .in("plan_id", freePlanIds);
 
-      if (!freePlan) return [];
-      userPlanId = freePlan.id;
-    } else {
-      const { data: subscription } = await supabase
-        .from("user_subscriptions")
-        .select("plan_id")
-        .eq("user_id", userId)
-        .in("status", ["active", "trial", "paused"])
-        .maybeSingle();
-
-      if (!subscription) {
-        // User has no subscription - check free plan
-        const { data: freePlan } = await supabase
-          .from("subscription_plans")
-          .select("id")
-          .eq("name", "free")
-          .single();
-
-        if (!freePlan) return [];
-        userPlanId = freePlan.id;
-      } else {
-        userPlanId = subscription.plan_id;
-      }
+    if (freePlanPaths) {
+      freePlanPaths.forEach((pp) => accessiblePathIds.add(pp.learning_path_id));
     }
   }
 
-  // Get all paths in user's plan
-  const { data: planPaths } = await supabase
-    .from("plan_paths")
-    .select("learning_path_id")
-    .eq("plan_id", userPlanId);
+  // 2. Get user's current plan paths (if user is logged in)
+  let userPlanId = planId;
+  
+  if (!userPlanId && userId) {
+    const { data: subscription } = await supabase
+      .from("user_subscriptions")
+      .select("plan_id")
+      .eq("user_id", userId)
+      .in("status", ["active", "trial", "paused"])
+      .maybeSingle();
 
-  if (!planPaths) return [];
+    if (subscription) {
+      userPlanId = subscription.plan_id;
+    }
+  }
 
-  return planPaths.map((pp) => pp.learning_path_id);
+  // Get paths from user's subscription plan
+  if (userPlanId) {
+    const { data: userPlanPaths } = await supabase
+      .from("plan_paths")
+      .select("learning_path_id")
+      .eq("plan_id", userPlanId);
+
+    if (userPlanPaths) {
+      userPlanPaths.forEach((pp) => accessiblePathIds.add(pp.learning_path_id));
+    }
+  }
+
+  return Array.from(accessiblePathIds);
 }
 
 /**
@@ -155,3 +184,7 @@ export async function filterPathsByPlan<T extends { id: string }>(
   return paths.filter((path) => accessiblePathIdsSet.has(path.id));
 }
 
+/**
+ * Check if a plan is free (exported for use in other components)
+ */
+export { isFreePlan };
