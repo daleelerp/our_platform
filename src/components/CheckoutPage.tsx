@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useAppStore } from "@/store/useAppStore";
+import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
 
 interface CheckoutPageProps {
@@ -12,6 +13,12 @@ interface CheckoutPageProps {
 }
 
 type PaymentMethod = "fawry" | "cod";
+
+interface PromoDiscount {
+  code: string;
+  discount: number;
+  type: "percentage" | "fixed";
+}
 
 export default function CheckoutPage({
   planId,
@@ -24,14 +31,36 @@ export default function CheckoutPage({
   const [error, setError] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("fawry");
   const [showSuccess, setShowSuccess] = useState(false);
+  
+  // Promo code state
+  const [promoCode, setPromoCode] = useState("");
+  const [promoApplied, setPromoApplied] = useState<PromoDiscount | null>(null);
+  const [promoLoading, setPromoLoading] = useState(false);
+  const [promoError, setPromoError] = useState<string | null>(null);
 
   const isArabic = language === "ar";
+
+  // Calculate discounted amount
+  const calculateDiscountedAmount = () => {
+    if (!promoApplied) return amount;
+    
+    if (promoApplied.type === "percentage") {
+      return Math.round(amount * (1 - promoApplied.discount / 100));
+    } else {
+      return Math.max(0, amount - promoApplied.discount);
+    }
+  };
+
+  const discountedAmount = calculateDiscountedAmount();
+  const discountValue = amount - discountedAmount;
 
   const t = {
     title: isArabic ? "إتمام الشراء" : "Checkout",
     orderSummary: isArabic ? "ملخص الطلب" : "Order Summary",
     plan: isArabic ? "الخطة" : "Plan",
     amount: isArabic ? "المبلغ" : "Amount",
+    subtotal: isArabic ? "المجموع الفرعي" : "Subtotal",
+    discount: isArabic ? "الخصم" : "Discount",
     total: isArabic ? "الإجمالي" : "Total",
     egp: isArabic ? "ج.م" : "EGP",
     month: isArabic ? "/شهر" : "/month",
@@ -63,6 +92,76 @@ export default function CheckoutPage({
     orderNumber: isArabic ? "رقم الطلب" : "Order Number",
     goToDashboard: isArabic ? "الذهاب للوحة التحكم" : "Go to Dashboard",
     close: isArabic ? "إغلاق" : "Close",
+    // Promo code translations
+    promoCode: isArabic ? "كود الخصم" : "Promo Code",
+    promoCodePlaceholder: isArabic ? "أدخل كود الخصم" : "Enter promo code",
+    apply: isArabic ? "تطبيق" : "Apply",
+    applying: isArabic ? "جاري التحقق..." : "Applying...",
+    promoApplied: isArabic ? "تم تطبيق الخصم!" : "Discount applied!",
+    promoInvalid: isArabic ? "كود غير صالح أو منتهي الصلاحية" : "Invalid or expired code",
+    promoExpired: isArabic ? "هذا الكود منتهي الصلاحية" : "This code has expired",
+    promoUsageLimitReached: isArabic ? "تم استنفاد استخدامات هذا الكود" : "This code has reached its usage limit",
+    removePromo: isArabic ? "إزالة" : "Remove",
+    havePromoCode: isArabic ? "لديك كود خصم؟" : "Have a promo code?",
+    youSave: isArabic ? "توفر" : "You save",
+  };
+
+  // Apply Promo Code Handler
+  const handleApplyPromo = async () => {
+    if (!promoCode.trim() || promoLoading) return;
+
+    setPromoLoading(true);
+    setPromoError(null);
+
+    try {
+      const supabase = createClient();
+      const { data: discount, error: discountError } = await supabase
+        .from("subscription_discounts")
+        .select("*")
+        .eq("code", promoCode.toUpperCase().trim())
+        .eq("is_active", true)
+        .single();
+
+      if (discountError || !discount) {
+        setPromoError(t.promoInvalid);
+        setPromoLoading(false);
+        return;
+      }
+
+      // Check if code has expired
+      if (discount.expires_at && new Date(discount.expires_at) < new Date()) {
+        setPromoError(t.promoExpired);
+        setPromoLoading(false);
+        return;
+      }
+
+      // Check usage limit
+      if (discount.max_uses && discount.current_uses >= discount.max_uses) {
+        setPromoError(t.promoUsageLimitReached);
+        setPromoLoading(false);
+        return;
+      }
+
+      // Success - apply the discount
+      setPromoApplied({
+        code: discount.code,
+        discount: discount.value,
+        type: discount.type,
+      });
+      setPromoError(null);
+      setPromoLoading(false);
+    } catch (err) {
+      console.error("Promo code error:", err);
+      setPromoError(t.promoInvalid);
+      setPromoLoading(false);
+    }
+  };
+
+  // Remove Promo Code
+  const handleRemovePromo = () => {
+    setPromoApplied(null);
+    setPromoCode("");
+    setPromoError(null);
   };
 
   // Fawry Payment Handler (Commented for now)
@@ -82,6 +181,8 @@ export default function CheckoutPage({
           planId,
           billingCycle,
           paymentMethod: "fawry",
+          promoCode: promoApplied?.code || null,
+          finalAmount: discountedAmount,
         }),
       });
 
@@ -142,6 +243,8 @@ export default function CheckoutPage({
           planId,
           billingCycle,
           paymentMethod: "cod",
+          promoCode: promoApplied?.code || null,
+          finalAmount: discountedAmount,
         }),
       });
 
@@ -223,10 +326,24 @@ export default function CheckoutPage({
                 <span className="text-slate-600">{t.plan}</span>
                 <span className="font-medium text-slate-900">{planName}</span>
               </div>
-              <div className="flex justify-between items-center">
+              {promoApplied && (
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-slate-600">{t.promoCode}</span>
+                  <span className="font-medium text-green-600">{promoApplied.code}</span>
+                </div>
+              )}
+              {discountValue > 0 && (
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-slate-600">{t.discount}</span>
+                  <span className="font-medium text-green-600">
+                    -{discountValue} {t.egp}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between items-center pt-2 border-t border-slate-200">
                 <span className="text-slate-600">{t.total}</span>
                 <span className="font-bold text-[#429874]">
-                  {amount} {t.egp}
+                  {discountedAmount} {t.egp}
                 </span>
               </div>
             </div>
@@ -318,7 +435,7 @@ export default function CheckoutPage({
               <span className="font-medium text-slate-900">{planName}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-slate-600">{t.amount}</span>
+              <span className="text-slate-600">{t.subtotal}</span>
               <span className="font-medium text-slate-900">
                 {amount} {t.egp}
                 {billingCycle && (
@@ -328,14 +445,173 @@ export default function CheckoutPage({
                 )}
               </span>
             </div>
+
+            {/* Discount Row (shows when promo is applied) */}
+            {promoApplied && (
+              <div className="flex justify-between items-center text-green-600">
+                <span className="flex items-center gap-2">
+                  {t.discount}
+                  <span className="text-xs bg-green-100 px-2 py-0.5 rounded-full font-medium">
+                    {promoApplied.code}
+                  </span>
+                </span>
+                <span className="font-medium">
+                  -{discountValue} {t.egp}
+                  {promoApplied.type === "percentage" && (
+                    <span className="text-xs ml-1">({promoApplied.discount}%)</span>
+                  )}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Promo Code Section */}
+          <div className="mb-6 pb-6 border-b border-slate-200">
+            <label className="block text-sm font-medium text-slate-700 mb-3">
+              {t.promoCode}
+            </label>
+
+            {promoApplied ? (
+              /* Applied Promo Display */
+              <div className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-xl">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                    <svg
+                      className="w-5 h-5 text-green-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-green-700">{promoApplied.code}</p>
+                    <p className="text-sm text-green-600">
+                      {t.youSave} {discountValue} {t.egp}
+                      {promoApplied.type === "percentage" && ` (${promoApplied.discount}%)`}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleRemovePromo}
+                  className="text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 px-3 py-1.5 rounded-lg transition"
+                >
+                  {t.removePromo}
+                </button>
+              </div>
+            ) : (
+              /* Promo Input */
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      value={promoCode}
+                      onChange={(e) => {
+                        setPromoCode(e.target.value.toUpperCase());
+                        setPromoError(null);
+                      }}
+                      placeholder={t.promoCodePlaceholder}
+                      className={`w-full px-4 py-3 border-2 rounded-xl text-sm font-medium transition focus:outline-none focus:ring-0 ${
+                        promoError
+                          ? "border-red-300 focus:border-red-400 bg-red-50"
+                          : "border-slate-200 focus:border-[#429874]"
+                      }`}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleApplyPromo();
+                        }
+                      }}
+                      disabled={promoLoading}
+                    />
+                    {/* Tag Icon */}
+                    <div className={`absolute ${isArabic ? "left-3" : "right-3"} top-1/2 -translate-y-1/2 pointer-events-none`}>
+                      <svg
+                        className={`w-5 h-5 ${promoError ? "text-red-400" : "text-slate-400"}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleApplyPromo}
+                    disabled={promoLoading || !promoCode.trim()}
+                    className={`px-5 py-3 rounded-xl font-semibold text-sm transition whitespace-nowrap ${
+                      promoLoading || !promoCode.trim()
+                        ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                        : "bg-[#429874] text-white hover:bg-[#357a5f] active:scale-95"
+                    }`}
+                  >
+                    {promoLoading ? (
+                      <div className="flex items-center gap-2">
+                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                          />
+                        </svg>
+                      </div>
+                    ) : (
+                      t.apply
+                    )}
+                  </button>
+                </div>
+
+                {/* Promo Error */}
+                {promoError && (
+                  <div className="flex items-center gap-2 text-sm text-red-600">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    {promoError}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Total */}
           <div className="flex justify-between items-center mb-8">
             <span className="text-lg font-semibold text-slate-900">{t.total}</span>
-            <span className="text-2xl font-bold text-[#429874]">
-              {amount} {t.egp}
-            </span>
+            <div className="text-right">
+              {promoApplied && (
+                <span className="text-sm text-slate-400 line-through block">
+                  {amount} {t.egp}
+                </span>
+              )}
+              <span className="text-2xl font-bold text-[#429874]">
+                {discountedAmount} {t.egp}
+              </span>
+            </div>
           </div>
 
           {/* Payment Method Selection */}
