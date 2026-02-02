@@ -28,7 +28,7 @@ export function LandingFooter() {
             </p>
           </div>
 
-          {/* Links */}
+          {/* Product Links */}
           <div>
             <h4 className="font-semibold text-slate-900 mb-4">{t("footer.product")}</h4>
             <ul className="space-y-2">
@@ -50,6 +50,7 @@ export function LandingFooter() {
             </ul>
           </div>
 
+          {/* Company Links */}
           <div>
             <h4 className="font-semibold text-slate-900 mb-4">{t("footer.company")}</h4>
             <ul className="space-y-2">
@@ -77,9 +78,28 @@ export function LandingFooter() {
           </div>
         </div>
 
-        {/* Bottom */}
-        <div className="mt-12 pt-8 border-t border-slate-200">
-          <p className="text-slate-500 text-sm text-center">
+        {/* Policies Section */}
+        <div className="mt-10 pt-6 border-t border-slate-100">
+          <div className="grid sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
+            {/* Fawry */}
+            <div className="flex items-start gap-3 text-sm">
+              <span className="text-slate-400">
+                <img src="https://atfawry.com/img/brand/fawrypay_logo.png" width="80" height="80" alt="Fawry Pay Logo" />
+              </span>
+              <p className="text-slate-500">{t("footer.fawryDisclaimer")}</p>
+            </div>
+            
+            {/* Refund */}
+            <div className="flex items-start gap-3 text-sm">
+              <span className="text-slate-400">↩️</span>
+              <p className="text-slate-500">{t("footer.refundPolicyText")}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Copyright */}
+        <div className="mt-8 pt-6 border-t border-slate-100">
+          <p className="text-slate-400 text-sm text-center">
             © {new Date().getFullYear()} Daleel. {t("footer.allRightsReserved")}
           </p>
         </div>

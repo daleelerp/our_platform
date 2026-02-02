@@ -172,7 +172,9 @@
     "roadmap": "خارطة الطريق",
     "privacyPolicy": "سياسة الخصوصية",
     "termsOfService": "شروط الخدمة",
-    "allRightsReserved": "جميع الحقوق محفوظة."
+    "allRightsReserved": "جميع الحقوق محفوظة.",
+    "fawryDisclaimer": "مسؤولية فوري تقتصر على تحصيل المدفوعات. لأي مشاكل، تواصل معنا.",
+    "refundPolicyText": "جميع عمليات الشراء نهائية. إذا واجهت أي مشكلة، تواصل معنا وسنساعدك."
   },
   "landing": {
     "paths": {
