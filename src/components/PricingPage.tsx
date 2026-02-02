@@ -486,16 +486,13 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
         }
         sessionStorage.setItem("pendingPlan", JSON.stringify(planData));
       }
-      
       const supabase = createClient();
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          // ✅ Remove query parameter - use same URL as Login
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${window.location.origin}/auth/callback?redirect=/plans`,
         },
       });
-      
       if (error) {
         alert(isArabic ? "فشل تسجيل الدخول" : "Login failed");
       }
