@@ -181,37 +181,60 @@ export async function POST(request: NextRequest) {
 
     // Prepare videos for insertion
     const videosToInsert = playlistItems
-      .map((item, index) => {
-        if (existingVideoIds.has(item.videoId)) {
-          return null;
-        }
+    .map((item, index) => {
+      const videoId = item.videoId;
 
-        const details = videoDetailsMap.get(item.videoId);
-        const title = details?.title || item.title;
-        const description = details?.description || item.description;
+      // Skip if already exists
+      if (existingVideoIds.has(videoId)) {
+        return null;
+      }
 
-        return {
-          youtube_video_id: item.videoId,
-          youtube_url: `https://www.youtube.com/watch?v=${item.videoId}`,
-          title: language === "ar" ? null : title,
-          title_ar: language === "ar" ? title : null,
-          description: language === "ar" ? null : (description || null),
-          description_ar: language === "ar" ? (description || null) : null,
-          channel_name: details?.channelName || null,
-          channel_id: details?.channelId || null,
-          thumbnail_url: details?.thumbnailUrl || item.thumbnailUrl || null,
-          duration_seconds: details?.durationSeconds || null,
-          view_count: details?.viewCount || null,
-          like_count: details?.likeCount || null,
-          published_at: details?.publishedAt || item.publishedAt || null,
-          milestone_id: milestone_id,
-          video_order: item.position ?? index,
-          primary_language: language,
-          is_embedded_allowed: details?.isEmbeddable ?? true,
-          is_active: true,
-        };
-      })
-      .filter((v): v is NonNullable<typeof v> => v !== null);
+      // Get detailed info if available, otherwise use playlist item data
+      const details = videoDetailsMap.get(videoId);
+
+      // Use details if available, fallback to playlist item data
+      const title = details?.title || item.title;
+      const description = details?.description || item.description;
+      const thumbnailUrl = details?.thumbnailUrl || item.thumbnailUrl;
+      const channelName = details?.channelName || undefined;
+      const channelId = details?.channelId || undefined;
+      const durationSeconds = details?.durationSeconds || null;
+      const viewCount = details?.viewCount || null;
+      const likeCount = details?.likeCount || null;
+      const publishedAt = details?.publishedAt || item.publishedAt;
+      const isEmbeddable = details?.isEmbeddable ?? true;
+
+      // ✅ FIXED: Always populate required 'title' field
+      // Use primary_language to determine display preference
+      return {
+        youtube_video_id: videoId,
+        youtube_url: `https://www.youtube.com/watch?v=${videoId}`,
+        
+        // Always set the main title (required field)
+        title: title,
+        // Set Arabic title if language is Arabic
+        title_ar: language === "ar" ? title : null,
+        
+        // Always set the main description
+        description: description,
+        // Set Arabic description if language is Arabic
+        description_ar: language === "ar" ? description : null,
+        
+        channel_name: channelName,
+        channel_id: channelId,
+        thumbnail_url: thumbnailUrl,
+        duration_seconds: durationSeconds,
+        view_count: viewCount,
+        like_count: likeCount,
+        published_at: publishedAt,
+        milestone_id: milestone_id,
+        video_order: item.position ?? index,
+        primary_language: language,  // This controls display preference
+        is_embedded_allowed: isEmbeddable,
+        is_active: true,
+      };
+    })
+    .filter((video): video is NonNullable<typeof video> => video !== null);
 
     console.log(`${videosToInsert.length} new videos to insert`);
 
