@@ -1,7 +1,7 @@
 # Paymob Payment Methods - Configuration Guide
 
 ## Issue
-Currently, only "Pay with Card" option is showing in Paymob checkout, but you want to enable all payment methods (Vodafone Cash, Fawry, Etisalat Cash, Orange Cash, etc.).
+Currently, only "Pay with Card" option is showing in Paymob checkout, but you want to enable all payment methods (Vodafone Cash, Kashier, Etisalat Cash, Orange Cash, etc.).
 
 ## Solution
 The payment methods shown in Paymob are determined by what's enabled in your **Paymob Dashboard**, not in the code. The code uses an `integration_id` which determines which payment methods are available.
@@ -19,7 +19,7 @@ The payment methods shown in Paymob are determined by what's enabled in your **P
    - ✅ **Vodafone Cash**
    - ✅ **Etisalat Cash**
    - ✅ **Orange Cash**
-   - ✅ **Fawry**
+   - ✅ **Kashier**
 
 ### 3. Verify Integration Configuration
 1. Go to **Settings** → **Integrations**
@@ -50,7 +50,7 @@ PAYMOB_IFRAME_ID=your_iframe_id
 If you need separate integration IDs for different payment methods (usually not needed), you can add:
 ```env
 PAYMOB_VODAFONE_INTEGRATION_ID=optional_vodafone_id
-PAYMOB_FAWRY_INTEGRATION_ID=optional_fawry_id
+KASHIER_MERCHANT_CODE=your_kashier_code
 ```
 
 But this is usually **not necessary** - one integration ID with all methods enabled is sufficient.

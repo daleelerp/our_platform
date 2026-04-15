@@ -60,7 +60,7 @@ CREATE TABLE user_subscriptions (
     cancelled_at TIMESTAMPTZ,
     
     -- Payment info
-    payment_method VARCHAR(50),  -- 'card', 'vodafone_cash', 'fawry', etc.
+    payment_method VARCHAR(50),  -- 'card', 'vodafone_cash', 'kashier', etc.
     payment_provider VARCHAR(50) DEFAULT 'paymob',
     external_subscription_id VARCHAR(255),  -- Paymob subscription ID
     

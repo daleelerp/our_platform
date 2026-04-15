@@ -83,9 +83,9 @@ export function LandingFooter() {
           <div className="grid sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
             <div className="flex items-start gap-3 text-sm">
               <span className="text-slate-400">
-                <img src="https://atfawry.com/img/brand/fawrypay_logo.png" width="80" height="80" alt="Fawry Pay Logo" />
+                <img src="https://www.kashier.io/img/brand/kashier_logo.png" width="80" height="80" alt="Kashier Logo" />
               </span>
-              <p className="text-slate-500">{t("footer.fawryDisclaimer")}</p>
+              <p className="text-slate-500">{t("footer.kashierDisclaimer")}</p>
             </div>
                         <div className="flex items-start gap-3 text-sm">
               <span className="text-slate-400">↩️</span>

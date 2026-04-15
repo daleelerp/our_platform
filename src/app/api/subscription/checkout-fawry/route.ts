@@ -3,10 +3,10 @@ import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import crypto from "crypto";
 
-// Fawry configuration
-const FAWRY_API_KEY = process.env.FAWRY_API_KEY;
-const FAWRY_MERCHANT_CODE = process.env.FAWRY_MERCHANT_CODE;
-const FAWRY_SECRET_KEY = process.env.FAWRY_SECRET_KEY;
+// Kashier configuration
+const KASHIER_API_KEY = process.env.KASHIER_API_KEY;
+const KASHIER_MERCHANT_CODE = process.env.KASHIER_MERCHANT_CODE;
+const KASHIER_SECRET_KEY = process.env.KASHIER_SECRET_KEY;
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || process.env.VERCEL_URL 
   ? `https://${process.env.VERCEL_URL}` 
   : "https://www.daleel.site";
@@ -114,9 +114,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // If Fawry is not configured, return mock checkout
-    if (!FAWRY_API_KEY || !FAWRY_MERCHANT_CODE || !FAWRY_SECRET_KEY) {
-      console.log("Fawry not configured, simulating checkout");
+    // If Kashier is not configured, return mock checkout
+    if (!KASHIER_API_KEY || !KASHIER_MERCHANT_CODE || !KASHIER_SECRET_KEY) {
+      console.log("Kashier not configured, simulating checkout");
       
       // Create pending subscription (trial / dev mode)
       const periodEnd = new Date();
@@ -174,7 +174,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         redirectUrl: "/dashboard?subscription=trial_started",
-        message: "Trial started! Configure Fawry for real payments.",
+        message: "Trial started! Configure Kashier for real payments.",
       });
     }
 
@@ -185,34 +185,34 @@ export async function POST(request: NextRequest) {
       .eq("id", user.id)
       .single();
 
-    // Create Fawry charge request
-    // Reference: https://developer.fawry.com/docs
+    // Create Kashier charge request
+    // Reference: https://developer.kashier.io/docs
     
     const chargeId = `${user.id}-${Date.now()}`; // Unique identifier
     const description = `Daleel ${plan.display_name_en} - ${billingCycle || 'one-time'}`;
     
     // Build the data to sign
     const dataToSign = [
-      FAWRY_MERCHANT_CODE,
+      KASHIER_MERCHANT_CODE,
       chargeId,
-      Math.round(amount * 100), // Fawry uses fils (smallest unit)
-      `${BASE_URL}/payment/callback?provider=fawry`,
-      FAWRY_SECRET_KEY
+      Math.round(amount * 100), // Kashier uses fils (smallest unit)
+      `${BASE_URL}/payment/callback?provider=kashier`,
+      KASHIER_SECRET_KEY
     ].join("");
 
     const signature = crypto
-      .createHmac("sha256", FAWRY_SECRET_KEY)
+      .createHmac("sha256", KASHIER_SECRET_KEY)
       .update(dataToSign)
       .digest("hex");
 
     // Prepare the checkout URL
     const checkoutParams = new URLSearchParams({
-      merchantCode: FAWRY_MERCHANT_CODE,
+      merchantCode: KASHIER_MERCHANT_CODE,
       chargeId: chargeId,
       amount: Math.round(amount * 100).toString(),
       currencyCode: "EGP",
       chargeDescription: description,
-      returnUrl: `${BASE_URL}/payment/callback?provider=fawry`,
+      returnUrl: `${BASE_URL}/payment/callback?provider=kashier`,
       signature: signature,
       customerName: profile?.full_name || "Customer",
       customerEmail: user.email || "",
@@ -264,10 +264,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Fawry checkout URL
-    const checkoutUrl = `https://www.fawry.com/pay?${checkoutParams.toString()}`;
+    // Kashier checkout URL
+    const checkoutUrl = `https://www.kashier.io/pay?${checkoutParams.toString()}`;
 
-    console.log(`Fawry checkout URL generated for charge ${chargeId}`);
+    console.log(`Kashier checkout URL generated for charge ${chargeId}`);
 
     return NextResponse.json({ checkoutUrl });
 

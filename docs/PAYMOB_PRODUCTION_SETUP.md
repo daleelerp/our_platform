@@ -98,7 +98,7 @@ Paymob supports multiple payment methods, but they need to be enabled in your Pa
      - ✅ **Vodafone Cash**
      - ✅ **Etisalat Cash**
      - ✅ **Orange Cash**
-     - ✅ **Fawry**
+     - ✅ **Kashier**
      - ✅ Any other methods you want to offer
 
 3. **Verify Integration Configuration**
@@ -125,7 +125,7 @@ Paymob supports multiple payment methods, but they need to be enabled in your Pa
    PAYMOB_VODAFONE_INTEGRATION_ID=your_vodafone_id
    PAYMOB_ETISALAT_INTEGRATION_ID=your_etisalat_id
    PAYMOB_ORANGE_INTEGRATION_ID=your_orange_id
-   PAYMOB_FAWRY_INTEGRATION_ID=your_fawry_id
+   KASHIER_API_KEY=your_kashier_api_key
    ```
    
    **Note**: Usually this is NOT needed - one integration with all methods enabled is sufficient.
@@ -152,7 +152,7 @@ The checkout route has been updated to:
 - User can choose their preferred method
 
 **Option 2: Pre-select a Payment Method**
-- Pass `paymentMethod` in the checkout request (e.g., `"vodafone_cash"`, `"fawry"`)
+- Pass `paymentMethod` in the checkout request (e.g., `"vodafone_cash"`, `"kashier"`)
 - The code will use the specific integration ID for that method
 - This is useful if you want to show payment method selection before redirecting to Paymob
 

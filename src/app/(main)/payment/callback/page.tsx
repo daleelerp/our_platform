@@ -33,18 +33,18 @@ export default function PaymentCallbackPage() {
   };
 
   useEffect(() => {
-    // Handle both Paymob and Fawry callback parameters
+    // Handle both Paymob and Kashier callback parameters
     const success = searchParams.get("success");
     const pending = searchParams.get("pending");
     const txnResponseCode = searchParams.get("txn_response_code");
     
-    // Fawry parameters
-    const fawryStatus = searchParams.get("status");
+    // Kashier parameters
+    const kashierStatus = searchParams.get("status");
     const chargeId = searchParams.get("chargeId");
     const provider = searchParams.get("provider");
 
-    // Fawry success responses: PAID or success=true
-    if (provider === "fawry" && (fawryStatus === "PAID" || success === "true")) {
+    // Kashier success responses: PAID or success=true
+    if (provider === "kashier" && (kashierStatus === "PAID" || success === "true")) {
       setStatus("success");
       // Auto redirect after 3 seconds
       setTimeout(() => {
@@ -57,9 +57,9 @@ export default function PaymentCallbackPage() {
       setTimeout(() => {
         router.push("/dashboard?subscription=activated");
       }, 3000);
-    } else if (pending === "true" || fawryStatus === "PENDING") {
+    } else if (pending === "true" || kashierStatus === "PENDING") {
       setStatus("pending");
-    } else if (success === "false" || txnResponseCode || fawryStatus === "FAILED" || fawryStatus === "CANCELLED") {
+    } else if (success === "false" || txnResponseCode || kashierStatus === "FAILED" || kashierStatus === "CANCELLED") {
       setStatus("failed");
     } else {
       // No params, might be direct access

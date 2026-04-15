@@ -12,7 +12,7 @@ interface CheckoutPageProps {
   billingCycle?: "monthly" | "yearly";
 }
 
-type PaymentMethod = "fawry" | "cod";
+type PaymentMethod = "kashier" | "cod";
 
 interface PromoDiscount {
   code: string;
@@ -29,7 +29,7 @@ export default function CheckoutPage({
   const language = useAppStore((state) => state.language);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("fawry");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("kashier");
   const [showSuccess, setShowSuccess] = useState(false);
   
   // Promo code state
@@ -68,22 +68,22 @@ export default function CheckoutPage({
     checkout: isArabic ? "متابعة للدفع" : "Proceed to Checkout",
     confirmOrder: isArabic ? "تأكيد الطلب" : "Confirm Order",
     processing: isArabic ? "جاري المعالجة..." : "Processing...",
-    securePayment: isArabic ? "دفع آمن عبر Fawry" : "Secure payment via Fawry",
+    securePayment: isArabic ? "دفع آمن عبر كاشير" : "Secure payment via Kashier",
     error: isArabic ? "خطأ" : "Error",
     tryAgain: isArabic ? "حاول مرة أخرى" : "Try Again",
     back: isArabic ? "العودة" : "Back",
     paymentMethod: isArabic ? "طريقة الدفع" : "Payment Method",
-    fawryPayment: isArabic ? "الدفع عبر فوري" : "Pay with Fawry",
+    kashierPayment: isArabic ? "الدفع عبر كاشير" : "Pay with Kashier",
     cashOnDelivery: isArabic ? "الدفع عند الاستلام" : "Cash on Delivery",
-    fawryDescription: isArabic
-      ? "ادفع بأمان عبر بوابة فوري"
-      : "Pay securely via Fawry payment gateway",
+    kashierDescription: isArabic
+      ? "ادفع بأمان عبر بوابة كاشير"
+      : "Pay securely via Kashier payment gateway",
     codDescription: isArabic
       ? "ادفع نقداً عند تفعيل الخدمة"
       : "Pay cash when the service is activated",
-    fawryDisclaimer: isArabic
-      ? "مسؤولية فوري محدودة على تحصيل المدفوعات فقط. لأي مشكلة ذات صلة يرجى التواصل معنا"
-      : "Fawry responsibility is limited to payment collection. For any related issue please contact us",
+    kashierDisclaimer: isArabic
+      ? "مسؤولية كاشير محدودة على تحصيل المدفوعات فقط. لأي مشكلة ذات صلة يرجى التواصل معنا"
+      : "Kashier responsibility is limited to payment collection. For any related issue please contact us",
     contactUs: isArabic ? "تواصل معنا" : "Contact Us",
     successTitle: isArabic ? "تم تأكيد الطلب بنجاح!" : "Order Confirmed Successfully!",
     successMessage: isArabic
@@ -164,15 +164,15 @@ export default function CheckoutPage({
     setPromoError(null);
   };
 
-  // Fawry Payment Handler (Commented for now)
-  const handleFawryCheckout = async () => {
+  // Kashier Payment Handler (Commented for now)
+  const handleKashierCheckout = async () => {
     if (isLoading) return;
 
     setIsLoading(true);
     setError(null);
 
     try {
-      // TODO: Uncomment when Fawry integration is ready
+      // TODO: Uncomment when Kashier integration is ready
       /*
       const response = await fetch("/api/subscription/checkout", {
         method: "POST",
@@ -180,7 +180,7 @@ export default function CheckoutPage({
         body: JSON.stringify({
           planId,
           billingCycle,
-          paymentMethod: "fawry",
+          paymentMethod: "kashier",
           promoCode: promoApplied?.code || null,
           finalAmount: discountedAmount,
         }),
@@ -195,7 +195,7 @@ export default function CheckoutPage({
       }
 
       if (data.checkoutUrl) {
-        // Redirect to Fawry payment page
+        // Redirect to Kashier payment page
         window.location.href = data.checkoutUrl;
       } else if (data.redirectUrl) {
         // Direct redirect (for free plan or trial)
@@ -209,11 +209,11 @@ export default function CheckoutPage({
       }
       */
 
-      // Temporary: Show message that Fawry is not available yet
+      // Temporary: Show message that Kashier is not available yet
       setError(
         isArabic
-          ? "الدفع عبر فوري غير متاح حالياً. يرجى اختيار الدفع عند الاستلام."
-          : "Fawry payment is not available yet. Please choose Cash on Delivery."
+          ? "الدفع عبر كاشير غير متاح حالياً. يرجى اختيار الدفع عند الاستلام."
+          : "Kashier payment is not available yet. Please choose Cash on Delivery."
       );
       setIsLoading(false);
     } catch (err: any) {
@@ -271,8 +271,8 @@ export default function CheckoutPage({
   };
 
   const handleCheckout = () => {
-    if (paymentMethod === "fawry") {
-      handleFawryCheckout();
+    if (paymentMethod === "kashier") {
+      handleKashierCheckout();
     } else {
       handleCODCheckout();
     }
@@ -619,10 +619,10 @@ export default function CheckoutPage({
             <h3 className="text-md font-semibold text-slate-900 mb-4">{t.paymentMethod}</h3>
 
             <div className="space-y-3">
-              {/* Fawry Option */}
+              {/* Kashier Option */}
               {/* <label
                 className={`flex items-start gap-4 p-4 border-2 rounded-xl cursor-pointer transition ${
-                  paymentMethod === "fawry"
+                  paymentMethod === "kashier"
                     ? "border-[#429874] bg-[#429874]/5"
                     : "border-slate-200 hover:border-slate-300"
                 }`}
@@ -630,9 +630,9 @@ export default function CheckoutPage({
                 <input
                   type="radio"
                   name="paymentMethod"
-                  value="fawry"
-                  checked={paymentMethod === "fawry"}
-                  onChange={() => setPaymentMethod("fawry")}
+                  value="kashier"
+                  checked={paymentMethod === "kashier"}
+                  onChange={() => setPaymentMethod("kashier")}
                   className="mt-1 w-4 h-4 text-[#429874] focus:ring-[#429874]"
                 />
                 <div className="flex-1">
@@ -641,9 +641,9 @@ export default function CheckoutPage({
                     <div className="w-8 h-8 bg-yellow-400 rounded-lg flex items-center justify-center">
                       <span className="text-xs font-bold text-slate-900">F</span>
                     </div>
-                    <span className="font-medium text-slate-900">{t.fawryPayment}</span>
+                    <span className="font-medium text-slate-900">{t.kashierPayment}</span>
                   </div>
-                  <p className="text-sm text-slate-500">{t.fawryDescription}</p>
+                  <p className="text-sm text-slate-500">{t.kashierDescription}</p>
                 </div>
               </label> */}
 
@@ -725,7 +725,7 @@ export default function CheckoutPage({
                 </svg>
                 {t.processing}
               </div>
-            ) : paymentMethod === "fawry" ? (
+            ) : paymentMethod === "kashier" ? (
               t.checkout
             ) : (
               t.confirmOrder
@@ -741,8 +741,8 @@ export default function CheckoutPage({
           </Link>
         </div>
 
-        {/* Fawry Disclaimer */}
-        {paymentMethod === "fawry" && (
+        {/* Kashier Disclaimer */}
+        {paymentMethod === "kashier" && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
             <div className="flex items-start gap-3">
               <svg
@@ -759,7 +759,7 @@ export default function CheckoutPage({
                 />
               </svg>
               <div>
-                <p className="text-sm text-amber-800">{t.fawryDisclaimer}</p>
+                <p className="text-sm text-amber-800">{t.kashierDisclaimer}</p>
                 <Link
                   href="/contact"
                   className="inline-flex items-center gap-1 text-sm font-medium text-amber-700 hover:text-amber-800 mt-2"

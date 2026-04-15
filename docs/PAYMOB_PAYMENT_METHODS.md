@@ -12,7 +12,7 @@ Paymob already supports all the payment methods you need! You don't need additio
 2. 📱 **Vodafone Cash** - Mobile Wallet
 3. 📱 **Etisalat Cash** - Mobile Wallet  
 4. 📱 **Orange Cash** - Mobile Wallet
-5. 🏪 **Fawry** - Cash Payment Network
+5. 🏪 **Kashier** - Direct Card & Digital Payment Gateway
 
 ## How It Works
 
@@ -20,7 +20,7 @@ When a user clicks "Buy Now" on your pricing page:
 
 1. **User selects a plan** → Your app calls `/api/subscription/checkout`
 2. **Paymob payment page opens** → Shows ALL available payment methods
-3. **User chooses their preferred method** → Card, Vodafone Cash, Fawry, etc.
+3. **User chooses their preferred method** → Card, Vodafone Cash, Kashier, etc.
 4. **Payment is processed** → Paymob handles everything
 5. **Webhook notifies your app** → `/api/subscription/webhook` receives payment status
 6. **User subscription is activated** → Access granted automatically
@@ -36,7 +36,7 @@ When a user clicks "Buy Now" on your pricing page:
    - ✅ Vodafone Cash
    - ✅ Etisalat Cash
    - ✅ Orange Cash
-   - ✅ Fawry
+   - ✅ Kashier
 
 ### Step 2: Configure Integration IDs (If Needed)
 
@@ -44,7 +44,7 @@ For some payment methods, you might need separate integration IDs:
 
 - **Cards**: Uses your main `PAYMOB_INTEGRATION_ID`
 - **Mobile Wallets**: May need separate integration IDs
-- **Fawry**: May need separate integration ID
+- **Kashier**: May need separate integration ID
 
 **To get integration IDs:**
 1. Go to **Settings** → **Integrations** in Paymob Dashboard
@@ -59,7 +59,7 @@ PAYMOB_INTEGRATION_ID=your_main_integration_id
 PAYMOB_VODAFONE_INTEGRATION_ID=your_vodafone_id
 PAYMOB_ETISALAT_INTEGRATION_ID=your_etisalat_id
 PAYMOB_ORANGE_INTEGRATION_ID=your_orange_id
-PAYMOB_FAWRY_INTEGRATION_ID=your_fawry_id
+KASHIER_API_KEY=your_kashier_api_key
 ```
 
 ### Step 3: Update Checkout Route (Optional - Advanced)
@@ -107,9 +107,9 @@ Your current implementation already works! Here's what happens:
 - Paymob test mode may provide test numbers for mobile wallets
 - Check Paymob documentation for test wallet numbers
 
-### Test Fawry
-- Fawry test mode provides test reference numbers
-- Check Paymob dashboard for Fawry test instructions
+### Test Kashier
+- Kashier test mode provides test reference numbers
+- Check Kashier dashboard for Kashier test instructions
 
 ## Important Notes
 

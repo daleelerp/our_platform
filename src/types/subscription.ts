@@ -3,7 +3,7 @@
 export type PlanName = 'free' | 'premium' | 'team';
 export type SubscriptionStatus = 'active' | 'paused' | 'cancelled' | 'expired' | 'trial';
 export type BillingCycle = 'monthly' | 'yearly';
-export type PaymentMethod = 'card' | 'vodafone_cash' | 'etisalat_cash' | 'orange_cash' | 'we_pay' | 'fawry';
+export type PaymentMethod = 'card' | 'vodafone_cash' | 'etisalat_cash' | 'orange_cash' | 'we_pay' | 'kashier';
 
 export interface SubscriptionPlan {
   id: string;

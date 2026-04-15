@@ -27,7 +27,7 @@
 ### Quick Steps:
 1. Login to https://accept.paymob.com
 2. Go to **Settings** → **Payment Methods**
-3. Enable: Cards, Vodafone Cash, Etisalat Cash, Orange Cash, Fawry
+3. Enable: Cards, Vodafone Cash, Etisalat Cash, Orange Cash, Kashier
 4. Go to **Settings** → **Integrations**
 5. Find your integration (matching `PAYMOB_INTEGRATION_ID`)
 6. Ensure all payment methods are enabled for this integration
@@ -36,7 +36,7 @@
 **Optional**: If you need separate integration IDs, add to `.env.local`:
 ```env
 PAYMOB_VODAFONE_INTEGRATION_ID=your_vodafone_id
-PAYMOB_FAWRY_INTEGRATION_ID=your_fawry_id
+KASHIER_SECRET_KEY=your_kashier_secret_key
 # etc.
 ```
 

@@ -8,35 +8,35 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-const FAWRY_SECRET_KEY = process.env.FAWRY_SECRET_KEY;
+const KASHIER_SECRET_KEY = process.env.KASHIER_SECRET_KEY;
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     
     // Verify signature if configured
-    if (FAWRY_SECRET_KEY) {
-      // Fawry signature verification
-      // The signature should be in the header: X-Fawry-Signature
-      const signatureHeader = request.headers.get("X-Fawry-Signature");
+    if (KASHIER_SECRET_KEY) {
+      // Kashier signature verification
+      // The signature should be in the header: X-Kashier-Signature
+      const signatureHeader = request.headers.get("X-Kashier-Signature");
       
-      // Build the data to verify (Fawry sends this in the webhook)
+      // Build the data to verify (Kashier sends this in the webhook)
       const dataToVerify = [
         body.chargeId,
         body.amount,
         body.currency,
         body.paymentMethod,
         body.status,
-        FAWRY_SECRET_KEY
+        KASHIER_SECRET_KEY
       ].join("");
 
       const expectedSignature = crypto
-        .createHmac("sha256", FAWRY_SECRET_KEY)
+        .createHmac("sha256", KASHIER_SECRET_KEY)
         .update(dataToVerify)
         .digest("hex");
 
       if (signatureHeader && signatureHeader !== expectedSignature) {
-        console.error("Invalid Fawry signature");
+        console.error("Invalid Kashier signature");
         return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
       }
     }
@@ -73,8 +73,8 @@ export async function POST(request: NextRequest) {
           started_at: new Date().toISOString(),
           current_period_start: new Date().toISOString(),
           current_period_end: periodEnd.toISOString(),
-          payment_method: paymentMethod || "fawry",
-          payment_provider: "fawry",
+          payment_method: paymentMethod || "kashier",
+          payment_provider: "kashier",
         })
         .eq("id", subscription.id);
 
@@ -84,17 +84,17 @@ export async function POST(request: NextRequest) {
         .insert({
           user_id: subscription.user_id,
           subscription_id: subscription.id,
-          amount_egp: amount / 100, // Fawry uses fils (smallest unit)
+          amount_egp: amount / 100, // Kashier uses fils (smallest unit)
           currency: currency || "EGP",
           status: "completed",
           type: "subscription",
-          payment_method: paymentMethod || "fawry",
-          payment_provider: "fawry",
+          payment_method: paymentMethod || "kashier",
+          payment_provider: "kashier",
           provider_transaction_id: referenceNumber || chargeId,
           provider_response: body,
         });
 
-      console.log(`Subscription ${subscription.id} activated successfully via Fawry`);
+      console.log(`Subscription ${subscription.id} activated successfully via Kashier`);
     } else if (status === "PENDING") {
       // Payment pending - keep subscription in pending state
       console.log(`Payment pending for subscription ${subscription.id}`);
@@ -115,8 +115,8 @@ export async function POST(request: NextRequest) {
           currency: currency || "EGP",
           status: "failed",
           type: "subscription",
-          payment_method: paymentMethod || "fawry",
-          payment_provider: "fawry",
+          payment_method: paymentMethod || "kashier",
+          payment_provider: "kashier",
           provider_transaction_id: referenceNumber || chargeId,
           provider_response: body,
           description: `Payment ${status}`,
@@ -138,6 +138,6 @@ export async function POST(request: NextRequest) {
 
 // Also handle GET for webhook verification
 export async function GET(request: NextRequest) {
-  return NextResponse.json({ status: "Fawry webhook endpoint active" });
+  return NextResponse.json({ status: "Kashier webhook endpoint active" });
 }
 
