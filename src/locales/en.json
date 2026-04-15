@@ -173,8 +173,7 @@
     "privacyPolicy": "Privacy Policy",
     "termsOfService": "Terms of Service",
     "allRightsReserved": "All rights reserved.",
-    "fawryDisclaimer": "Fawry's responsibility is limited to payment collection. For any issues, please contact us.",
-    "refundPolicyText": "All purchases are final. If you face any problems, contact us and we'll help."
+    "kashierDisclaimer": "All payments are processed securely through Kashier (kashier.io), a PCI DSS-compliant payment gateway licensed and regulated in Egypt. Kashier's responsibility is limited to payment collection. For any payment-related issues, contact us or reach out to Kashier directly."
   },
   "landing": {
     "paths": {

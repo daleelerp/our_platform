@@ -79,23 +79,20 @@ export function LandingFooter() {
         </div>
 
         {/* Policies Section */}
-        <div className="mt-10 pt-6 border-t border-slate-100">
+        {/* <div className="mt-10 pt-6 border-t border-slate-100">
           <div className="grid sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
-            {/* Fawry */}
             <div className="flex items-start gap-3 text-sm">
               <span className="text-slate-400">
                 <img src="https://atfawry.com/img/brand/fawrypay_logo.png" width="80" height="80" alt="Fawry Pay Logo" />
               </span>
               <p className="text-slate-500">{t("footer.fawryDisclaimer")}</p>
             </div>
-            
-            {/* Refund */}
-            <div className="flex items-start gap-3 text-sm">
+                        <div className="flex items-start gap-3 text-sm">
               <span className="text-slate-400">↩️</span>
               <p className="text-slate-500">{t("footer.refundPolicyText")}</p>
             </div>
           </div>
-        </div>
+        </div> */}
 
         {/* Copyright */}
         <div className="mt-8 pt-6 border-t border-slate-100">

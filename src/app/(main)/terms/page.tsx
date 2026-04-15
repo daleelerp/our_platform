@@ -34,7 +34,7 @@ export default function TermsOfServicePage() {
           {
             title: "5. سياسة الاسترداد",
             content:
-              "لا يوجد استرداد للأموال تحت أي ظرف من الظروف. جميع المدفوعات نهائية وغير قابلة للاسترداد.",
+              "جميع عمليات الشراء نهائية. يمكنك طلب استرجاع خلال 3 أيام فقط من تاريخ الشراء للأسباب التالية: فشل تقني تم التحقق منه من جانبنا، فقط أو رسوم مكررة، أو عدم تطابق كبير مع وصف المحتوى المنشور وقت الشراء. الرسوم المردودة يتم معالجتها من خلال كاشير للطريقة الأصلية المستخدمة في الدفع (7-21 يوم عمل). لطلب استرجاع: بريد إلى daleel.erp.site@gmail.com مع تفاصيل الشراء والمعاملة. تواصل معنا خلال 24-48 ساعة وسنساعدك.",
           },
           {
             title: "6. إخلاء المسؤولية",
@@ -95,7 +95,7 @@ export default function TermsOfServicePage() {
           {
             title: "5. Refund Policy",
             content:
-              "There is no refund under any circumstances. All payments are final and non-refundable.",
+              " All purchases are final. You may request a refund within 3 calendar days from the purchase date for the following reasons only: verified technical failure on our side, duplicate charges, or significant discrepancy with the content description published at the time of purchase. Refunds are processed through Kashier to the original payment method used (7-21 business days). To request a refund: email daleel.erp.site@gmail.com with purchase details and transaction ID. We respond within 24-48 hours and will help you.",
           },
           {
             title: "6. Disclaimer",
