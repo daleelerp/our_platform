@@ -620,7 +620,7 @@ export default function CheckoutPage({
 
             <div className="space-y-3">
               {/* Fawry Option */}
-              <label
+              {/* <label
                 className={`flex items-start gap-4 p-4 border-2 rounded-xl cursor-pointer transition ${
                   paymentMethod === "fawry"
                     ? "border-[#429874] bg-[#429874]/5"
@@ -637,7 +637,7 @@ export default function CheckoutPage({
                 />
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    {/* Fawry Icon */}
+                  
                     <div className="w-8 h-8 bg-yellow-400 rounded-lg flex items-center justify-center">
                       <span className="text-xs font-bold text-slate-900">F</span>
                     </div>
@@ -645,7 +645,7 @@ export default function CheckoutPage({
                   </div>
                   <p className="text-sm text-slate-500">{t.fawryDescription}</p>
                 </div>
-              </label>
+              </label> */}
 
               {/* Cash on Delivery Option */}
               <label
