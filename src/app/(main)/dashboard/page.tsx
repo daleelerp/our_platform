@@ -4,6 +4,28 @@ import { redirect } from "next/navigation";
 import { DashboardContent } from "@/components/DashboardContent";
 import { filterPathsByPlan } from "@/utils/pathAccess";
 
+type PurchasedPlanRecord = {
+  id: string;
+  status: string;
+  created_at?: string;
+  current_period_end?: string;
+  billing_cycle?: string | null;
+  subscription_plans: {
+    id: string;
+    name: string;
+    display_name_en: string | null;
+    display_name_ar: string | null;
+    price_monthly_egp: number | null;
+    price_yearly_egp: number | null;
+    price_one_time_egp: number | null;
+    payment_type: string | null;
+  } | null;
+};
+
+type PurchasedPlanQueryRow = Omit<PurchasedPlanRecord, "subscription_plans"> & {
+  subscription_plans: PurchasedPlanRecord["subscription_plans"] | PurchasedPlanRecord["subscription_plans"][];
+};
+
 export default async function DashboardPage() {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
@@ -69,6 +91,18 @@ export default async function DashboardPage() {
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
+  const normalizedPurchasedPlans: PurchasedPlanRecord[] = (purchasedPlans as PurchasedPlanQueryRow[] | null | undefined)?.map((record) => {
+    const planRelation = record.subscription_plans;
+    const normalizedPlan = Array.isArray(planRelation)
+      ? planRelation[0] ?? null
+      : planRelation ?? null;
+
+    return {
+      ...record,
+      subscription_plans: normalizedPlan,
+    };
+  }) || [];
+
   // Fetch saved path finder recommendations
   const { data: savedPreferences } = await supabase
     .from("user_path_preferences")
@@ -109,7 +143,7 @@ export default async function DashboardPage() {
     <DashboardContent 
       profile={profile}
       enrolledPaths={enrollments || []}
-      purchasedPlans={purchasedPlans || []}
+      purchasedPlans={normalizedPurchasedPlans}
       recommendedPaths={recommendedPaths}
       savedPreferences={savedPreferences}
     />
