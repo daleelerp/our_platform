@@ -48,8 +48,27 @@ type EnrolledPath = {
 type Props = {
   profile: Profile | null;
   enrolledPaths?: EnrolledPath[];
+  purchasedPlans?: PurchasedPlanRecord[];
   recommendedPaths: Path[];
   savedPreferences?: SavedPreferences;
+};
+
+type PurchasedPlanRecord = {
+  id: string;
+  status: string;
+  created_at?: string;
+  current_period_end?: string;
+  billing_cycle?: string | null;
+  subscription_plans: {
+    id: string;
+    name: string;
+    display_name_en: string | null;
+    display_name_ar: string | null;
+    price_monthly_egp: number | null;
+    price_yearly_egp: number | null;
+    price_one_time_egp: number | null;
+    payment_type: string | null;
+  } | null;
 };
 
 const difficultyConfig: Record<string, { labelEn: string; labelAr: string; color: string }> = {
@@ -58,11 +77,25 @@ const difficultyConfig: Record<string, { labelEn: string; labelAr: string; color
   advanced: { labelEn: "Advanced", labelAr: "متقدم", color: "bg-orange-100 text-orange-700" },
 };
 
-export function DashboardContent({ profile, enrolledPaths = [], recommendedPaths, savedPreferences }: Props) {
+export function DashboardContent({
+  profile,
+  enrolledPaths = [],
+  purchasedPlans = [],
+  recommendedPaths,
+  savedPreferences,
+}: Props) {
   const language = useAppStore((state) => state.language);
   const isHydrated = useAppStore((state) => state.isHydrated);
-  // Subscription system removed - all users on free plan
-  const isFreePlan = true;
+  const activePaidPlans = purchasedPlans.filter((record) => {
+    const plan = record.subscription_plans;
+    if (!plan) return false;
+    const isPaid =
+      (plan.price_monthly_egp ?? 0) > 0 ||
+      (plan.price_yearly_egp ?? 0) > 0 ||
+      (plan.price_one_time_egp ?? 0) > 0;
+    return isPaid && ["active", "trial", "paused"].includes(record.status);
+  });
+  const isFreePlan = activePaidPlans.length === 0;
 
   const getText = (en: string | null, ar: string | null): string => {
     if (language === "ar" && ar) return ar;
@@ -85,6 +118,44 @@ export function DashboardContent({ profile, enrolledPaths = [], recommendedPaths
     recommendedForYou: language === "ar" ? "موصى به لك" : "Recommended for You",
     hours: language === "ar" ? "ساعة" : "hours",
     viewPath: language === "ar" ? "عرض المسار" : "View Path",
+    purchasedPlans: language === "ar" ? "الخطط المشتراة" : "Purchased Plans",
+    purchasedOn: language === "ar" ? "تاريخ الشراء" : "Purchased On",
+    noPurchasedPlans: language === "ar" ? "لا توجد خطط مشتراة بعد" : "No purchased plans yet",
+    active: language === "ar" ? "نشط" : "Active",
+    trial: language === "ar" ? "تجريبي" : "Trial",
+    paused: language === "ar" ? "متوقف" : "Paused",
+    cancelled: language === "ar" ? "ملغي" : "Cancelled",
+    expired: language === "ar" ? "منتهي" : "Expired",
+    monthly: language === "ar" ? "شهري" : "Monthly",
+    yearly: language === "ar" ? "سنوي" : "Yearly",
+    oneTime: language === "ar" ? "دفعة واحدة" : "One-Time",
+  };
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "-";
+    const date = new Date(dateString);
+    return date.toLocaleDateString(language === "ar" ? "ar-EG" : "en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case "active":
+        return t.active;
+      case "trial":
+        return t.trial;
+      case "paused":
+        return t.paused;
+      case "cancelled":
+        return t.cancelled;
+      case "expired":
+        return t.expired;
+      default:
+        return status;
+    }
   };
 
   if (!isHydrated) {
@@ -160,6 +231,48 @@ export function DashboardContent({ profile, enrolledPaths = [], recommendedPaths
             </div>
           </div>
         )}
+
+        {/* Purchased Plans - separate from enrolled paths */}
+        <div className="mb-8">
+          <h2 className="text-lg font-semibold text-slate-900 mb-4">{t.purchasedPlans}</h2>
+          {purchasedPlans.length === 0 ? (
+            <div className="bg-white rounded-xl border border-slate-200 p-5 text-sm text-slate-600">
+              {t.noPurchasedPlans}
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {purchasedPlans.map((record) => {
+                const plan = record.subscription_plans;
+                if (!plan) return null;
+                const planName = getText(plan.display_name_en, plan.display_name_ar) || plan.name;
+                const billingType =
+                  plan.payment_type === "one_time" ||
+                  ((plan.price_one_time_egp ?? 0) > 0 &&
+                    (plan.price_monthly_egp ?? 0) === 0 &&
+                    (plan.price_yearly_egp ?? 0) === 0)
+                    ? t.oneTime
+                    : record.billing_cycle === "yearly"
+                    ? t.yearly
+                    : t.monthly;
+
+                return (
+                  <div key={record.id} className="bg-white rounded-xl border border-slate-200 p-5">
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <h3 className="font-semibold text-slate-900">{planName}</h3>
+                      <span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-700">
+                        {getStatusLabel(record.status)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mb-1">
+                      {t.purchasedOn}: {formatDate(record.created_at)}
+                    </p>
+                    <p className="text-xs text-slate-500">{billingType}</p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
         {/* Getting started / AI Path Finder */}
         <div className="grid md:grid-cols-2 gap-6 mb-8">

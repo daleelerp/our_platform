@@ -46,6 +46,29 @@ export default async function DashboardPage() {
     .eq("user_id", user.id)
     .eq("status", "active");
 
+  // Fetch user's purchased plans (independent from enrollments)
+  const { data: purchasedPlans } = await supabase
+    .from("user_subscriptions")
+    .select(`
+      id,
+      status,
+      created_at,
+      current_period_end,
+      billing_cycle,
+      subscription_plans (
+        id,
+        name,
+        display_name_en,
+        display_name_ar,
+        price_monthly_egp,
+        price_yearly_egp,
+        price_one_time_egp,
+        payment_type
+      )
+    `)
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
+
   // Fetch saved path finder recommendations
   const { data: savedPreferences } = await supabase
     .from("user_path_preferences")
@@ -86,6 +109,7 @@ export default async function DashboardPage() {
     <DashboardContent 
       profile={profile}
       enrolledPaths={enrollments || []}
+      purchasedPlans={purchasedPlans || []}
       recommendedPaths={recommendedPaths}
       savedPreferences={savedPreferences}
     />
