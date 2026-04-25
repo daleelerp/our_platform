@@ -280,22 +280,31 @@ export async function POST(request: NextRequest) {
       merchantRedirect: `${BASE_URL}/payment/callback?provider=kashier`,
       display: "en",
       type: "one-time",
-      allowedMethods: "card",        // ✅ card only, removed wallet
+      allowedMethods: "card,wallet",
+      redirectMethod: null,          // ✅ changed from "get" to null
       iframeBackgroundColor: "#FFFFFF",
-      failureRedirect: false,
+      metaData: {
+        customKey: "daleel_subscription",
+        displayNotes: {
+          plan: plan.display_name_en,
+          billing: finalBillingCycle || "one-time",
+        },
+      },
+      failureRedirect: false,        // ✅ changed from true to false
       brandColor: "#FF5733",
       defaultMethod: "card",
       description: description,
       manualCapture: false,
+      customer: {
+        email: user.email || "",
+        reference: user.id,
+      },
+      saveCard: "optional",
+      retrieveSavedCard: true,
+      interactionSource: "ECOMMERCE",
       enable3DS: true,
-      // ❌ REMOVED: saveCard
-      // ❌ REMOVED: retrieveSavedCard
-      // ❌ REMOVED: interactionSource
-      // ❌ REMOVED: customer
-      // ❌ REMOVED: metaData
-      // ❌ REMOVED: serverWebhook
-      // ❌ REMOVED: redirectMethod
-      // ❌ REMOVED: notes
+      // ✅ removed serverWebhook temporarily
+      notes: `Subscription payment for ${plan.display_name_en}`,
     };
 
     // Create Payment Session via Kashier API
