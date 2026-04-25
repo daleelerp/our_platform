@@ -228,6 +228,47 @@ export async function POST(request: NextRequest) {
     expireAt.setHours(expireAt.getHours() + 24);
 
     // ✅ Remove "mode" from sessionData object
+    // const sessionData = {
+    //   expireAt: expireAt.toISOString(),
+    //   maxFailureAttempts: 3,
+    //   paymentType: "credit",
+    //   amount: amount.toFixed(2),
+    //   currency: "EGP",
+    //   order: orderId,
+    //   merchantId: KASHIER_MERCHANT_ID,
+    //   // ❌ REMOVED: mode: KASHIER_MODE,
+    //   merchantRedirect: `${BASE_URL}/payment/callback?provider=kashier`,
+    //   display: "en",
+    //   type: "one-time",
+    //   allowedMethods: paymentMethod ? paymentMethod : "card,wallet",
+    //   redirectMethod: "get",
+    //   iframeBackgroundColor: "#FFFFFF",
+    //   metaData: {
+    //     planId: planId,
+    //     billingCycle: finalBillingCycle,
+    //     discountApplied: discountApplied ? discountApplied.id : null,
+    //     customKey: "daleel_subscription",
+    //     displayNotes: {
+    //       plan: plan.display_name_en,
+    //       billing: finalBillingCycle || "one-time",
+    //     },
+    //   },
+    //   failureRedirect: true,
+    //   brandColor: "#FF5733",
+    //   defaultMethod: "card",
+    //   description: description,
+    //   manualCapture: false,
+    //   customer: {
+    //     email: user.email || "",
+    //     reference: user.id,
+    //   },
+    //   saveCard: "optional",
+    //   retrieveSavedCard: true,
+    //   interactionSource: "ECOMMERCE",
+    //   enable3DS: true,
+    //   serverWebhook: `${BASE_URL}/api/subscription/webhook`,
+    //   notes: `Subscription payment for ${plan.display_name_en}`,
+    // };
     const sessionData = {
       expireAt: expireAt.toISOString(),
       maxFailureAttempts: 3,
@@ -236,38 +277,25 @@ export async function POST(request: NextRequest) {
       currency: "EGP",
       order: orderId,
       merchantId: KASHIER_MERCHANT_ID,
-      // ❌ REMOVED: mode: KASHIER_MODE,
       merchantRedirect: `${BASE_URL}/payment/callback?provider=kashier`,
       display: "en",
       type: "one-time",
-      allowedMethods: paymentMethod ? paymentMethod : "card,wallet",
-      redirectMethod: "get",
+      allowedMethods: "card",        // ✅ card only, removed wallet
       iframeBackgroundColor: "#FFFFFF",
-      metaData: {
-        planId: planId,
-        billingCycle: finalBillingCycle,
-        discountApplied: discountApplied ? discountApplied.id : null,
-        customKey: "daleel_subscription",
-        displayNotes: {
-          plan: plan.display_name_en,
-          billing: finalBillingCycle || "one-time",
-        },
-      },
-      failureRedirect: true,
+      failureRedirect: false,
       brandColor: "#FF5733",
       defaultMethod: "card",
       description: description,
       manualCapture: false,
-      customer: {
-        email: user.email || "",
-        reference: user.id,
-      },
-      saveCard: "optional",
-      retrieveSavedCard: true,
-      interactionSource: "ECOMMERCE",
       enable3DS: true,
-      serverWebhook: `${BASE_URL}/api/subscription/webhook`,
-      notes: `Subscription payment for ${plan.display_name_en}`,
+      // ❌ REMOVED: saveCard
+      // ❌ REMOVED: retrieveSavedCard
+      // ❌ REMOVED: interactionSource
+      // ❌ REMOVED: customer
+      // ❌ REMOVED: metaData
+      // ❌ REMOVED: serverWebhook
+      // ❌ REMOVED: redirectMethod
+      // ❌ REMOVED: notes
     };
 
     // Create Payment Session via Kashier API
