@@ -96,6 +96,9 @@ export default function PlanPathsPage() {
         }
       } else {
         // Add path to plan
+        const nextSortOrder = planPaths.length
+          ? Math.max(...planPaths.map((pp) => pp.sort_order || 0)) + 1
+          : 1;
         const res = await fetch("/api/admin/data?table=plan_paths", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -103,7 +106,7 @@ export default function PlanPathsPage() {
             plan_id: planId,
             learning_path_id: pathId,
             is_featured: false,
-            sort_order: 0,
+            sort_order: nextSortOrder,
           }),
         });
         if (!res.ok) throw new Error("Failed to add path");
@@ -112,6 +115,56 @@ export default function PlanPathsPage() {
       toast.success(isCurrentlyInPlan ? "Path removed from plan" : "Path added to plan");
     } catch (err: any) {
       toast.error(err.message || "Failed to update");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const movePathOrder = async (planPathId: string, direction: "up" | "down") => {
+    const sortedPlanPaths = [...planPaths].sort(
+      (a, b) => (a.sort_order || 0) - (b.sort_order || 0)
+    );
+    const currentIndex = sortedPlanPaths.findIndex((pp) => pp.id === planPathId);
+    if (currentIndex === -1) return;
+
+    const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= sortedPlanPaths.length) return;
+
+    const current = sortedPlanPaths[currentIndex];
+    const target = sortedPlanPaths[targetIndex];
+
+    setSaving(true);
+    try {
+      const currentParams = new URLSearchParams({
+        table: "plan_paths",
+        id: current.id,
+      });
+      const targetParams = new URLSearchParams({
+        table: "plan_paths",
+        id: target.id,
+      });
+
+      const [updateCurrentRes, updateTargetRes] = await Promise.all([
+        fetch(`/api/admin/data?${currentParams.toString()}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sort_order: target.sort_order || 0 }),
+        }),
+        fetch(`/api/admin/data?${targetParams.toString()}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sort_order: current.sort_order || 0 }),
+        }),
+      ]);
+
+      if (!updateCurrentRes.ok || !updateTargetRes.ok) {
+        throw new Error("Failed to reorder paths");
+      }
+
+      await loadData();
+      toast.success("Path order updated");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to reorder paths");
     } finally {
       setSaving(false);
     }
@@ -195,7 +248,7 @@ export default function PlanPathsPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {assignedPaths.map((path) => {
+            {assignedPaths.map((path, index) => {
               const planPath = planPaths.find((pp) => pp.learning_path_id === path.id);
               return (
                 <div
@@ -240,19 +293,27 @@ export default function PlanPathsPage() {
                           className="h-4 w-4 text-teal-600 border-slate-300 rounded"
                         />
                       </div>
-                      <div className="flex items-center gap-2">
-                        <label className="text-xs text-slate-600">Order:</label>
-                        <input
-                          type="number"
-                          value={planPath?.sort_order || 0}
-                          onChange={(e) =>
-                            planPath &&
-                            updatePlanPath(planPath.id, {
-                              sort_order: parseInt(e.target.value) || 0,
-                            })
-                          }
-                          className="w-16 px-2 py-1 border border-slate-300 rounded text-sm"
-                        />
+                      <div className="flex items-center gap-1">
+                        <label className="text-xs text-slate-600 mr-1">Order:</label>
+                        <button
+                          onClick={() => planPath && movePathOrder(planPath.id, "up")}
+                          disabled={saving || !planPath || index === 0}
+                          className="h-8 w-8 rounded border border-slate-300 text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                          title="Move up"
+                        >
+                          ↑
+                        </button>
+                        <span className="min-w-8 text-center text-sm font-medium text-slate-700">
+                          {planPath?.sort_order || 0}
+                        </span>
+                        <button
+                          onClick={() => planPath && movePathOrder(planPath.id, "down")}
+                          disabled={saving || !planPath || index === assignedPaths.length - 1}
+                          className="h-8 w-8 rounded border border-slate-300 text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                          title="Move down"
+                        >
+                          ↓
+                        </button>
                       </div>
                       <button
                         onClick={() => togglePathInPlan(path.id, true)}
