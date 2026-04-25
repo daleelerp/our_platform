@@ -339,6 +339,32 @@ export function AllPathsWithPlans({
     );
   }
 
+  // Enforce cycle: choose plan first, then browse paths inside that plan
+  if (!effectiveSelectedPlanId) {
+    return (
+      <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center">
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-900 mb-3">
+              {language === "ar" ? "اختر خطة أولاً" : "Choose a Plan First"}
+            </h1>
+            <p className="text-slate-600 mb-6">
+              {language === "ar"
+                ? "لرؤية المسارات المناسبة، اختر خطتك أولاً ثم سنعرض لك المسارات المضمنة بها."
+                : "To see relevant paths, choose your plan first, then we'll show only included paths."}
+            </p>
+            <button
+              onClick={() => router.push("/plans")}
+              className="px-6 py-3 rounded-xl bg-teal-600 text-white font-semibold hover:bg-teal-700 transition-colors"
+            >
+              {language === "ar" ? "عرض الخطط" : "View Plans"}
+            </button>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   const groupedPaths = groupPathsByPathId(pathsWithPlans);
 
   // Count paths by type
@@ -1086,7 +1112,7 @@ export function AllPathsWithPlans({
                       })()}
 
                       {/* Plans Section (hide when user already subscribed to this path) */}
-                      {item.plans.length > 0 && !hasSubscription && (
+                      {item.plans.length > 0 && !hasSubscription && !isSubscribedView && (
                         <div>
                           <p className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
                             <span className="w-5 h-5 rounded bg-teal-100 flex items-center justify-center">
@@ -1215,7 +1241,8 @@ export function AllPathsWithPlans({
         )}
 
         {/* Footer Stats */}
-        <div className="mt-8 pt-6 border-t border-slate-200">
+        {!isSubscribedView && (
+          <div className="mt-8 pt-6 border-t border-slate-200">
           <div className="flex flex-wrap justify-center gap-6 text-sm text-slate-500">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
@@ -1260,7 +1287,8 @@ export function AllPathsWithPlans({
               </span>
             </div>
           </div>
-        </div>
+          </div>
+        )}
 
         {/* Suggested Plans based on currently visible paths */}
         {isSubscribedView && suggestedPlans.length > 0 && (

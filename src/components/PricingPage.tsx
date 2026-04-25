@@ -120,9 +120,6 @@ function PricingCard({
   handleSubscribe: (planId: string) => void;
   isCurrentPlan: boolean;
 }) {
-  const [showIncludes, setShowIncludes] = useState(false);
-  const [showFeatures, setShowFeatures] = useState(false);
-
   // Get audience info for this plan
   const audience = getValidAudience((plan as any).target_audience);
   const audienceInfo = audienceConfig[audience];
@@ -290,116 +287,18 @@ function PricingCard({
           </Link>
         )}
 
-        {/* Expandable Sections */}
-        <div className="flex-grow space-y-2">
-          {/* What's Included - Collapsible */}
-          {isOneTime && !isFree && (
-            <div className="border border-slate-100 rounded-xl overflow-hidden">
-              <button
-                onClick={() => setShowIncludes(!showIncludes)}
-                className="w-full flex items-center justify-between p-3 hover:bg-slate-50 transition-colors"
-              >
-                <span className="flex items-center gap-2.5">
-                  <span className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-sm">📦</span>
-                  <span className="text-sm font-semibold text-slate-800">{t.includes}</span>
-                  <span className="text-[10px] text-white bg-blue-500 px-2 py-0.5 rounded-full font-bold">3</span>
-                </span>
-                <svg
-                  className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${showIncludes ? "rotate-180" : ""}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-
-              <div
-                className={`transition-all duration-300 ease-in-out ${
-                  showIncludes ? "max-h-48 opacity-100" : "max-h-0 opacity-0"
-                } overflow-hidden`}
-              >
-                <div className="p-3 pt-0 space-y-2">
-                  <div className="flex items-center gap-3 p-2.5 bg-gradient-to-r from-blue-50 to-transparent rounded-lg">
-                    <span className="text-lg">📚</span>
-                    <span className="text-sm text-slate-700 font-medium">{t.learningPaths}</span>
-                  </div>
-                  <div className="flex items-center gap-3 p-2.5 bg-gradient-to-r from-purple-50 to-transparent rounded-lg">
-                    <span className="text-lg">🤖</span>
-                    <span className="text-sm text-slate-700 font-medium">{t.aiAccess}</span>
-                  </div>
-                  <div className="flex items-center gap-3 p-2.5 bg-gradient-to-r from-green-50 to-transparent rounded-lg">
-                    <span className="text-lg">💰</span>
-                    <span className="text-sm text-slate-700 font-medium">{t.jobSalaries}</span>
-                  </div>
-                </div>
+        {/* Simple Key Benefits */}
+        <div className="flex-grow border border-slate-100 rounded-xl p-3">
+          <p className="text-xs font-semibold text-slate-700 mb-2">{t.features}</p>
+          <div className="space-y-1.5">
+            {allPlanFeatures.slice(0, 3).map((feature) => (
+              <div key={feature.id} className="flex items-center gap-2 text-sm text-slate-600">
+                <span className="text-teal-600">✓</span>
+                <span>{getFeatureName(feature)}</span>
               </div>
-            </div>
-          )}
-
-          {/* Features - Collapsible */}
-          <div className="border border-slate-100 rounded-xl overflow-hidden">
-            <button
-              onClick={() => setShowFeatures(!showFeatures)}
-              className="w-full flex items-center justify-between p-3 hover:bg-slate-50 transition-colors"
-            >
-              <span className="flex items-center gap-2.5">
-                <span className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center text-sm">✨</span>
-                <span className="text-sm font-semibold text-slate-800">{t.features}</span>
-                <span className="text-[10px] text-white bg-amber-500 px-2 py-0.5 rounded-full font-bold">
-                  {allPlanFeatures.length}
-                </span>
-              </span>
-              <svg
-                className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${showFeatures ? "rotate-180" : ""}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-
-            <div
-              className={`transition-all duration-300 ease-in-out ${
-                showFeatures ? "max-h-[400px] opacity-100" : "max-h-0 opacity-0"
-              } overflow-hidden`}
-            >
-              <div className="p-3 pt-0">
-                <div className="grid grid-cols-1 gap-1.5">
-                  {allPlanFeatures.map((feature) => (
-                    <div
-                      key={feature.id}
-                      className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-slate-50 transition-colors"
-                    >
-                      <span className="w-6 h-6 rounded-md bg-slate-100 flex items-center justify-center text-xs shrink-0">
-                        {feature.icon || "✓"}
-                      </span>
-                      <span className="text-sm text-slate-600">{getFeatureName(feature)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Preview Icons - Show when collapsed */}
-            {!showFeatures && allPlanFeatures.length > 0 && (
-              <div className="px-3 pb-3 flex items-center gap-1.5">
-                {allPlanFeatures.slice(0, 5).map((feature) => (
-                  <span
-                    key={feature.id}
-                    className="w-7 h-7 rounded-lg bg-slate-50 flex items-center justify-center text-xs border border-slate-100"
-                    title={getFeatureName(feature)}
-                  >
-                    {feature.icon}
-                  </span>
-                ))}
-                {allPlanFeatures.length > 5 && (
-                  <span className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-[10px] text-slate-500 font-bold border border-slate-200">
-                    +{allPlanFeatures.length - 5}
-                  </span>
-                )}
-              </div>
+            ))}
+            {allPlanFeatures.length > 3 && (
+              <p className="text-xs text-slate-500 pt-1">+{allPlanFeatures.length - 3} more</p>
             )}
           </div>
         </div>
