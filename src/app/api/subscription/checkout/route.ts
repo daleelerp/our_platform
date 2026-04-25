@@ -227,23 +227,23 @@ export async function POST(request: NextRequest) {
     const expireAt = new Date();
     expireAt.setHours(expireAt.getHours() + 24);
 
-    // ✅ Prepare Payment Session request data - fixed per Kashier docs
+    // ✅ Remove "mode" from sessionData object
     const sessionData = {
       expireAt: expireAt.toISOString(),
       maxFailureAttempts: 3,
       paymentType: "credit",
       amount: amount.toFixed(2),
       currency: "EGP",
-      order: orderId,                          // ✅ FIXED: was "orderId", must be "order"
+      order: orderId,
       merchantId: KASHIER_MERCHANT_ID,
-      mode: KASHIER_MODE,                      // ✅ Required field
-      merchantRedirect: `${BASE_URL}/payment/callback?provider=kashier`, // ✅ Plain URL, no encodeURIComponent
+      // ❌ REMOVED: mode: KASHIER_MODE,
+      merchantRedirect: `${BASE_URL}/payment/callback?provider=kashier`,
       display: "en",
       type: isOneTimePayment ? "one-time" : "recurring",
       allowedMethods: paymentMethod ? paymentMethod : "card,wallet",
       redirectMethod: "get",
       iframeBackgroundColor: "#FFFFFF",
-      metaData: {                              // ✅ FIXED: plain object, NOT encoded string
+      metaData: {
         planId: planId,
         billingCycle: finalBillingCycle,
         discountApplied: discountApplied ? discountApplied.id : null,
@@ -309,7 +309,6 @@ export async function POST(request: NextRequest) {
         amount: sessionData.amount,
         currency: sessionData.currency,
         merchant: sessionData.merchantId,
-        mode: sessionData.mode,
       });
       console.error("===================");
 
