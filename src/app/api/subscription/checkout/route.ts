@@ -239,7 +239,7 @@ export async function POST(request: NextRequest) {
       // ❌ REMOVED: mode: KASHIER_MODE,
       merchantRedirect: `${BASE_URL}/payment/callback?provider=kashier`,
       display: "en",
-      type: isOneTimePayment ? "one-time" : "recurring",
+      type: "one-time",
       allowedMethods: paymentMethod ? paymentMethod : "card,wallet",
       redirectMethod: "get",
       iframeBackgroundColor: "#FFFFFF",
