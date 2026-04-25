@@ -116,10 +116,13 @@ export default async function PlanDetailsPage({ params }: Props) {
                 {uniquePaths.map((path: any) => (
                   <Link
                     key={path.id}
-                    href={`/paths/${path.slug}`}
+                    href={`/paths?planId=${plan.id}`}
                     className="block p-4 rounded-xl border border-slate-200 hover:border-teal-300 hover:bg-slate-50 transition-colors"
                   >
-                    <h3 className="font-semibold text-slate-900">{path.title}</h3>
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="font-semibold text-slate-900">{path.title}</h3>
+                      <span className="text-xs font-medium text-teal-600">Open in plan paths</span>
+                    </div>
                     <p className="text-sm text-slate-500 mt-1 line-clamp-2">
                       {path.description || "Path description"}
                     </p>

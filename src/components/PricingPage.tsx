@@ -482,6 +482,10 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
     targetAudience: isArabic ? "الفئة المستهدفة" : "Target Audience",
     allAudiences: isArabic ? "جميع الفئات" : "All Audiences",
     filterByAudience: isArabic ? "تصفية حسب الفئة" : "Filter by Audience",
+    choosingHelpTitle: isArabic ? "محتار تختار أي خطة؟" : "Not sure which plan to pick?",
+    choosingHelpBody: isArabic
+      ? "ابدأ بالخطة المناسبة لدورك الحالي، ثم افتح تفاصيل الخطة لمعرفة المسارات والفوائد قبل الشراء."
+      : "Start with the plan matching your current role, then open plan details to review included paths and benefits before buying.",
   };
 
   const featuresByCategory = features.reduce((acc, feature) => {
@@ -762,6 +766,14 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
                   {isArabic ? "مسح" : "Clear"}
                 </button>
               )}
+            </div>
+          </div>
+
+          {/* Row 2.5: Guidance */}
+          <div className="pb-4">
+            <div className="rounded-lg border border-teal-100 bg-teal-50/60 px-4 py-3">
+              <p className="text-sm font-semibold text-slate-800">{t.choosingHelpTitle}</p>
+              <p className="text-sm text-slate-600 mt-1">{t.choosingHelpBody}</p>
             </div>
           </div>
 
