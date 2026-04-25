@@ -16,15 +16,15 @@ export default function PaymentCallbackPage() {
   const t = {
     processing: isArabic ? "جاري معالجة الدفع..." : "Processing payment...",
     success: isArabic ? "تم الدفع بنجاح!" : "Payment Successful!",
-    successMessage: isArabic 
+    successMessage: isArabic
       ? "تم تفعيل اشتراكك. يمكنك الآن الوصول إلى جميع المميزات."
       : "Your subscription is now active. You can access all features.",
     failed: isArabic ? "فشل الدفع" : "Payment Failed",
-    failedMessage: isArabic 
+    failedMessage: isArabic
       ? "لم نتمكن من معالجة الدفع. يرجى المحاولة مرة أخرى."
       : "We couldn't process your payment. Please try again.",
     pending: isArabic ? "الدفع قيد المعالجة" : "Payment Pending",
-    pendingMessage: isArabic 
+    pendingMessage: isArabic
       ? "يتم معالجة الدفع. سيتم تفعيل اشتراكك قريباً."
       : "Your payment is being processed. Your subscription will be activated shortly.",
     goToDashboard: isArabic ? "الذهاب للوحة التحكم" : "Go to Dashboard",
@@ -33,41 +33,59 @@ export default function PaymentCallbackPage() {
   };
 
   useEffect(() => {
-    // Handle both Paymob and Kashier callback parameters
-    const success = searchParams.get("success");
-    const pending = searchParams.get("pending");
-    const txnResponseCode = searchParams.get("txn_response_code");
-    
-    // Kashier parameters (both old and new API)
-    const kashierStatus = searchParams.get("status");
-    const chargeId = searchParams.get("chargeId");
-    const sessionId = searchParams.get("session_id");
     const provider = searchParams.get("provider");
+    const sessionId = searchParams.get("session_id");
+    const success = searchParams.get("success");
+    const kashierStatus = searchParams.get("status");
 
-    // Kashier success responses: PAID, SUCCESS, or success=true
-    if (provider === "kashier" && (kashierStatus === "PAID" || kashierStatus === "SUCCESS" || success === "true")) {
-      setStatus("success");
-      // Auto redirect after 3 seconds
-      setTimeout(() => {
-        router.push("/dashboard?subscription=activated");
-      }, 3000);
-    } else if (success === "true") {
-      // Paymob success
-      setStatus("success");
-      // Auto redirect after 3 seconds
-      setTimeout(() => {
-        router.push("/dashboard?subscription=activated");
-      }, 3000);
-    } else if (pending === "true" || kashierStatus === "PENDING") {
-      setStatus("pending");
-    } else if (success === "false" || txnResponseCode || kashierStatus === "FAILED" || kashierStatus === "CANCELLED") {
-      setStatus("failed");
-    } else {
-      // No params, might be direct access or unknown status
-      setStatus("pending");
+    async function verifyPayment() {
+      // ✅ If we have a session_id, verify with our API
+      if (provider === "kashier" && sessionId) {
+        try {
+          const response = await fetch(
+            `/api/subscription/verify?session_id=${sessionId}`
+          );
+          const data = await response.json();
+
+          if (data.status === "success") {
+            setStatus("success");
+            setTimeout(() => {
+              router.push("/dashboard?subscription=activated");
+            }, 3000);
+          } else if (data.status === "pending") {
+            setStatus("pending");
+          } else {
+            setStatus("failed");
+          }
+        } catch (error) {
+          console.error("Verification error:", error);
+          setStatus("failed");
+        }
+        return;
+      }
+
+      // ✅ Fallback: read URL params directly
+      if (
+        provider === "kashier" &&
+        (kashierStatus === "PAID" ||
+          kashierStatus === "SUCCESS" ||
+          success === "true")
+      ) {
+        setStatus("success");
+        setTimeout(() => {
+          router.push("/dashboard?subscription=activated");
+        }, 3000);
+      } else if (success === "false" || kashierStatus === "FAILED" || kashierStatus === "CANCELLED") {
+        setStatus("failed");
+      } else {
+        setStatus("pending");
+      }
     }
+
+    verifyPayment();
   }, [searchParams, router]);
 
+  // ... rest of your UI code stays exactly the same
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
@@ -82,7 +100,6 @@ export default function PaymentCallbackPage() {
             <h1 className="text-2xl font-bold text-slate-900 mb-2">{t.processing}</h1>
           </>
         )}
-
         {status === "success" && (
           <>
             <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-green-100 flex items-center justify-center">
@@ -92,20 +109,14 @@ export default function PaymentCallbackPage() {
             </div>
             <h1 className="text-2xl font-bold text-slate-900 mb-2">{t.success}</h1>
             <p className="text-slate-600 mb-6">{t.successMessage}</p>
-            <div className="space-y-3">
-              <Link
-                href="/dashboard"
-                className="block w-full py-3 px-6 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 transition"
-              >
-                {t.goToDashboard}
-              </Link>
-            </div>
+            <Link href="/dashboard" className="block w-full py-3 px-6 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 transition">
+              {t.goToDashboard}
+            </Link>
             <p className="text-sm text-slate-500 mt-4">
               {isArabic ? "سيتم تحويلك تلقائياً..." : "Redirecting automatically..."}
             </p>
           </>
         )}
-
         {status === "failed" && (
           <>
             <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-red-100 flex items-center justify-center">
@@ -116,22 +127,15 @@ export default function PaymentCallbackPage() {
             <h1 className="text-2xl font-bold text-slate-900 mb-2">{t.failed}</h1>
             <p className="text-slate-600 mb-6">{t.failedMessage}</p>
             <div className="space-y-3">
-              <Link
-                href="/plans"
-                className="block w-full py-3 px-6 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 transition"
-              >
+              <Link href="/plans" className="block w-full py-3 px-6 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 transition">
                 {t.tryAgain}
               </Link>
-              <Link
-                href="/contact"
-                className="block w-full py-3 px-6 border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50 transition"
-              >
+              <Link href="/contact" className="block w-full py-3 px-6 border border-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-50 transition">
                 {t.contactSupport}
               </Link>
             </div>
           </>
         )}
-
         {status === "pending" && (
           <>
             <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-amber-100 flex items-center justify-center">
@@ -141,19 +145,12 @@ export default function PaymentCallbackPage() {
             </div>
             <h1 className="text-2xl font-bold text-slate-900 mb-2">{t.pending}</h1>
             <p className="text-slate-600 mb-6">{t.pendingMessage}</p>
-            <div className="space-y-3">
-              <Link
-                href="/dashboard"
-                className="block w-full py-3 px-6 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 transition"
-              >
-                {t.goToDashboard}
-              </Link>
-            </div>
+            <Link href="/dashboard" className="block w-full py-3 px-6 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 transition">
+              {t.goToDashboard}
+            </Link>
           </>
         )}
       </div>
     </div>
   );
 }
-
-
