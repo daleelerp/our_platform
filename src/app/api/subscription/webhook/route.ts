@@ -22,8 +22,9 @@ export async function POST(request: NextRequest) {
     if (isSessionWebhook) {
       // Handle new Payment Sessions API webhook
       const { sessionId, status, merchantOrderId, amount, currency, method, orderId } = body;
+      const normalizedStatus = String(status || "").toUpperCase();
 
-      console.log(`Session Webhook received: Session ${sessionId}, Status: ${status}`);
+      console.log(`Session Webhook received: Session ${sessionId}, Status: ${normalizedStatus}`);
 
       // Find the subscription by session ID
       const { data: subscription, error: subError } = await supabase
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Subscription not found" }, { status: 404 });
       }
 
-      if (status === "SUCCESS" || status === "PAID") {
+      if (normalizedStatus === "SUCCESS" || normalizedStatus === "PAID") {
         // Payment successful - activate subscription
         const periodEnd = new Date();
         if (subscription.billing_cycle === "yearly") {
@@ -75,10 +76,10 @@ export async function POST(request: NextRequest) {
           });
 
         console.log(`Subscription ${subscription.id} activated successfully via Kashier session ${sessionId}`);
-      } else if (status === "PENDING") {
+      } else if (normalizedStatus === "PENDING" || normalizedStatus === "PROCESSING") {
         // Payment pending - keep subscription in pending state
         console.log(`Payment pending for subscription ${subscription.id}`);
-      } else if (status === "FAILED" || status === "CANCELLED") {
+      } else if (normalizedStatus === "FAILED" || normalizedStatus === "CANCELLED") {
         // Payment failed
         await supabase
           .from("user_subscriptions")
@@ -105,7 +106,7 @@ export async function POST(request: NextRequest) {
 
         console.log(`Payment failed for subscription ${subscription.id}, session ${sessionId}`);
       } else {
-        console.log(`Unknown payment status: ${status} for session ${sessionId}`);
+        console.log(`Unknown payment status: ${normalizedStatus} for session ${sessionId}`);
       }
     } else {
       // Handle legacy charge-based webhook (old API)

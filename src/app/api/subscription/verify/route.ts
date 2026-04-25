@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
 
     const kashierData = await kashierResponse.json();
     const paymentData = kashierData.data;
-    const status = paymentData?.status;
+    const status = String(paymentData?.status || "").toUpperCase();
 
     console.log("Kashier payment verification:", { sessionId, status });
 
@@ -101,7 +101,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ status: "success" });
     }
 
-    if (status === "PENDING") {
+    if (status === "PENDING" || status === "PROCESSING") {
       return NextResponse.json({ status: "pending" });
     }
 

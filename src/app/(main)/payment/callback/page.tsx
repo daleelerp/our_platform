@@ -37,6 +37,7 @@ export default function PaymentCallbackPage() {
     const sessionId = searchParams.get("session_id");
     const success = searchParams.get("success");
     const kashierStatus = searchParams.get("status");
+    const paymentStatus = searchParams.get("paymentStatus");
 
     async function verifyPayment() {
       // ✅ If we have a session_id, verify with our API
@@ -65,17 +66,23 @@ export default function PaymentCallbackPage() {
       }
 
       // ✅ Fallback: read URL params directly
+      const normalizedStatus = (kashierStatus || paymentStatus || "").toUpperCase();
+
       if (
         provider === "kashier" &&
-        (kashierStatus === "PAID" ||
-          kashierStatus === "SUCCESS" ||
+        (normalizedStatus === "PAID" ||
+          normalizedStatus === "SUCCESS" ||
           success === "true")
       ) {
         setStatus("success");
         setTimeout(() => {
           router.push("/dashboard?subscription=activated");
         }, 3000);
-      } else if (success === "false" || kashierStatus === "FAILED" || kashierStatus === "CANCELLED") {
+      } else if (
+        success === "false" ||
+        normalizedStatus === "FAILED" ||
+        normalizedStatus === "CANCELLED"
+      ) {
         setStatus("failed");
       } else {
         setStatus("pending");
