@@ -36,6 +36,7 @@ type Props = {
   pathsWithPlans: PathWithPlanWithMetadata[];
   isLoggedIn: boolean;
   userSubscribedPlans?: string[] | null;
+  selectedPlanId?: string | null;
 };
 
 type PathWithPlanWithMetadata = PathWithPlans & {
@@ -246,7 +247,12 @@ function buildPlanToPathsMap(
   return planMap;
 }
 
-export function AllPathsWithPlans({ pathsWithPlans, isLoggedIn, userSubscribedPlans = null }: Props) {
+export function AllPathsWithPlans({
+  pathsWithPlans,
+  isLoggedIn,
+  userSubscribedPlans = null,
+  selectedPlanId = null,
+}: Props) {
   const { t } = useTranslation();
   const language = useAppStore((state) => state.language);
   const isHydrated = useAppStore((state) => state.isHydrated);
@@ -347,6 +353,7 @@ export function AllPathsWithPlans({ pathsWithPlans, isLoggedIn, userSubscribedPl
 
   // Filter paths based on selected filter
   const filteredPaths = groupedPaths.filter((item) => {
+    if (selectedPlanId && !item.plans.some((p) => p.id === selectedPlanId)) return false;
     if (filter === "all") return true;
     const analysis = analyzePathPlans(item.plans);
     if (filter === "free") return analysis.hasFreePlan;
@@ -726,6 +733,13 @@ export function AllPathsWithPlans({ pathsWithPlans, isLoggedIn, userSubscribedPl
 
         {/* Filter Tabs */}
         <div className="mb-6 flex flex-wrap items-center gap-2">
+          {selectedPlanId && (
+            <div className="w-full mb-2 rounded-lg border border-teal-200 bg-teal-50 px-4 py-2 text-sm text-teal-700">
+              {language === "ar"
+                ? "عرض المسارات المضمنة في خطتك المحددة"
+                : "Showing paths included in your selected plan"}
+            </div>
+          )}
           <button
             onClick={() => setFilter("all")}
             className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${

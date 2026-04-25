@@ -129,6 +129,7 @@ export function DashboardContent({
     monthly: language === "ar" ? "شهري" : "Monthly",
     yearly: language === "ar" ? "سنوي" : "Yearly",
     oneTime: language === "ar" ? "دفعة واحدة" : "One-Time",
+    viewIncludedPaths: language === "ar" ? "عرض المسارات المتاحة" : "View Included Paths",
   };
 
   const formatDate = (dateString?: string) => {
@@ -232,48 +233,6 @@ export function DashboardContent({
           </div>
         )}
 
-        {/* Purchased Plans - separate from enrolled paths */}
-        <div className="mb-8">
-          <h2 className="text-lg font-semibold text-slate-900 mb-4">{t.purchasedPlans}</h2>
-          {purchasedPlans.length === 0 ? (
-            <div className="bg-white rounded-xl border border-slate-200 p-5 text-sm text-slate-600">
-              {t.noPurchasedPlans}
-            </div>
-          ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {purchasedPlans.map((record) => {
-                const plan = record.subscription_plans;
-                if (!plan) return null;
-                const planName = getText(plan.display_name_en, plan.display_name_ar) || plan.name;
-                const billingType =
-                  plan.payment_type === "one_time" ||
-                  ((plan.price_one_time_egp ?? 0) > 0 &&
-                    (plan.price_monthly_egp ?? 0) === 0 &&
-                    (plan.price_yearly_egp ?? 0) === 0)
-                    ? t.oneTime
-                    : record.billing_cycle === "yearly"
-                    ? t.yearly
-                    : t.monthly;
-
-                return (
-                  <div key={record.id} className="bg-white rounded-xl border border-slate-200 p-5">
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <h3 className="font-semibold text-slate-900">{planName}</h3>
-                      <span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-700">
-                        {getStatusLabel(record.status)}
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-500 mb-1">
-                      {t.purchasedOn}: {formatDate(record.created_at)}
-                    </p>
-                    <p className="text-xs text-slate-500">{billingType}</p>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
         {/* Getting started / AI Path Finder */}
         <div className="grid md:grid-cols-2 gap-6 mb-8">
           <div className="bg-gradient-to-br from-teal-500 to-emerald-600 rounded-xl p-6 text-white">
@@ -339,6 +298,53 @@ export function DashboardContent({
             </div>
           </div>
         )}
+
+        {/* Purchased Plans - separate from enrolled paths */}
+        <div className="mb-8">
+          <h2 className="text-lg font-semibold text-slate-900 mb-4">{t.purchasedPlans}</h2>
+          {purchasedPlans.length === 0 ? (
+            <div className="bg-white rounded-xl border border-slate-200 p-5 text-sm text-slate-600">
+              {t.noPurchasedPlans}
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {purchasedPlans.map((record) => {
+                const plan = record.subscription_plans;
+                if (!plan) return null;
+                const planName = getText(plan.display_name_en, plan.display_name_ar) || plan.name;
+                const billingType =
+                  plan.payment_type === "one_time" ||
+                  ((plan.price_one_time_egp ?? 0) > 0 &&
+                    (plan.price_monthly_egp ?? 0) === 0 &&
+                    (plan.price_yearly_egp ?? 0) === 0)
+                    ? t.oneTime
+                    : record.billing_cycle === "yearly"
+                    ? t.yearly
+                    : t.monthly;
+
+                return (
+                  <Link
+                    key={record.id}
+                    href={`/paths?planId=${plan.id}`}
+                    className="bg-white rounded-xl border border-slate-200 p-5 hover:border-teal-300 hover:shadow-md transition"
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <h3 className="font-semibold text-slate-900">{planName}</h3>
+                      <span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-700">
+                        {getStatusLabel(record.status)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mb-1">
+                      {t.purchasedOn}: {formatDate(record.created_at)}
+                    </p>
+                    <p className="text-xs text-slate-500 mb-3">{billingType}</p>
+                    <p className="text-sm font-medium text-teal-600">{t.viewIncludedPaths}</p>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
         {/* Recommended Paths - Show saved path finder results or generic recommendations */}
         {/* {recommendedPaths.length > 0 && (

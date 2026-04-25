@@ -3,7 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 import { AllPathsWithPlans } from "@/components/AllPathsWithPlans";
 
 type Props = {
-  searchParams?: Promise<{ error?: string }>;
+  searchParams?: Promise<{ error?: string; planId?: string }>;
 };
 
 type PathWithPlanWithMetadata = {
@@ -32,6 +32,7 @@ export default async function PathsPage({ searchParams }: Props) {
   const supabase = createClient(cookieStore);
   
   const resolvedSearchParams = await searchParams;
+  const selectedPlanId = resolvedSearchParams?.planId || null;
 
   const {
     data: { user },
@@ -148,6 +149,7 @@ export default async function PathsPage({ searchParams }: Props) {
       pathsWithPlans={transformedData}
       isLoggedIn={!!user}
       userSubscribedPlans={userSubscribedPlans}
+      selectedPlanId={selectedPlanId}
     />
   );
 }
