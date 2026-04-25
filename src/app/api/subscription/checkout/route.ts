@@ -193,6 +193,19 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Check if Kashier credentials are configured
+    if (!KASHIER_API_KEY || !KASHIER_SECRET_KEY || !KASHIER_MERCHANT_ID) {
+      console.error("Kashier credentials missing:", {
+        hasApiKey: !!KASHIER_API_KEY,
+        hasSecretKey: !!KASHIER_SECRET_KEY,
+        hasMerchantId: !!KASHIER_MERCHANT_ID
+      });
+      return NextResponse.json(
+        { error: "Payment gateway not configured. Please contact support." },
+        { status: 500 }
+      );
+    }
+
     // Fetch user profile for billing info
     const { data: profile } = await supabase
       .from("user_profiles")
@@ -251,6 +264,13 @@ export async function POST(request: NextRequest) {
     };
 
     // Create Payment Session via Kashier API
+    console.log("Creating Kashier payment session:", {
+      orderId,
+      amount: sessionData.amount,
+      mode: KASHIER_MODE,
+      endpoint: `${KASHIER_BASE_URL}/v3/payment/sessions`
+    });
+
     const sessionResponse = await fetch(`${KASHIER_BASE_URL}/v3/payment/sessions`, {
       method: 'POST',
       headers: {
@@ -262,9 +282,16 @@ export async function POST(request: NextRequest) {
     });
 
     if (!sessionResponse.ok) {
-      const errorData = await sessionResponse.text();
-      console.error("Kashier session creation failed:", errorData);
-      return NextResponse.json({ error: "Failed to create payment session" }, { status: 500 });
+      const errorText = await sessionResponse.text();
+      console.error("Kashier session creation failed:", {
+        status: sessionResponse.status,
+        statusText: sessionResponse.statusText,
+        error: errorText
+      });
+      return NextResponse.json(
+        { error: `Payment session failed: ${sessionResponse.statusText}` },
+        { status: 500 }
+      );
     }
 
     const sessionResult = await sessionResponse.json();

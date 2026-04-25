@@ -12,7 +12,7 @@ interface CheckoutPageProps {
   billingCycle?: "monthly" | "yearly";
 }
 
-type PaymentMethod = "kashier" | "cod";
+type PaymentMethod = "kashier";
 
 interface PromoDiscount {
   code: string;
@@ -211,59 +211,8 @@ export default function CheckoutPage({
     }
   };
 
-  // Cash on Delivery Handler (Test Mode)
-  const handleCODCheckout = async () => {
-    if (isLoading) return;
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      // TODO: Replace with actual API call when ready
-      /*
-      const response = await fetch("/api/subscription/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          planId,
-          billingCycle,
-          paymentMethod: "cod",
-          promoCode: promoApplied?.code || null,
-          finalAmount: discountedAmount,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.error || "Failed to process order");
-        setIsLoading(false);
-        return;
-      }
-
-      // Handle success
-      window.location.href = "/dashboard?subscription=pending";
-      */
-
-      // Test Mode: Show success message
-      setShowSuccess(true);
-      setIsLoading(false);
-    } catch (err: any) {
-      console.error("Checkout error:", err);
-      setError(err.message || "An error occurred during checkout");
-      setIsLoading(false);
-    }
-  };
-
   const handleCheckout = () => {
-    if (paymentMethod === "kashier") {
-      handleKashierCheckout();
-    } else {
-      handleCODCheckout();
-    }
+    handleKashierCheckout();
   };
 
   // Generate fake order number for test
@@ -606,74 +555,18 @@ export default function CheckoutPage({
           <div className="mb-6">
             <h3 className="text-md font-semibold text-slate-900 mb-4">{t.paymentMethod}</h3>
 
-            <div className="space-y-3">
-              {/* Kashier Option */}
-              {/* <label
-                className={`flex items-start gap-4 p-4 border-2 rounded-xl cursor-pointer transition ${
-                  paymentMethod === "kashier"
-                    ? "border-[#429874] bg-[#429874]/5"
-                    : "border-slate-200 hover:border-slate-300"
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="kashier"
-                  checked={paymentMethod === "kashier"}
-                  onChange={() => setPaymentMethod("kashier")}
-                  className="mt-1 w-4 h-4 text-[#429874] focus:ring-[#429874]"
-                />
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                  
-                    <div className="w-8 h-8 bg-yellow-400 rounded-lg flex items-center justify-center">
-                      <span className="text-xs font-bold text-slate-900">F</span>
-                    </div>
-                    <span className="font-medium text-slate-900">{t.kashierPayment}</span>
-                  </div>
-                  <p className="text-sm text-slate-500">{t.kashierDescription}</p>
+            <div className="p-4 bg-[#429874]/10 border border-[#429874]/20 rounded-xl">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-[#429874] rounded-lg flex items-center justify-center flex-shrink-0">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
                 </div>
-              </label> */}
-
-              {/* Cash on Delivery Option */}
-              <label
-                className={`flex items-start gap-4 p-4 border-2 rounded-xl cursor-pointer transition ${
-                  paymentMethod === "cod"
-                    ? "border-[#429874] bg-[#429874]/5"
-                    : "border-slate-200 hover:border-slate-300"
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="cod"
-                  checked={paymentMethod === "cod"}
-                  onChange={() => setPaymentMethod("cod")}
-                  className="mt-1 w-4 h-4 text-[#429874] focus:ring-[#429874]"
-                />
                 <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    {/* COD Icon */}
-                    <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                      <svg
-                        className="w-5 h-5 text-green-600"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"
-                        />
-                      </svg>
-                    </div>
-                    <span className="font-medium text-slate-900">{t.cashOnDelivery}</span>
-                  </div>
-                  <p className="text-sm text-slate-500">{t.codDescription}</p>
+                  <h4 className="font-semibold text-slate-900 mb-1">{t.kashierPayment}</h4>
+                  <p className="text-sm text-slate-600">{t.kashierDescription}</p>
                 </div>
-              </label>
+              </div>
             </div>
           </div>
 
@@ -713,10 +606,8 @@ export default function CheckoutPage({
                 </svg>
                 {t.processing}
               </div>
-            ) : paymentMethod === "kashier" ? (
-              t.checkout
             ) : (
-              t.confirmOrder
+              t.checkout
             )}
           </button>
 
@@ -730,42 +621,40 @@ export default function CheckoutPage({
         </div>
 
         {/* Kashier Disclaimer */}
-        {paymentMethod === "kashier" && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
-            <div className="flex items-start gap-3">
-              <svg
-                className={`w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
+          <div className="flex items-start gap-3">
+            <svg
+              className={`w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <div>
+              <p className="text-sm text-amber-800">{t.kashierDisclaimer}</p>
+              <Link
+                href="/contact"
+                className="inline-flex items-center gap-1 text-sm font-medium text-amber-700 hover:text-amber-800 mt-2"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              <div>
-                <p className="text-sm text-amber-800">{t.kashierDisclaimer}</p>
-                <Link
-                  href="/contact"
-                  className="inline-flex items-center gap-1 text-sm font-medium text-amber-700 hover:text-amber-800 mt-2"
-                >
-                  {t.contactUs}
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d={isArabic ? "M15 19l-7-7 7-7" : "M9 5l7 7-7 7"}
-                    />
-                  </svg>
-                </Link>
-              </div>
+                {t.contactUs}
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d={isArabic ? "M15 19l-7-7 7-7" : "M9 5l7 7-7 7"}
+                  />
+                </svg>
+              </Link>
             </div>
           </div>
-        )}
+        </div>
 
         {/* Security Badge */}
         <div className="text-center">
