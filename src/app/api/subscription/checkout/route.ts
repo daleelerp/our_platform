@@ -9,9 +9,15 @@ const KASHIER_MERCHANT_ID = process.env.KASHIER_MERCHANT_ID;
 const KASHIER_MODE = process.env.KASHIER_MODE || "test"; // "test" or "live"
 
 // Get base URL from environment or use production default
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || process.env.VERCEL_URL
-  ? `https://${process.env.VERCEL_URL}`
-  : "https://www.daleel.site";
+// const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || process.env.VERCEL_URL
+//   ? `https://${process.env.VERCEL_URL}`
+//   : "https://www.daleel.site";
+
+const BASE_URL =
+  process.env.NEXT_PUBLIC_BASE_URL ||
+  (process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : "https://www.daleel.site");
 
 const KASHIER_BASE_URL = KASHIER_MODE === "live"
   ? "https://api.kashier.io"
