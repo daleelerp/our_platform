@@ -38,13 +38,14 @@ export default function PaymentCallbackPage() {
     const pending = searchParams.get("pending");
     const txnResponseCode = searchParams.get("txn_response_code");
     
-    // Kashier parameters
+    // Kashier parameters (both old and new API)
     const kashierStatus = searchParams.get("status");
     const chargeId = searchParams.get("chargeId");
+    const sessionId = searchParams.get("session_id");
     const provider = searchParams.get("provider");
 
-    // Kashier success responses: PAID or success=true
-    if (provider === "kashier" && (kashierStatus === "PAID" || success === "true")) {
+    // Kashier success responses: PAID, SUCCESS, or success=true
+    if (provider === "kashier" && (kashierStatus === "PAID" || kashierStatus === "SUCCESS" || success === "true")) {
       setStatus("success");
       // Auto redirect after 3 seconds
       setTimeout(() => {
@@ -62,7 +63,7 @@ export default function PaymentCallbackPage() {
     } else if (success === "false" || txnResponseCode || kashierStatus === "FAILED" || kashierStatus === "CANCELLED") {
       setStatus("failed");
     } else {
-      // No params, might be direct access
+      // No params, might be direct access or unknown status
       setStatus("pending");
     }
   }, [searchParams, router]);

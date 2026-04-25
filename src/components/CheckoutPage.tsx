@@ -164,7 +164,7 @@ export default function CheckoutPage({
     setPromoError(null);
   };
 
-  // Kashier Payment Handler (Commented for now)
+  // Kashier Payment Handler
   const handleKashierCheckout = async () => {
     if (isLoading) return;
 
@@ -172,8 +172,6 @@ export default function CheckoutPage({
     setError(null);
 
     try {
-      // TODO: Uncomment when Kashier integration is ready
-      /*
       const response = await fetch("/api/subscription/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -182,7 +180,6 @@ export default function CheckoutPage({
           billingCycle,
           paymentMethod: "kashier",
           promoCode: promoApplied?.code || null,
-          finalAmount: discountedAmount,
         }),
       });
 
@@ -194,9 +191,9 @@ export default function CheckoutPage({
         return;
       }
 
-      if (data.checkoutUrl) {
-        // Redirect to Kashier payment page
-        window.location.href = data.checkoutUrl;
+      if (data.sessionUrl) {
+        // Redirect to Kashier payment session
+        window.location.href = data.sessionUrl;
       } else if (data.redirectUrl) {
         // Direct redirect (for free plan or trial)
         window.location.href = data.redirectUrl;
@@ -204,18 +201,9 @@ export default function CheckoutPage({
         // Success without redirect
         window.location.href = "/dashboard?subscription=activated";
       } else {
-        setError("No checkout URL received");
+        setError("No payment session URL received");
         setIsLoading(false);
       }
-      */
-
-      // Temporary: Show message that Kashier is not available yet
-      setError(
-        isArabic
-          ? "الدفع عبر كاشير غير متاح حالياً. يرجى اختيار الدفع عند الاستلام."
-          : "Kashier payment is not available yet. Please choose Cash on Delivery."
-      );
-      setIsLoading(false);
     } catch (err: any) {
       console.error("Checkout error:", err);
       setError(err.message || "An error occurred during checkout");

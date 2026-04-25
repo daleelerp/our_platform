@@ -13,116 +13,209 @@ const KASHIER_SECRET_KEY = process.env.KASHIER_SECRET_KEY;
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    
-    // Verify signature if configured
-    if (KASHIER_SECRET_KEY) {
-      // Kashier signature verification
-      // The signature should be in the header: X-Kashier-Signature
-      const signatureHeader = request.headers.get("X-Kashier-Signature");
-      
-      // Build the data to verify (Kashier sends this in the webhook)
-      const dataToVerify = [
-        body.chargeId,
-        body.amount,
-        body.currency,
-        body.paymentMethod,
-        body.status,
-        KASHIER_SECRET_KEY
-      ].join("");
 
-      const expectedSignature = crypto
-        .createHmac("sha256", KASHIER_SECRET_KEY)
-        .update(dataToVerify)
-        .digest("hex");
+    console.log("Webhook received:", JSON.stringify(body, null, 2));
 
-      if (signatureHeader && signatureHeader !== expectedSignature) {
-        console.error("Invalid Kashier signature");
-        return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+    // Check if this is a session-based webhook (new API) or charge-based (old API)
+    const isSessionWebhook = body.sessionId && body.status;
+
+    if (isSessionWebhook) {
+      // Handle new Payment Sessions API webhook
+      const { sessionId, status, merchantOrderId, amount, currency, method, orderId } = body;
+
+      console.log(`Session Webhook received: Session ${sessionId}, Status: ${status}`);
+
+      // Find the subscription by session ID
+      const { data: subscription, error: subError } = await supabase
+        .from("user_subscriptions")
+        .select("*, subscription_plans(*)")
+        .eq("external_subscription_id", sessionId)
+        .single();
+
+      if (subError || !subscription) {
+        console.error("Subscription not found for session:", sessionId);
+        return NextResponse.json({ error: "Subscription not found" }, { status: 404 });
       }
-    }
 
-    const { chargeId, amount, currency, paymentMethod, status, orderId, referenceNumber } = body;
+      if (status === "SUCCESS" || status === "PAID") {
+        // Payment successful - activate subscription
+        const periodEnd = new Date();
+        if (subscription.billing_cycle === "yearly") {
+          periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+        } else {
+          periodEnd.setMonth(periodEnd.getMonth() + 1);
+        }
 
-    console.log(`Webhook received: Charge ${chargeId}, Status: ${status}`);
+        await supabase
+          .from("user_subscriptions")
+          .update({
+            status: "active",
+            started_at: new Date().toISOString(),
+            current_period_start: new Date().toISOString(),
+            current_period_end: periodEnd.toISOString(),
+            payment_method: method || "card",
+            payment_provider: "kashier",
+          })
+          .eq("id", subscription.id);
 
-    // Find the subscription by charge ID
-    const { data: subscription, error: subError } = await supabase
-      .from("user_subscriptions")
-      .select("*, subscription_plans(*)")
-      .eq("external_subscription_id", chargeId)
-      .single();
+        // Record transaction
+        await supabase
+          .from("payment_transactions")
+          .insert({
+            user_id: subscription.user_id,
+            subscription_id: subscription.id,
+            amount_egp: parseFloat(amount),
+            currency: currency || "EGP",
+            status: "completed",
+            type: "subscription",
+            payment_method: method || "card",
+            payment_provider: "kashier",
+            provider_transaction_id: orderId || sessionId,
+            provider_response: body,
+          });
 
-    if (subError || !subscription) {
-      console.error("Subscription not found for charge:", chargeId);
-      return NextResponse.json({ error: "Subscription not found" }, { status: 404 });
-    }
+        console.log(`Subscription ${subscription.id} activated successfully via Kashier session ${sessionId}`);
+      } else if (status === "PENDING") {
+        // Payment pending - keep subscription in pending state
+        console.log(`Payment pending for subscription ${subscription.id}`);
+      } else if (status === "FAILED" || status === "CANCELLED") {
+        // Payment failed
+        await supabase
+          .from("user_subscriptions")
+          .update({
+            status: "cancelled",
+          })
+          .eq("id", subscription.id);
 
-    if (status === "PAID" || status === "SUCCESS" || status === "success") {
-      // Payment successful - activate subscription
-      const periodEnd = new Date();
-      if (subscription.billing_cycle === "yearly") {
-        periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+        // Record failed transaction
+        await supabase
+          .from("payment_transactions")
+          .insert({
+            user_id: subscription.user_id,
+            subscription_id: subscription.id,
+            amount_egp: parseFloat(amount),
+            currency: currency || "EGP",
+            status: "failed",
+            type: "subscription",
+            payment_method: method || "card",
+            payment_provider: "kashier",
+            provider_transaction_id: orderId || sessionId,
+            provider_response: body,
+          });
+
+        console.log(`Payment failed for subscription ${subscription.id}, session ${sessionId}`);
       } else {
-        periodEnd.setMonth(periodEnd.getMonth() + 1);
+        console.log(`Unknown payment status: ${status} for session ${sessionId}`);
+      }
+    } else {
+      // Handle legacy charge-based webhook (old API)
+      // Verify signature if configured
+      if (KASHIER_SECRET_KEY) {
+        const signatureHeader = request.headers.get("X-Kashier-Signature");
+
+        const dataToVerify = [
+          body.chargeId,
+          body.amount,
+          body.currency,
+          body.paymentMethod,
+          body.status,
+          KASHIER_SECRET_KEY
+        ].join("");
+
+        const expectedSignature = crypto
+          .createHmac("sha256", KASHIER_SECRET_KEY)
+          .update(dataToVerify)
+          .digest("hex");
+
+        if (signatureHeader && signatureHeader !== expectedSignature) {
+          console.error("Invalid Kashier signature");
+          return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+        }
       }
 
-      await supabase
+      const { chargeId, amount, currency, paymentMethod, status, orderId, referenceNumber } = body;
+
+      console.log(`Legacy Webhook received: Charge ${chargeId}, Status: ${status}`);
+
+      // Find the subscription by charge ID
+      const { data: subscription, error: subError } = await supabase
         .from("user_subscriptions")
-        .update({
-          status: "active",
-          started_at: new Date().toISOString(),
-          current_period_start: new Date().toISOString(),
-          current_period_end: periodEnd.toISOString(),
-          payment_method: paymentMethod || "kashier",
-          payment_provider: "kashier",
-        })
-        .eq("id", subscription.id);
+        .select("*, subscription_plans(*)")
+        .eq("external_subscription_id", chargeId)
+        .single();
 
-      // Record transaction
-      await supabase
-        .from("payment_transactions")
-        .insert({
-          user_id: subscription.user_id,
-          subscription_id: subscription.id,
-          amount_egp: amount / 100, // Kashier uses fils (smallest unit)
-          currency: currency || "EGP",
-          status: "completed",
-          type: "subscription",
-          payment_method: paymentMethod || "kashier",
-          payment_provider: "kashier",
-          provider_transaction_id: referenceNumber || chargeId,
-          provider_response: body,
-        });
+      if (subError || !subscription) {
+        console.error("Subscription not found for charge:", chargeId);
+        return NextResponse.json({ error: "Subscription not found" }, { status: 404 });
+      }
 
-      console.log(`Subscription ${subscription.id} activated successfully via Kashier`);
-    } else if (status === "PENDING") {
-      // Payment pending - keep subscription in pending state
-      console.log(`Payment pending for subscription ${subscription.id}`);
-    } else {
-      // Payment failed or cancelled
-      await supabase
-        .from("user_subscriptions")
-        .update({ status: "expired" })
-        .eq("id", subscription.id);
+      if (status === "PAID" || status === "SUCCESS" || status === "success") {
+        // Payment successful - activate subscription
+        const periodEnd = new Date();
+        if (subscription.billing_cycle === "yearly") {
+          periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+        } else {
+          periodEnd.setMonth(periodEnd.getMonth() + 1);
+        }
 
-      // Record failed transaction
-      await supabase
-        .from("payment_transactions")
-        .insert({
-          user_id: subscription.user_id,
-          subscription_id: subscription.id,
-          amount_egp: amount / 100,
-          currency: currency || "EGP",
-          status: "failed",
-          type: "subscription",
-          payment_method: paymentMethod || "kashier",
-          payment_provider: "kashier",
-          provider_transaction_id: referenceNumber || chargeId,
-          provider_response: body,
-          description: `Payment ${status}`,
-        });
+        await supabase
+          .from("user_subscriptions")
+          .update({
+            status: "active",
+            started_at: new Date().toISOString(),
+            current_period_start: new Date().toISOString(),
+            current_period_end: periodEnd.toISOString(),
+            payment_method: paymentMethod || "kashier",
+            payment_provider: "kashier",
+          })
+          .eq("id", subscription.id);
 
-      console.log(`Payment ${status} for subscription ${subscription.id}`);
+        // Record transaction
+        await supabase
+          .from("payment_transactions")
+          .insert({
+            user_id: subscription.user_id,
+            subscription_id: subscription.id,
+            amount_egp: amount / 100, // Kashier uses fils (smallest unit)
+            currency: currency || "EGP",
+            status: "completed",
+            type: "subscription",
+            payment_method: paymentMethod || "kashier",
+            payment_provider: "kashier",
+            provider_transaction_id: referenceNumber || chargeId,
+            provider_response: body,
+          });
+
+        console.log(`Subscription ${subscription.id} activated successfully via legacy Kashier`);
+      } else if (status === "PENDING") {
+        // Payment pending - keep subscription in pending state
+        console.log(`Payment pending for subscription ${subscription.id}`);
+      } else {
+        // Payment failed or cancelled
+        await supabase
+          .from("user_subscriptions")
+          .update({ status: "expired" })
+          .eq("id", subscription.id);
+
+        // Record failed transaction
+        await supabase
+          .from("payment_transactions")
+          .insert({
+            user_id: subscription.user_id,
+            subscription_id: subscription.id,
+            amount_egp: amount / 100,
+            currency: currency || "EGP",
+            status: "failed",
+            type: "subscription",
+            payment_method: paymentMethod || "kashier",
+            payment_provider: "kashier",
+            provider_transaction_id: referenceNumber || chargeId,
+            provider_response: body,
+            description: `Payment ${status}`,
+          });
+
+        console.log(`Payment ${status} for subscription ${subscription.id}`);
+      }
     }
 
     return NextResponse.json({ received: true });

@@ -1,16 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
-import crypto from "crypto";
 
-// Kashier configuration
+// Kashier Payment Sessions API configuration
 const KASHIER_API_KEY = process.env.KASHIER_API_KEY;
-const KASHIER_MERCHANT_CODE = process.env.KASHIER_MERCHANT_CODE;
 const KASHIER_SECRET_KEY = process.env.KASHIER_SECRET_KEY;
+const KASHIER_MERCHANT_ID = process.env.KASHIER_MERCHANT_ID;
+const KASHIER_MODE = process.env.KASHIER_MODE || "test"; // "test" or "live"
+
 // Get base URL from environment or use production default
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || process.env.VERCEL_URL 
-  ? `https://${process.env.VERCEL_URL}` 
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || process.env.VERCEL_URL
+  ? `https://${process.env.VERCEL_URL}`
   : "https://www.daleel.site";
+
+const KASHIER_BASE_URL = KASHIER_MODE === "live"
+  ? "https://api.kashier.io"
+  : "https://test-api.kashier.io";
 
 export async function POST(request: NextRequest) {
   try {
@@ -123,7 +128,7 @@ export async function POST(request: NextRequest) {
     }
 
     // If Kashier is not configured, return mock checkout
-    if (!KASHIER_API_KEY || !KASHIER_MERCHANT_CODE || !KASHIER_SECRET_KEY) {
+    if (!KASHIER_API_KEY || !KASHIER_MERCHANT_ID || !KASHIER_SECRET_KEY) {
       // For development/testing - simulate checkout
       console.log("Kashier not configured, simulating checkout");
       
@@ -195,49 +200,86 @@ export async function POST(request: NextRequest) {
       .eq("id", user.id)
       .single();
 
-    // Create Kashier charge request
-    // Reference: https://developer.kashier.io/docs
-    
-    const chargeId = `${user.id}-${Date.now()}`; // Unique identifier
+    // Create unique order ID
+    const orderId = `daleel-${user.id}-${Date.now()}`;
     const description = `Daleel ${plan.display_name_en} - ${finalBillingCycle || 'one-time'}`;
-    
-    // Build the data to sign for Kashier signature
-    const dataToSign = [
-      KASHIER_MERCHANT_CODE,
-      chargeId,
-      Math.round(amount * 100), // Kashier uses fils (smallest unit)
-      `${BASE_URL}/payment/callback?provider=kashier`,
-      KASHIER_SECRET_KEY
-    ].join("");
 
-    const signature = crypto
-      .createHmac("sha256", KASHIER_SECRET_KEY)
-      .update(dataToSign)
-      .digest("hex");
+    // Calculate expiration time (24 hours from now)
+    const expireAt = new Date();
+    expireAt.setHours(expireAt.getHours() + 24);
 
-    // Prepare the checkout URL with all required parameters
-    const checkoutParams = new URLSearchParams({
-      merchantCode: KASHIER_MERCHANT_CODE,
-      chargeId: chargeId,
-      amount: Math.round(amount * 100).toString(),
-      currencyCode: "EGP",
-      chargeDescription: description,
-      returnUrl: `${BASE_URL}/payment/callback?provider=kashier`,
-      signature: signature,
-      customerName: profile?.full_name || "Customer",
-      customerEmail: user.email || "",
-      customerMobile: profile?.phone_number || "",
+    // Prepare Payment Session request data
+    const sessionData = {
+      expireAt: expireAt.toISOString(),
+      maxFailureAttempts: 3,
+      paymentType: "credit",
+      amount: amount.toFixed(2),
+      currency: "EGP",
+      orderId: orderId,
+      merchantRedirect: `${BASE_URL}/payment/callback?provider=kashier&session_id={session_id}`,
+      display: "en",
+      type: isOneTimePayment ? "one-time" : "recurring",
+      allowedMethods: paymentMethod ? paymentMethod : "card,wallet",
+      redirectMethod: "get",
+      iframeBackgroundColor: "#FFFFFF",
+      metaData: {
+        planId: planId,
+        billingCycle: finalBillingCycle,
+        discountApplied: discountApplied ? discountApplied.id : null,
+        customKey: "daleel_subscription",
+        displayNotes: {
+          plan: plan.display_name_en,
+          billing: finalBillingCycle || 'one-time'
+        }
+      },
+      merchantId: KASHIER_MERCHANT_ID,
+      failureRedirect: true,
+      brandColor: "#FF5733",
+      defaultMethod: "card",
+      description: description,
+      manualCapture: false,
+      customer: {
+        email: user.email || "",
+        reference: user.id
+      },
+      saveCard: "optional",
+      retrieveSavedCard: true,
+      interactionSource: "ECOMMERCE",
+      enable3DS: true,
+      serverWebhook: `${BASE_URL}/api/subscription/webhook`,
+      notes: `Subscription payment for ${plan.display_name_en}`
+    };
+
+    // Create Payment Session via Kashier API
+    const sessionResponse = await fetch(`${KASHIER_BASE_URL}/v3/payment/sessions`, {
+      method: 'POST',
+      headers: {
+        'Authorization': KASHIER_SECRET_KEY,
+        'api-key': KASHIER_API_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(sessionData)
     });
 
-    // Store pending subscription with charge ID
-    await supabase
+    if (!sessionResponse.ok) {
+      const errorData = await sessionResponse.text();
+      console.error("Kashier session creation failed:", errorData);
+      return NextResponse.json({ error: "Failed to create payment session" }, { status: 500 });
+    }
+
+    const sessionResult = await sessionResponse.json();
+    const sessionId = sessionResult._id;
+    const sessionUrl = sessionResult.sessionUrl;
+
+    // Store pending subscription with session ID
+    const { data: subscription, error: subError } = await supabase
       .from("user_subscriptions")
       .upsert({
         user_id: user.id,
         plan_id: planId,
         status: "pending",
         billing_cycle: finalBillingCycle,
-        external_subscription_id: chargeId,
+        external_subscription_id: sessionId,
         price_locked_egp: amount,
         is_founders_club: promoCode?.toUpperCase() === "FOUNDERS2024",
         // Store percentage discount for reporting (null for fixed/trial)
@@ -247,40 +289,39 @@ export async function POST(request: NextRequest) {
             : null,
       }, {
         onConflict: "user_id"
-      });
+      })
+      .select()
+      .single();
+
+    if (subError) {
+      console.error("Subscription creation error:", subError);
+      return NextResponse.json({ error: "Failed to create subscription" }, { status: 500 });
+    }
 
     // Record discount usage if applied
     if (discountApplied) {
-      // Get the subscription to get its ID for recording usage
-      const { data: subscription } = await supabase
-        .from("user_subscriptions")
-        .select("id")
-        .eq("user_id", user.id)
-        .single();
+      await supabase
+        .from("user_discount_usage")
+        .insert({
+          user_id: user.id,
+          discount_id: discountApplied.id,
+          subscription_id: subscription.id,
+        });
 
-      if (subscription) {
-        await supabase
-          .from("user_discount_usage")
-          .insert({
-            user_id: user.id,
-            discount_id: discountApplied.id,
-            subscription_id: subscription.id,
-          });
-
-        // Increment discount usage
-        await supabase
-          .from("subscription_discounts")
-          .update({ current_uses: discountApplied.current_uses + 1 })
-          .eq("id", discountApplied.id);
-      }
+      // Increment discount usage
+      await supabase
+        .from("subscription_discounts")
+        .update({ current_uses: discountApplied.current_uses + 1 })
+        .eq("id", discountApplied.id);
     }
 
-    // Kashier checkout URL
-    const checkoutUrl = `https://www.kashier.io/pay?${checkoutParams.toString()}`;
+    console.log(`Kashier payment session created: ${sessionId}`);
 
-    console.log(`Kashier checkout URL generated for charge ${chargeId}`);
-
-    return NextResponse.json({ checkoutUrl });
+    return NextResponse.json({
+      success: true,
+      sessionUrl: sessionUrl,
+      sessionId: sessionId
+    });
 
   } catch (error: any) {
     console.error("Checkout error:", error);
