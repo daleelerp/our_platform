@@ -221,6 +221,19 @@ export async function POST(request: NextRequest) {
     const expireAt = new Date();
     expireAt.setHours(expireAt.getHours() + 24);
 
+    // Prepare metaData - must be encoded JSON string per Kashier API
+    const metaDataObj = {
+      planId: planId,
+      billingCycle: finalBillingCycle,
+      discountApplied: discountApplied ? discountApplied.id : null,
+      customKey: "daleel_subscription",
+      displayNotes: {
+        plan: plan.display_name_en,
+        billing: finalBillingCycle || 'one-time'
+      }
+    };
+    const encodedMetaData = encodeURIComponent(JSON.stringify(metaDataObj));
+
     // Prepare Payment Session request data
     const sessionData = {
       expireAt: expireAt.toISOString(),
@@ -235,22 +248,14 @@ export async function POST(request: NextRequest) {
       allowedMethods: paymentMethod ? paymentMethod : "card,wallet",
       redirectMethod: "get",
       iframeBackgroundColor: "#FFFFFF",
-      metaData: {
-        planId: planId,
-        billingCycle: finalBillingCycle,
-        discountApplied: discountApplied ? discountApplied.id : null,
-        customKey: "daleel_subscription",
-        displayNotes: {
-          plan: plan.display_name_en,
-          billing: finalBillingCycle || 'one-time'
-        }
-      },
+      metaData: encodedMetaData,
       merchantId: KASHIER_MERCHANT_ID,
       failureRedirect: true,
       brandColor: "#FF5733",
       defaultMethod: "card",
       description: description,
       manualCapture: false,
+      mode: KASHIER_MODE,
       customer: {
         email: user.email || "",
         reference: user.id
@@ -268,7 +273,9 @@ export async function POST(request: NextRequest) {
       orderId,
       amount: sessionData.amount,
       mode: KASHIER_MODE,
-      endpoint: `${KASHIER_BASE_URL}/v3/payment/sessions`
+      merchant: KASHIER_MERCHANT_ID,
+      endpoint: `${KASHIER_BASE_URL}/v3/payment/sessions`,
+      payloadSize: JSON.stringify(sessionData).length
     });
 
     const sessionResponse = await fetch(`${KASHIER_BASE_URL}/v3/payment/sessions`, {
@@ -286,10 +293,28 @@ export async function POST(request: NextRequest) {
       console.error("Kashier session creation failed:", {
         status: sessionResponse.status,
         statusText: sessionResponse.statusText,
-        error: errorText
+        contentType: sessionResponse.headers.get('content-type'),
+        error: errorText,
+        requestData: {
+          orderId: sessionData.orderId,
+          amount: sessionData.amount,
+          currency: sessionData.currency,
+          merchant: sessionData.merchantId,
+          mode: sessionData.mode,
+          // Don't log sensitive data like credentials
+        }
       });
+      
+      let errorMessage = "Failed to create payment session";
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorMessage = errorJson.message || errorJson.error || errorMessage;
+      } catch (e) {
+        // Response is not JSON
+      }
+      
       return NextResponse.json(
-        { error: `Payment session failed: ${sessionResponse.statusText}` },
+        { error: errorMessage, details: errorText },
         { status: 500 }
       );
     }
