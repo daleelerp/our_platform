@@ -29,6 +29,7 @@ export function AIChatAssistant({ initialMessage }: Props) {
   const [isLoading, setIsLoading] = useState(false);
   const [hasGreeted, setHasGreeted] = useState(false);
   const [dailyMessagesUsed, setDailyMessagesUsed] = useState(0);
+  const [dailyLimit, setDailyLimit] = useState(FREE_DAILY_LIMIT);
   const [isPremium, setIsPremium] = useState(false);
   const [isCheckingSubscription, setIsCheckingSubscription] = useState(true);
   
@@ -60,8 +61,8 @@ export function AIChatAssistant({ initialMessage }: Props) {
     online: isArabic ? "متصل الآن" : "Online now",
     tryThese: isArabic ? "أو جرب أحد هذه الأسئلة:" : "Or try one of these:",
     limitReached: isArabic 
-      ? `لقد استخدمت ${FREE_DAILY_LIMIT} رسائل اليوم. قم بالترقية للحصول على رسائل غير محدودة!`
-      : `You've used ${FREE_DAILY_LIMIT} messages today. Upgrade for unlimited messages!`,
+      ? `لقد وصلت إلى الحد اليومي لرسائل الذكاء الاصطناعي. قم بالترقية للحصول على رسائل غير محدودة!`
+      : `You've reached your daily AI message limit. Upgrade for unlimited messages!`,
     messagesRemaining: isArabic 
       ? (count: number) => `${count} رسائل متبقية اليوم`
       : (count: number) => `${count} messages remaining today`,
@@ -94,11 +95,25 @@ export function AIChatAssistant({ initialMessage }: Props) {
           if (subError && (subError.code === "PGRST116" || subError?.message?.includes("406"))) {
             console.debug("Subscription tables not available, using free plan");
             setIsPremium(false);
-          } else if (subscription?.subscription_plans?.name === "premium" || 
-                     subscription?.subscription_plans?.name === "team") {
-            setIsPremium(true);
+          } else if (subscription?.subscription_plans) {
+            const plan = subscription.subscription_plans as any;
+            const isPaidPlan =
+              (plan.price_monthly_egp ?? 0) > 0 ||
+              (plan.price_yearly_egp ?? 0) > 0 ||
+              (plan.price_one_time_egp ?? 0) > 0 ||
+              (plan.price_per_user_egp ?? 0) > 0;
+
+            setIsPremium(isPaidPlan);
+
+            const planAiLimit = plan?.limitations?.ai_requests;
+            if (typeof planAiLimit === "number") {
+              setDailyLimit(planAiLimit);
+            } else {
+              setDailyLimit(FREE_DAILY_LIMIT);
+            }
           } else {
             setIsPremium(false);
+            setDailyLimit(FREE_DAILY_LIMIT);
           }
         } catch (error: any) {
           // Table doesn't exist
@@ -106,6 +121,7 @@ export function AIChatAssistant({ initialMessage }: Props) {
             console.debug("Subscription table not available");
           }
           setIsPremium(false);
+          setDailyLimit(FREE_DAILY_LIMIT);
         }
 
         // Get today's message count (only if table exists)
@@ -140,6 +156,7 @@ export function AIChatAssistant({ initialMessage }: Props) {
         // General error
         console.debug("Subscription check error:", error);
         setIsPremium(false);
+        setDailyLimit(FREE_DAILY_LIMIT);
         setDailyMessagesUsed(0);
       }
       
@@ -174,8 +191,9 @@ export function AIChatAssistant({ initialMessage }: Props) {
     }
   }, [isOpen]);
 
-  const canSendMessage = isPremium || dailyMessagesUsed < FREE_DAILY_LIMIT;
-  const messagesRemaining = FREE_DAILY_LIMIT - dailyMessagesUsed;
+  const effectiveLimit = dailyLimit === -1 ? Number.MAX_SAFE_INTEGER : dailyLimit;
+  const canSendMessage = isPremium || dailyMessagesUsed < effectiveLimit;
+  const messagesRemaining = Math.max(0, effectiveLimit - dailyMessagesUsed);
 
   const incrementUsage = async () => {
     if (!user || isPremium) return;
@@ -413,7 +431,7 @@ export function AIChatAssistant({ initialMessage }: Props) {
               <div className="mt-1 h-1 bg-slate-200 rounded-full overflow-hidden">
                 <div 
                   className="h-full bg-teal-500 transition-all duration-300"
-                  style={{ width: `${(messagesRemaining / FREE_DAILY_LIMIT) * 100}%` }}
+                  style={{ width: `${Math.max(0, Math.min(100, (messagesRemaining / effectiveLimit) * 100))}%` }}
                 />
               </div>
             </div>

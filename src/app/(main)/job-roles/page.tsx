@@ -11,9 +11,7 @@ export default async function JobRolesPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  let planName = "free";
   let hasPremiumAccess = false;
-  let subscription = null;
 
   // Only check subscription if user is authenticated
   if (user) {
@@ -25,16 +23,18 @@ export default async function JobRolesPage() {
           id,
           name,
           display_name_en,
-          display_name_ar
+          display_name_ar,
+          price_monthly_egp,
+          price_yearly_egp,
+          price_one_time_egp,
+          price_per_user_egp
         )
       `)
       .eq("user_id", user.id)
       .in("status", ["active", "trial", "paused"])
       .maybeSingle();
 
-    subscription = subscriptionData;
-    planName = subscription?.subscription_plans?.name || "free";
-    hasPremiumAccess = planName === "premium" || planName === "team";
+    hasPremiumAccess = !!subscriptionData;
   }
 
   // Fetch all job roles

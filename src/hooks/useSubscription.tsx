@@ -138,7 +138,16 @@ export function useSubscription(): UseSubscriptionReturn {
   }, [fetchSubscription]);
 
   // Computed properties
-  const isPremium = plan?.name === "premium" || plan?.name === "team";
+  const isPaidPlan = (() => {
+    if (!plan) return false;
+    return (
+      (plan.price_monthly_egp ?? 0) > 0 ||
+      (plan.price_yearly_egp ?? 0) > 0 ||
+      (plan.price_one_time_egp ?? 0) > 0 ||
+      (plan.price_per_user_egp ?? 0) > 0
+    );
+  })();
+  const isPremium = !!subscription && isPaidPlan;
   const isTeam = plan?.name === "team";
   const isTrial = subscription?.status === "trial";
 

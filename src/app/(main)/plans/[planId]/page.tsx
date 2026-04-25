@@ -51,6 +51,8 @@ export default async function PlanDetailsPage({ params }: Props) {
   );
 
   const featureKeys: string[] = Array.isArray(plan.features) ? plan.features : [];
+  const limitations =
+    plan.limitations && typeof plan.limitations === "object" ? (plan.limitations as Record<string, number>) : {};
   const { data: featureRows } = featureKeys.length
     ? await supabase
         .from("subscription_features")
@@ -72,6 +74,33 @@ export default async function PlanDetailsPage({ params }: Props) {
   const ctaHref = oneTime
     ? `/checkout?planId=${plan.id}`
     : `/checkout?planId=${plan.id}&billingCycle=monthly`;
+
+  const aiLimit = typeof limitations.ai_requests === "number" ? limitations.ai_requests : null;
+  const normalizedFeatureKeys = featureKeys.map((key) => key.toLowerCase());
+  const hasJobRolesAccess =
+    normalizedFeatureKeys.some((key) => key.includes("job")) ||
+    normalizedFeatureKeys.some((key) => key.includes("career"));
+  const hasSalaryAccess = normalizedFeatureKeys.some((key) => key.includes("salary"));
+
+  const accessItems = [
+    {
+      title: "AI Assistant Limit",
+      value:
+        aiLimit === null
+          ? "Not specified"
+          : aiLimit === -1
+            ? "Unlimited requests"
+            : `${aiLimit} requests per cycle`,
+    },
+    {
+      title: "Job Roles Library",
+      value: hasJobRolesAccess ? "Included" : "Not included",
+    },
+    {
+      title: "Salary Insights",
+      value: hasSalaryAccess ? "Included" : "Not included",
+    },
+  ];
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -146,6 +175,18 @@ export default async function PlanDetailsPage({ params }: Props) {
             ) : (
               <p className="text-slate-500 text-sm">Benefits will appear here.</p>
             )}
+
+            <div className="mt-6 pt-6 border-t border-slate-200">
+              <h3 className="text-base font-semibold text-slate-900 mb-3">Usage & Access</h3>
+              <div className="space-y-2">
+                {accessItems.map((item) => (
+                  <div key={item.title} className="flex items-center justify-between text-sm">
+                    <span className="text-slate-600">{item.title}</span>
+                    <span className="font-semibold text-slate-900">{item.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </section>
         </div>
       </div>
