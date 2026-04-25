@@ -26,6 +26,10 @@ type PurchasedPlanRecord = {
   } | null;
 };
 
+type PurchasedPlanQueryRow = Omit<PurchasedPlanRecord, "subscription_plans"> & {
+  subscription_plans: PurchasedPlanRecord["subscription_plans"] | PurchasedPlanRecord["subscription_plans"][];
+};
+
 export default function ProfilePage() {
   const router = useRouter();
   const language = useAppStore((state) => state.language);
@@ -195,7 +199,19 @@ export default function ProfilePage() {
       return;
     }
 
-    const paidPlans = (data as PurchasedPlanRecord[]).filter((record) => {
+    const normalizedRecords: PurchasedPlanRecord[] = (data as PurchasedPlanQueryRow[]).map((record) => {
+      const planRelation = record.subscription_plans;
+      const normalizedPlan = Array.isArray(planRelation)
+        ? planRelation[0] ?? null
+        : planRelation ?? null;
+
+      return {
+        ...record,
+        subscription_plans: normalizedPlan,
+      };
+    });
+
+    const paidPlans = normalizedRecords.filter((record) => {
       const planData = record.subscription_plans;
       if (!planData) return false;
       const monthly = planData.price_monthly_egp ?? 0;
