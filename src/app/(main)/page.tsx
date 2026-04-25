@@ -12,6 +12,9 @@ import { PricingSection } from "@/components/landing/PricingSection";
 import { SpecialOffers } from "@/components/landing/SpecialOffers";
 import { CareerResourcesSection } from "@/components/landing/CareerResourcesSection";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function HomePage() {
   let user = null;
   let erpSystems = null;
@@ -58,6 +61,14 @@ export default async function HomePage() {
       .eq("is_published", true);
     learningPaths = learningPathsData;
   } catch (error: any) {
+    // Let Next.js handle control-flow errors (redirect, dynamic rendering, etc.)
+    if (
+      error?.digest === "NEXT_REDIRECT" ||
+      error?.digest === "DYNAMIC_SERVER_USAGE"
+    ) {
+      throw error;
+    }
+
     // If Supabase is unavailable, continue with empty data
     const errorMessage = error?.message || String(error);
     const isNetworkError = 
