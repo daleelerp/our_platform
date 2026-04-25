@@ -6,7 +6,7 @@ import { createClient } from "@/utils/supabase/server";
 const KASHIER_API_KEY = process.env.KASHIER_API_KEY;
 const KASHIER_SECRET_KEY = process.env.KASHIER_SECRET_KEY;
 const KASHIER_MERCHANT_ID = process.env.KASHIER_MERCHANT_ID;
-const KASHIER_MODE = process.env.KASHIER_MODE || "test"; // "test" or "live"
+const KASHIER_MODE = process.env.KASHIER_MODE || "live"; // "test" or "live"
 
 // ✅ Fixed operator precedence bug
 const BASE_URL =
