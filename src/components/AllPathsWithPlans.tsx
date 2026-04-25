@@ -272,6 +272,7 @@ export function AllPathsWithPlans({
 
   // Build plan to paths map
   const planToPathsMap = useMemo(() => buildPlanToPathsMap(pathsWithPlans), [pathsWithPlans]);
+  const isSubscribedView = !!selectedPlanId;
 
   // Get paths count for a plan
   const getPathsCountForPlan = (planId: string): number => {
@@ -380,6 +381,36 @@ export function AllPathsWithPlans({
 
     return 0;
   });
+
+  // Suggest additional plans based on currently visible paths
+  const suggestedPlans = (() => {
+    const planMap = new Map<string, PlanWithPaths>();
+
+    sortedPaths.forEach((item) => {
+      item.plans.forEach((plan) => {
+        if (isPlanFree(plan)) return;
+        if (selectedPlanId && plan.id === selectedPlanId) return;
+        if (userSubscribedPlans?.includes(plan.id)) return;
+
+        const existing = planMap.get(plan.id);
+        if (!existing) {
+          planMap.set(plan.id, {
+            ...plan,
+            pathIds: [item.path.id],
+            pathCount: 1,
+          });
+          return;
+        }
+
+        if (!existing.pathIds.includes(item.path.id)) {
+          existing.pathIds.push(item.path.id);
+          existing.pathCount = existing.pathIds.length;
+        }
+      });
+    });
+
+    return Array.from(planMap.values()).sort((a, b) => b.pathCount - a.pathCount);
+  })();
 
   // Plan Card Component
   const PlanCard = ({
@@ -547,6 +578,7 @@ export function AllPathsWithPlans({
 
   // Path Type Badge Component
   const PathTypeBadge = ({ plans }: { plans: Plan[] }) => {
+    if (isSubscribedView) return null;
     const analysis = analyzePathPlans(plans);
 
     if (analysis.allFree) {
@@ -732,7 +764,8 @@ export function AllPathsWithPlans({
         </div>
 
         {/* Filter Tabs */}
-        <div className="mb-6 flex flex-wrap items-center gap-2">
+        {!isSubscribedView && (
+          <div className="mb-6 flex flex-wrap items-center gap-2">
           {selectedPlanId && (
             <div className="w-full mb-2 rounded-lg border border-teal-200 bg-teal-50 px-4 py-2 text-sm text-teal-700">
               {language === "ar"
@@ -783,7 +816,8 @@ export function AllPathsWithPlans({
             {language === "ar" ? "مميز" : "Premium"}
             <span className="text-xs opacity-70">({pathCounts.paid + pathCounts.mixed})</span>
           </button>
-        </div>
+          </div>
+        )}
 
         {/* Login Banner for Non-Logged In Users */}
         {!isLoggedIn && (
@@ -1225,6 +1259,60 @@ export function AllPathsWithPlans({
             </div>
           </div>
         </div>
+
+        {/* Suggested Plans based on currently visible paths */}
+        {isSubscribedView && suggestedPlans.length > 0 && (
+          <div className="mt-8">
+            <div className="flex items-center gap-2 mb-4">
+              <h2 className="text-lg font-semibold text-slate-900">
+                {language === "ar" ? "خطط مقترحة إضافية" : "Suggested Additional Plans"}
+              </h2>
+            </div>
+            <p className="text-sm text-slate-600 mb-4">
+              {language === "ar"
+                ? "خطط أخرى تغطي مسارات مشابهة أو موسعة."
+                : "Other plans that cover similar or expanded paths."}
+            </p>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {suggestedPlans.slice(0, 6).map((plan) => {
+                const { price, isOneTime } = getDisplayPrice(plan);
+                return (
+                  <div key={plan.id} className="bg-white rounded-xl border border-slate-200 p-4">
+                    <h3 className="font-semibold text-slate-900 mb-1">
+                      {getText(plan.display_name_en, plan.display_name_ar) || plan.name}
+                    </h3>
+                    <p className="text-sm text-slate-500 mb-2">
+                      {language === "ar"
+                        ? `يتضمن ${plan.pathCount} مسارات من النتائج المعروضة`
+                        : `Includes ${plan.pathCount} paths from current results`}
+                    </p>
+                    <p className="text-xl font-bold text-teal-600 mb-3">
+                      {price?.toLocaleString()}{" "}
+                      <span className="text-xs text-slate-600 font-normal">
+                        {language === "ar" ? "ج.م" : "EGP"}
+                      </span>
+                    </p>
+                    <p className="text-xs text-slate-500 mb-3">
+                      {isOneTime
+                        ? language === "ar"
+                          ? "دفعة واحدة • وصول دائم"
+                          : "One-time • Lifetime access"
+                        : language === "ar"
+                        ? "اشتراك"
+                        : "Subscription"}
+                    </p>
+                    <button
+                      onClick={() => router.push(`/checkout?planId=${plan.id}`)}
+                      className="w-full bg-teal-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-teal-700 transition-colors"
+                    >
+                      {language === "ar" ? "اشترك الآن" : "Subscribe"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );
