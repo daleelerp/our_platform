@@ -13,11 +13,13 @@ const KASHIER_MODE = process.env.KASHIER_MODE || "test"; // "test" or "live"
 //   ? `https://${process.env.VERCEL_URL}`
 //   : "https://www.daleel.site";
 
+// ✅ NEW - correct
 const BASE_URL =
   process.env.NEXT_PUBLIC_BASE_URL ||
   (process.env.VERCEL_URL
     ? `https://${process.env.VERCEL_URL}`
     : "https://www.daleel.site");
+
 
 const KASHIER_BASE_URL = KASHIER_MODE === "live"
   ? "https://api.kashier.io"
@@ -32,6 +34,17 @@ export async function POST(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    
+     try {
+      new URL(BASE_URL);
+    } catch {
+      console.error("❌ BASE_URL is invalid:", BASE_URL);
+      return NextResponse.json(
+        { error: "Server misconfiguration: invalid BASE_URL" },
+        { status: 500 }
+      );
     }
 
     const { planId, billingCycle, promoCode, paymentMethod } = await request.json();
@@ -248,7 +261,7 @@ export async function POST(request: NextRequest) {
       amount: amount.toFixed(2),
       currency: "EGP",
       orderId: orderId,
-      merchantRedirect: `${BASE_URL}/payment/callback?provider=kashier&session_id={session_id}`,
+      merchantRedirect: encodeURIComponent(`${BASE_URL}/payment/callback?provider=kashier&session_id={session_id}`),
       display: "en",
       type: isOneTimePayment ? "one-time" : "recurring",
       allowedMethods: paymentMethod ? paymentMethod : "card,wallet",
