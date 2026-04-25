@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { SubscriptionPlan, SubscriptionFeature, BillingCycle, calculatePricingDisplay } from "@/types/subscription";
 import { createClient } from "@/utils/supabase/client";
+import { useSubscription } from "@/hooks/useSubscription";
 
 type Props = {
   plans: SubscriptionPlan[];
@@ -101,6 +102,7 @@ function PricingCard({
   t,
   getFeatureName,
   handleSubscribe,
+  isCurrentPlan,
 }: {
   plan: SubscriptionPlan;
   price: any;
@@ -115,6 +117,7 @@ function PricingCard({
   t: Record<string, string>;
   getFeatureName: (feature: SubscriptionFeature) => string;
   handleSubscribe: (planId: string) => void;
+  isCurrentPlan: boolean;
 }) {
   const [showIncludes, setShowIncludes] = useState(false);
   const [showFeatures, setShowFeatures] = useState(false);
@@ -153,8 +156,20 @@ function PricingCard({
         </div>
       )}
 
+      {/* Current Plan Badge for paid subscribed plan */}
+      {isCurrentPlan && !isFree && (
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
+          <span className="bg-gradient-to-r from-teal-600 to-teal-700 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg whitespace-nowrap flex items-center gap-1.5">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            {t.currentPlan}
+          </span>
+        </div>
+      )}
+
       {/* Card Content */}
-      <div className={`p-6 flex flex-col h-full ${plan.is_popular || isFree ? "pt-8" : ""}`}>
+        <div className={`p-6 flex flex-col h-full ${plan.is_popular || isFree || isCurrentPlan ? "pt-8" : ""}`}>
         {/* Top Section - Fixed Height */}
         <div className="space-y-4">
           {/* Audience Badge */}
@@ -225,7 +240,7 @@ function PricingCard({
 
         {/* CTA Button or Current Plan Indicator */}
         <div className="py-4">
-          {isFree ? (
+          {isFree || isCurrentPlan ? (
             /* Free Plan - Current Plan Indicator */
             <div className="w-full py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 bg-slate-100 text-slate-600 border-2 border-dashed border-slate-300">
               <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -386,6 +401,7 @@ function PricingCard({
 export function PricingPage({ plans, features, erpProviders = [], selectedProvider, onProviderChange }: Props) {
   const language = useAppStore((state) => state.language);
   const user = useAppStore((state) => state.user);
+  const { subscription } = useSubscription();
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
   const [isLoading, setIsLoading] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
@@ -830,6 +846,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
               const isTeam = plan.name === "team";
               const isOneTime = isOneTimePlan(plan);
               const isFree = isFreePlan(plan);
+              const isCurrentPlan = subscription?.plan_id === plan.id;
 
               const allPlanFeatures = Object.entries(featuresByCategory).flatMap(([_, categoryFeatures]) =>
                 categoryFeatures.filter((f) => planHasFeature(plan, f.key))
@@ -851,6 +868,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
                   t={t}
                   getFeatureName={getFeatureName}
                   handleSubscribe={handleSubscribe}
+                  isCurrentPlan={isCurrentPlan}
                 />
               );
             })}

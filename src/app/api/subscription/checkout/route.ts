@@ -55,6 +55,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Plan not found" }, { status: 404 });
     }
 
+    // Prevent purchasing the same currently active/trial/paused plan again
+    const { data: existingSubscription } = await supabase
+      .from("user_subscriptions")
+      .select("id, plan_id, status")
+      .eq("user_id", user.id)
+      .in("status", ["active", "trial", "paused"])
+      .maybeSingle();
+
+    if (existingSubscription?.plan_id === planId) {
+      return NextResponse.json({
+        success: true,
+        redirectUrl: "/dashboard?subscription=already_active",
+        message: "You already have this plan active.",
+      });
+    }
+
     // Handle free plan
     if (plan.name === "free") {
       const { error: subError } = await supabase
