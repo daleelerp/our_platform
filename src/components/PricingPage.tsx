@@ -5,6 +5,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { SubscriptionPlan, SubscriptionFeature, BillingCycle, calculatePricingDisplay } from "@/types/subscription";
 import { createClient } from "@/utils/supabase/client";
 import { useSubscription } from "@/hooks/useSubscription";
+import Link from "next/link";
 
 type Props = {
   plans: SubscriptionPlan[];
@@ -280,6 +281,15 @@ function PricingCard({
           )}
         </div>
 
+        {!isFree && (
+          <Link
+            href={`/plans/${plan.id}`}
+            className="block w-full mb-3 py-2.5 px-4 text-center border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 transition-colors"
+          >
+            {t.viewDetails}
+          </Link>
+        )}
+
         {/* Expandable Sections */}
         <div className="flex-grow space-y-2">
           {/* What's Included - Collapsible */}
@@ -454,6 +464,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
     upgrade: isArabic ? "ترقية" : "Upgrade",
     contactSales: isArabic ? "تواصل معنا" : "Contact Sales",
     buyNow: isArabic ? "اشتري الآن" : "Buy Now",
+    viewDetails: isArabic ? "عرض التفاصيل" : "View Details",
     features: isArabic ? "المميزات" : "Features",
     guarantee: isArabic ? "ضمان استرداد 7 أيام" : "7-day money-back",
     securePayment: isArabic ? "دفع آمن" : "Secure Payment",
