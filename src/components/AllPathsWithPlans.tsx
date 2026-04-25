@@ -2,7 +2,7 @@
 
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAppStore } from "@/store/useAppStore";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useMemo } from "react";
 
 type Plan = {
@@ -257,6 +257,7 @@ export function AllPathsWithPlans({
   const language = useAppStore((state) => state.language);
   const isHydrated = useAppStore((state) => state.isHydrated);
   const router = useRouter();
+  const urlSearchParams = useSearchParams();
   const [expandedPath, setExpandedPath] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterType>("all");
   const [showPlanModal, setShowPlanModal] = useState<{
@@ -272,7 +273,8 @@ export function AllPathsWithPlans({
 
   // Build plan to paths map
   const planToPathsMap = useMemo(() => buildPlanToPathsMap(pathsWithPlans), [pathsWithPlans]);
-  const isSubscribedView = !!selectedPlanId;
+  const effectiveSelectedPlanId = selectedPlanId || urlSearchParams.get("planId");
+  const isSubscribedView = !!effectiveSelectedPlanId;
 
   // Get paths count for a plan
   const getPathsCountForPlan = (planId: string): number => {
@@ -354,7 +356,7 @@ export function AllPathsWithPlans({
 
   // Filter paths based on selected filter
   const filteredPaths = groupedPaths.filter((item) => {
-    if (selectedPlanId && !item.plans.some((p) => p.id === selectedPlanId)) return false;
+    if (effectiveSelectedPlanId && !item.plans.some((p) => p.id === effectiveSelectedPlanId)) return false;
     if (filter === "all") return true;
     const analysis = analyzePathPlans(item.plans);
     if (filter === "free") return analysis.hasFreePlan;
@@ -389,7 +391,7 @@ export function AllPathsWithPlans({
     sortedPaths.forEach((item) => {
       item.plans.forEach((plan) => {
         if (isPlanFree(plan)) return;
-        if (selectedPlanId && plan.id === selectedPlanId) return;
+        if (effectiveSelectedPlanId && plan.id === effectiveSelectedPlanId) return;
         if (userSubscribedPlans?.includes(plan.id)) return;
 
         const existing = planMap.get(plan.id);
