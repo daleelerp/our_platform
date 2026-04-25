@@ -1049,8 +1049,8 @@ export function AllPathsWithPlans({
                         ) : null;
                       })()}
 
-                      {/* Plans Section */}
-                      {item.plans.length > 0 && (
+                      {/* Plans Section (hide when user already subscribed to this path) */}
+                      {item.plans.length > 0 && !hasSubscription && (
                         <div>
                           <p className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
                             <span className="w-5 h-5 rounded bg-teal-100 flex items-center justify-center">
