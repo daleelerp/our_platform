@@ -16,22 +16,50 @@ export async function POST(request: NextRequest) {
 
     console.log("Webhook received:", JSON.stringify(body, null, 2));
 
+    const parseUserIdFromOrder = (orderValue?: string | null): string | null => {
+      if (!orderValue || typeof orderValue !== "string") return null;
+      if (!orderValue.startsWith("daleel-")) return null;
+      return orderValue.replace(/^daleel-/, "").split("-")[0] || null;
+    };
+
     // Check if this is a session-based webhook (new API) or charge-based (old API)
-    const isSessionWebhook = body.sessionId && body.status;
+    const payload = body?.data && typeof body.data === "object" ? body.data : body;
+    const sessionId = payload.sessionId || payload.session_id || payload.id || null;
+    const webhookStatus = payload.status || payload.paymentStatus || payload.payment_status || null;
+    const merchantOrderId = payload.merchantOrderId || payload.order || payload.orderId || null;
+    const amount = payload.amount;
+    const currency = payload.currency;
+    const method = payload.method || payload.paymentMethod || null;
+    const orderId = payload.orderId || payload.referenceNumber || payload.transactionId || null;
+    const isSessionWebhook = sessionId && webhookStatus;
 
     if (isSessionWebhook) {
       // Handle new Payment Sessions API webhook
-      const { sessionId, status, merchantOrderId, amount, currency, method, orderId } = body;
-      const normalizedStatus = String(status || "").toUpperCase();
+      const normalizedStatus = String(webhookStatus || "").toUpperCase();
 
       console.log(`Session Webhook received: Session ${sessionId}, Status: ${normalizedStatus}`);
 
       // Find the subscription by session ID
-      const { data: subscription, error: subError } = await supabase
+      let { data: subscription, error: subError } = await supabase
         .from("user_subscriptions")
         .select("*, subscription_plans(*)")
         .eq("external_subscription_id", sessionId)
-        .single();
+        .maybeSingle();
+
+      if ((!subscription || subError) && merchantOrderId) {
+        const fallbackUserId = parseUserIdFromOrder(merchantOrderId);
+        if (fallbackUserId) {
+          const fallbackResult = await supabase
+            .from("user_subscriptions")
+            .select("*, subscription_plans(*)")
+            .eq("user_id", fallbackUserId)
+            .eq("status", "pending")
+            .order("created_at", { ascending: false })
+            .maybeSingle();
+          subscription = fallbackResult.data;
+          subError = fallbackResult.error;
+        }
+      }
 
       if (subError || !subscription) {
         console.error("Subscription not found for session:", sessionId);
@@ -60,20 +88,29 @@ export async function POST(request: NextRequest) {
           .eq("id", subscription.id);
 
         // Record transaction
-        await supabase
+        const providerTransactionId = orderId || sessionId;
+        const { data: existingTx } = await supabase
           .from("payment_transactions")
-          .insert({
-            user_id: subscription.user_id,
-            subscription_id: subscription.id,
-            amount_egp: parseFloat(amount),
-            currency: currency || "EGP",
-            status: "completed",
-            type: "subscription",
-            payment_method: method || "card",
-            payment_provider: "kashier",
-            provider_transaction_id: orderId || sessionId,
-            provider_response: body,
-          });
+          .select("id")
+          .eq("provider_transaction_id", providerTransactionId)
+          .maybeSingle();
+
+        if (!existingTx) {
+          await supabase
+            .from("payment_transactions")
+            .insert({
+              user_id: subscription.user_id,
+              subscription_id: subscription.id,
+              amount_egp: Number(amount) || 0,
+              currency: currency || "EGP",
+              status: "completed",
+              type: "subscription",
+              payment_method: method || "card",
+              payment_provider: "kashier",
+              provider_transaction_id: providerTransactionId,
+              provider_response: payload,
+            });
+        }
 
         console.log(`Subscription ${subscription.id} activated successfully via Kashier session ${sessionId}`);
       } else if (normalizedStatus === "PENDING" || normalizedStatus === "PROCESSING") {
@@ -89,20 +126,29 @@ export async function POST(request: NextRequest) {
           .eq("id", subscription.id);
 
         // Record failed transaction
-        await supabase
+        const providerTransactionId = orderId || sessionId;
+        const { data: existingTx } = await supabase
           .from("payment_transactions")
-          .insert({
-            user_id: subscription.user_id,
-            subscription_id: subscription.id,
-            amount_egp: parseFloat(amount),
-            currency: currency || "EGP",
-            status: "failed",
-            type: "subscription",
-            payment_method: method || "card",
-            payment_provider: "kashier",
-            provider_transaction_id: orderId || sessionId,
-            provider_response: body,
-          });
+          .select("id")
+          .eq("provider_transaction_id", providerTransactionId)
+          .maybeSingle();
+
+        if (!existingTx) {
+          await supabase
+            .from("payment_transactions")
+            .insert({
+              user_id: subscription.user_id,
+              subscription_id: subscription.id,
+              amount_egp: Number(amount) || 0,
+              currency: currency || "EGP",
+              status: "failed",
+              type: "subscription",
+              payment_method: method || "card",
+              payment_provider: "kashier",
+              provider_transaction_id: providerTransactionId,
+              provider_response: payload,
+            });
+        }
 
         console.log(`Payment failed for subscription ${subscription.id}, session ${sessionId}`);
       } else {

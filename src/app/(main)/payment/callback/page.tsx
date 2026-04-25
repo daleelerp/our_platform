@@ -39,6 +39,7 @@ export default function PaymentCallbackPage() {
     const kashierStatus = searchParams.get("status");
     const paymentStatus = searchParams.get("paymentStatus");
     const merchantOrderId = searchParams.get("merchantOrderId");
+    const normalizedStatus = (kashierStatus || paymentStatus || "").toUpperCase();
 
     async function verifyPayment() {
       // For Kashier, always verify with backend (session_id may be missing in redirect URL)
@@ -57,19 +58,27 @@ export default function PaymentCallbackPage() {
             }, 3000);
           } else if (data.status === "pending") {
             setStatus("pending");
+          } else if (normalizedStatus === "SUCCESS" || normalizedStatus === "PAID" || success === "true") {
+            // Do not show a false negative when provider redirect clearly indicates success
+            setStatus("success");
+            setTimeout(() => {
+              router.push("/dashboard?subscription=activated");
+            }, 3000);
           } else {
             setStatus("failed");
           }
         } catch (error) {
           console.error("Verification error:", error);
-          setStatus("failed");
+          if (normalizedStatus === "SUCCESS" || normalizedStatus === "PAID" || success === "true") {
+            setStatus("pending");
+          } else {
+            setStatus("failed");
+          }
         }
         return;
       }
 
       // ✅ Fallback: read URL params directly
-      const normalizedStatus = (kashierStatus || paymentStatus || "").toUpperCase();
-
       if (
         provider === "kashier" &&
         (normalizedStatus === "PAID" ||

@@ -18,6 +18,11 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     let sessionId = searchParams.get("session_id");
+    const merchantOrderId = searchParams.get("merchant_order_id");
+    const parsedUserIdFromOrder =
+      merchantOrderId?.startsWith("daleel-")
+        ? merchantOrderId.replace(/^daleel-/, "").split("-")[0]
+        : null;
 
     // Fallback: infer latest pending Kashier session for current user when callback has no session_id
     if (!sessionId) {
@@ -27,12 +32,12 @@ export async function GET(request: NextRequest) {
         data: { user },
       } = await userSupabase.auth.getUser();
 
-      if (user) {
+      if (user || parsedUserIdFromOrder) {
+        const lookupUserId = user?.id || parsedUserIdFromOrder;
         const { data: pendingSubscription } = await supabase
           .from("user_subscriptions")
           .select("external_subscription_id")
-          .eq("user_id", user.id)
-          .eq("payment_provider", "kashier")
+          .eq("user_id", lookupUserId)
           .eq("status", "pending")
           .not("external_subscription_id", "is", null)
           .order("created_at", { ascending: false })
@@ -45,8 +50,7 @@ export async function GET(request: NextRequest) {
           const { data: activeSubscription } = await supabase
             .from("user_subscriptions")
             .select("id")
-            .eq("user_id", user.id)
-            .eq("payment_provider", "kashier")
+            .eq("user_id", lookupUserId)
             .eq("status", "active")
             .order("updated_at", { ascending: false })
             .maybeSingle();
@@ -60,7 +64,7 @@ export async function GET(request: NextRequest) {
 
     if (!sessionId) {
       return NextResponse.json(
-        { error: "Session ID required and no pending Kashier session found" },
+        { error: "Session ID required and no pending Kashier session found for this order/user" },
         { status: 400 }
       );
     }
@@ -89,11 +93,23 @@ export async function GET(request: NextRequest) {
     // If payment is successful, update subscription
     if (status === "SUCCESS" || status === "PAID") {
       // Find subscription
-      const { data: subscription } = await supabase
+      let { data: subscription } = await supabase
         .from("user_subscriptions")
         .select("*, subscription_plans(*)")
         .eq("external_subscription_id", sessionId)
-        .single();
+        .maybeSingle();
+
+      // Fallback: if session mapping is missing, try the user inferred from merchant order id
+      if (!subscription && parsedUserIdFromOrder) {
+        const { data: pendingByUser } = await supabase
+          .from("user_subscriptions")
+          .select("*, subscription_plans(*)")
+          .eq("user_id", parsedUserIdFromOrder)
+          .eq("status", "pending")
+          .order("created_at", { ascending: false })
+          .maybeSingle();
+        subscription = pendingByUser;
+      }
 
       if (subscription && subscription.status !== "active") {
         // Calculate period end
@@ -122,7 +138,7 @@ export async function GET(request: NextRequest) {
           .from("payment_transactions")
           .select("id")
           .eq("provider_transaction_id", sessionId)
-          .single();
+          .maybeSingle();
 
         if (!existingTx) {
           await supabase.from("payment_transactions").insert({

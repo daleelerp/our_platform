@@ -9,6 +9,23 @@ import { SubscriptionPlan } from "@/types/subscription";
 import Link from "next/link";
 import { AvatarPicker } from "@/components/AvatarPicker";
 
+type PurchasedPlanRecord = {
+  id: string;
+  status: string;
+  created_at?: string;
+  current_period_end?: string;
+  subscription_plans: {
+    id: string;
+    name: string;
+    display_name_en: string;
+    display_name_ar: string;
+    price_monthly_egp: number | null;
+    price_yearly_egp: number | null;
+    price_one_time_egp: number | null;
+    payment_type: string | null;
+  } | null;
+};
+
 export default function ProfilePage() {
   const router = useRouter();
   const language = useAppStore((state) => state.language);
@@ -39,6 +56,7 @@ export default function ProfilePage() {
   });
 
   const [availablePlans, setAvailablePlans] = useState<SubscriptionPlan[]>([]);
+  const [purchasedPlans, setPurchasedPlans] = useState<PurchasedPlanRecord[]>([]);
   const [onboardingData, setOnboardingData] = useState<any>(null);
   const [preferences, setPreferences] = useState<any>(null);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
@@ -115,6 +133,11 @@ export default function ProfilePage() {
     upgradePlan: isArabic ? "ترقية الخطة" : "Upgrade Plan",
     viewPricing: isArabic ? "عرض الأسعار" : "View Pricing",
     goToCheckout: isArabic ? "الذهاب إلى الدفع" : "Go to Checkout",
+    purchasedPlans: isArabic ? "الخطط المشتراة" : "Purchased Plans",
+    purchasedPlansCount: isArabic ? "عدد الخطط المشتراة" : "Purchased Plans Count",
+    noPurchasedPlans: isArabic ? "لا توجد خطط مدفوعة مشتراة بعد" : "No paid plans purchased yet",
+    purchasedOn: isArabic ? "تاريخ الشراء" : "Purchased On",
+    oneTime: isArabic ? "دفعة واحدة" : "One-Time",
   };
 
   useEffect(() => {
@@ -138,9 +161,51 @@ export default function ProfilePage() {
     }
 
     fetchPlans();
+    fetchPurchasedPlans();
     fetchOnboardingData();
     fetchPreferences();
   }, [user, router]);
+
+  const fetchPurchasedPlans = async () => {
+    if (!user) return;
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("user_subscriptions")
+      .select(`
+        id,
+        status,
+        created_at,
+        current_period_end,
+        subscription_plans (
+          id,
+          name,
+          display_name_en,
+          display_name_ar,
+          price_monthly_egp,
+          price_yearly_egp,
+          price_one_time_egp,
+          payment_type
+        )
+      `)
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+
+    if (!data) {
+      setPurchasedPlans([]);
+      return;
+    }
+
+    const paidPlans = (data as PurchasedPlanRecord[]).filter((record) => {
+      const planData = record.subscription_plans;
+      if (!planData) return false;
+      const monthly = planData.price_monthly_egp ?? 0;
+      const yearly = planData.price_yearly_egp ?? 0;
+      const oneTime = planData.price_one_time_egp ?? 0;
+      return monthly > 0 || yearly > 0 || oneTime > 0;
+    });
+
+    setPurchasedPlans(paidPlans);
+  };
 
   const fetchOnboardingData = async () => {
     if (!user) return;
@@ -286,6 +351,12 @@ export default function ProfilePage() {
         return t.trial;
       case "paused":
         return t.paused;
+      case "pending":
+        return isArabic ? "قيد المعالجة" : "Pending";
+      case "cancelled":
+        return isArabic ? "ملغي" : "Cancelled";
+      case "expired":
+        return isArabic ? "منتهي" : "Expired";
       default:
         return status;
     }
@@ -640,6 +711,63 @@ export default function ProfilePage() {
                       </div>
                     </div>
                   )}
+
+                  {/* Purchased Plans Summary */}
+                  <div className="bg-slate-50 rounded-xl border border-slate-200 p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-slate-900">{t.purchasedPlans}</h3>
+                      <span className="px-3 py-1 bg-[#429874]/10 text-[#2f6a51] rounded-full text-sm font-semibold">
+                        {t.purchasedPlansCount}: {purchasedPlans.length}
+                      </span>
+                    </div>
+
+                    {purchasedPlans.length === 0 ? (
+                      <p className="text-sm text-slate-600">{t.noPurchasedPlans}</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {purchasedPlans.map((record) => {
+                          const purchasedPlan = record.subscription_plans;
+                          if (!purchasedPlan) return null;
+                          const purchasedPlanName = isArabic
+                            ? purchasedPlan.display_name_ar
+                            : purchasedPlan.display_name_en;
+                          const billingType =
+                            purchasedPlan.payment_type === "one_time" ||
+                            (purchasedPlan.price_one_time_egp &&
+                              (purchasedPlan.price_monthly_egp ?? 0) === 0 &&
+                              (purchasedPlan.price_yearly_egp ?? 0) === 0)
+                              ? t.oneTime
+                              : record.status === "active" || record.status === "trial" || record.status === "paused"
+                              ? subscription?.billing_cycle === "yearly"
+                                ? t.yearly
+                                : t.monthly
+                              : "-";
+
+                          return (
+                            <div
+                              key={record.id}
+                              className="bg-white border border-slate-200 rounded-lg p-4 flex flex-wrap items-center justify-between gap-3"
+                            >
+                              <div>
+                                <p className="font-semibold text-slate-900">{purchasedPlanName || purchasedPlan.name}</p>
+                                <p className="text-sm text-slate-500">
+                                  {t.purchasedOn}: {formatDate(record.created_at)}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-medium">
+                                  {billingType}
+                                </span>
+                                <span className="px-2.5 py-1 rounded-full bg-[#429874]/10 text-[#2f6a51] text-xs font-semibold">
+                                  {getStatusLabel(record.status)}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
 
                   {/* CTA Buttons - Always show subscribe/upgrade options */}
                   <div className="flex flex-wrap gap-4 pt-4 border-t border-slate-200 mt-6">
