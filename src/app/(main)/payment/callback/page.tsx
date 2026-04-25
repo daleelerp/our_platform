@@ -38,14 +38,16 @@ export default function PaymentCallbackPage() {
     const success = searchParams.get("success");
     const kashierStatus = searchParams.get("status");
     const paymentStatus = searchParams.get("paymentStatus");
+    const merchantOrderId = searchParams.get("merchantOrderId");
 
     async function verifyPayment() {
-      // ✅ If we have a session_id, verify with our API
-      if (provider === "kashier" && sessionId) {
+      // For Kashier, always verify with backend (session_id may be missing in redirect URL)
+      if (provider === "kashier") {
         try {
-          const response = await fetch(
-            `/api/subscription/verify?session_id=${sessionId}`
-          );
+          const verifyParams = new URLSearchParams();
+          if (sessionId) verifyParams.set("session_id", sessionId);
+          if (merchantOrderId) verifyParams.set("merchant_order_id", merchantOrderId);
+          const response = await fetch(`/api/subscription/verify?${verifyParams.toString()}`);
           const data = await response.json();
 
           if (data.status === "success") {
