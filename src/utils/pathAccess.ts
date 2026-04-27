@@ -74,16 +74,30 @@ export async function isPathInUserPlan(
     return false;
   }
 
-  // Get user's current plan
-  let userPlanId = planId;
-  let userPlanIds: string[] = userPlanId ? [userPlanId] : [];
-  
-  if (!userPlanId) {
+  // Build allowed plan ids for this user.
+  // If a specific planId is provided, verify ownership first.
+  let userPlanIds: string[] = [];
+
+  if (planId) {
+    const { data: ownedPlan } = await supabase
+      .from("user_subscriptions")
+      .select("plan_id")
+      .eq("user_id", userId)
+      .eq("plan_id", planId)
+      .in("status", ["active", "trial", "paused", "pending", "expired"])
+      .maybeSingle();
+
+    if (!ownedPlan) {
+      return false;
+    }
+
+    userPlanIds = [planId];
+  } else {
     const { data: subscriptions } = await supabase
       .from("user_subscriptions")
       .select("plan_id")
       .eq("user_id", userId)
-      .in("status", ["active", "trial", "paused", "pending"]);
+      .in("status", ["active", "trial", "paused", "pending", "expired"]);
 
     if (!subscriptions || subscriptions.length === 0) {
       // User has no subscription - they can only access free plan paths
@@ -92,8 +106,6 @@ export async function isPathInUserPlan(
     } else {
       userPlanIds = subscriptions.map((subscription) => subscription.plan_id);
     }
-  } else {
-    userPlanIds = [userPlanId];
   }
 
   // Check if path is in user's plan
@@ -136,21 +148,30 @@ export async function getPathsInUserPlan(
   }
 
   // 2. Get user's current plan paths (if user is logged in)
-  let userPlanId = planId;
-  let userPlanIds: string[] = userPlanId ? [userPlanId] : [];
-  
-  if (!userPlanId && userId) {
+  let userPlanIds: string[] = [];
+
+  if (planId && userId) {
+    const { data: ownedPlan } = await supabase
+      .from("user_subscriptions")
+      .select("plan_id")
+      .eq("user_id", userId)
+      .eq("plan_id", planId)
+      .in("status", ["active", "trial", "paused", "pending", "expired"])
+      .maybeSingle();
+
+    if (ownedPlan) {
+      userPlanIds = [planId];
+    }
+  } else if (!planId && userId) {
     const { data: subscriptions } = await supabase
       .from("user_subscriptions")
       .select("plan_id")
       .eq("user_id", userId)
-      .in("status", ["active", "trial", "paused", "pending"]);
+      .in("status", ["active", "trial", "paused", "pending", "expired"]);
 
     if (subscriptions && subscriptions.length > 0) {
       userPlanIds = subscriptions.map((subscription) => subscription.plan_id);
     }
-  } else if (userPlanId) {
-    userPlanIds = [userPlanId];
   }
 
   // Get paths from user's subscription plan

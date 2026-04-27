@@ -6,10 +6,13 @@ import { isPathInUserPlan } from "@/utils/pathAccess";
 
 type Props = {
   params: Promise<{ slug: string }>;
+  searchParams?: Promise<{ planId?: string }>;
 };
 
-export default async function PathDetailPage({ params }: Props) {
+export default async function PathDetailPage({ params, searchParams }: Props) {
   const { slug } = await params;
+  const resolvedSearchParams = await searchParams;
+  const selectedPlanId = resolvedSearchParams?.planId || undefined;
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
@@ -36,7 +39,7 @@ export default async function PathDetailPage({ params }: Props) {
   }
 
   // Validate that path is in user's subscription plan
-  const hasAccess = await isPathInUserPlan(path.id, supabase, user?.id, undefined);
+  const hasAccess = await isPathInUserPlan(path.id, supabase, user?.id, selectedPlanId);
   
   if (!hasAccess) {
     // Path is not in user's plan - redirect to paths page with error message

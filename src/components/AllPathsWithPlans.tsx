@@ -275,6 +275,8 @@ export function AllPathsWithPlans({
   const planToPathsMap = useMemo(() => buildPlanToPathsMap(pathsWithPlans), [pathsWithPlans]);
   const effectiveSelectedPlanId = selectedPlanId || urlSearchParams.get("planId");
   const isSubscribedView = !!effectiveSelectedPlanId;
+  const getPathHref = (slug: string) =>
+    effectiveSelectedPlanId ? `/paths/${slug}?planId=${effectiveSelectedPlanId}` : `/paths/${slug}`;
 
   // Get paths count for a plan
   const getPathsCountForPlan = (planId: string): number => {
@@ -302,7 +304,7 @@ export function AllPathsWithPlans({
         });
       } else {
         // Single path, navigate directly
-        router.push(`/paths/${pathSlug}`);
+        router.push(getPathHref(pathSlug));
       }
     } else {
       // Paid plan - go to checkout
@@ -313,7 +315,7 @@ export function AllPathsWithPlans({
   // Close modal and navigate to path
   const handleSelectPathFromModal = (slug: string) => {
     setShowPlanModal(null);
-    router.push(`/paths/${slug}`);
+    router.push(getPathHref(slug));
   };
 
   // Loading state
@@ -936,7 +938,7 @@ export function AllPathsWithPlans({
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              router.push(`/paths/${path.slug}`);
+                              router.push(getPathHref(path.slug));
                             }}
                             className="text-lg font-bold text-slate-900 hover:text-teal-700 transition-colors text-left"
                           >
@@ -988,7 +990,7 @@ export function AllPathsWithPlans({
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              router.push(`/paths/${path.slug}`);
+                              router.push(getPathHref(path.slug));
                             }}
                             className={`hidden sm:flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg transition-all ${
                               hasSubscription
@@ -1031,7 +1033,7 @@ export function AllPathsWithPlans({
                       {canAccess && (
                         <div className="sm:hidden">
                           <button
-                            onClick={() => router.push(`/paths/${path.slug}`)}
+                            onClick={() => router.push(getPathHref(path.slug))}
                             className={`w-full flex items-center justify-center gap-2 px-4 py-3 font-semibold rounded-xl transition-all shadow-md ${
                               hasSubscription
                                 ? "bg-teal-600 text-white hover:bg-teal-700"
