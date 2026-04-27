@@ -294,24 +294,32 @@ export function DashboardContent({
                   <Link
                     key={enrollment.id}
                     href={`/paths/${path.slug}`}
-                    className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md transition hover:border-teal-300"
+                    className="group bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md transition hover:border-teal-300"
                   >
-                    <div className="flex items-start justify-between mb-3">
-                      <h3 className="font-medium text-slate-900 flex-1">
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <h3 className="font-semibold text-slate-900 group-hover:text-teal-700 transition-colors leading-tight">
                         {getText(path.title, path.title_ar)}
                       </h3>
-                      <div className="ml-2 flex flex-col items-end gap-1 flex-shrink-0">
-                        {primaryPlanName && (
-                          <span className="text-[10px] px-2 py-1 rounded-full bg-teal-100 text-teal-700 border border-teal-200 font-medium">
-                            {t.plan}: {primaryPlanName}
-                            {pathPlans.length > 1 ? ` +${pathPlans.length - 1}` : ""}
-                          </span>
-                        )}
-                        <span className={`text-xs px-2 py-1 rounded-full ${difficulty.color}`}>
-                          {language === "ar" ? difficulty.labelAr : difficulty.labelEn}
+                      <span className={`text-xs px-2 py-1 rounded-full ${difficulty.color} flex-shrink-0`}>
+                        {language === "ar" ? difficulty.labelAr : difficulty.labelEn}
+                      </span>
+                    </div>
+                    {primaryPlanName && (
+                      <div className="mb-3">
+                        <span
+                          className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200 px-2.5 py-1 text-[11px] font-medium"
+                          title={`${t.plan}: ${primaryPlanName}`}
+                        >
+                          <span className="shrink-0">{t.plan}:</span>
+                          <span className="truncate">{primaryPlanName}</span>
+                          {pathPlans.length > 1 && (
+                            <span className="shrink-0 rounded-full bg-teal-100 px-1.5 py-0.5 text-[10px] font-semibold">
+                              +{pathPlans.length - 1}
+                            </span>
+                          )}
                         </span>
                       </div>
-                    </div>
+                    )}
                     {path.description && (
                       <p className="text-sm text-slate-500 line-clamp-2 mb-3">
                         {getText(path.description, path.description_ar)}
