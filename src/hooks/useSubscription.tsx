@@ -55,7 +55,7 @@ export function useSubscription(): UseSubscriptionReturn {
             subscription_plans (*)
           `)
           .eq("user_id", user.id)
-          .in("status", ["active", "trial", "paused", "pending"])
+          .in("status", ["active", "trial", "paused"])
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();

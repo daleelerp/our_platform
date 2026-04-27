@@ -131,7 +131,7 @@ export function DashboardContent({
       (plan.price_monthly_egp ?? 0) > 0 ||
       (plan.price_yearly_egp ?? 0) > 0 ||
       (plan.price_one_time_egp ?? 0) > 0;
-    return isPaid && ["active", "trial", "paused", "pending"].includes(record.status);
+    return isPaid && ["active", "trial", "paused"].includes(record.status);
   });
   const displayPurchasedPlans = purchasedPlans.filter((record) => {
     const plan = record.subscription_plans;
@@ -185,6 +185,9 @@ export function DashboardContent({
     showing: language === "ar" ? "عرض" : "Showing",
     of: language === "ar" ? "من" : "of",
     loadMore: language === "ar" ? "عرض المزيد" : "Load more",
+    paymentIncomplete:
+      language === "ar" ? "دفع غير مكتمل" : "Payment incomplete",
+    completePayment: language === "ar" ? "إكمال الدفع" : "Complete payment",
   };
 
   const filteredEnrolledPaths = useMemo(() => {
@@ -214,7 +217,7 @@ export function DashboardContent({
   const getStatusLabel = (status: string) => {
     switch (status) {
       case "pending":
-        return t.pending;
+        return t.paymentIncomplete;
       case "active":
         return t.active;
       case "trial":
@@ -449,22 +452,55 @@ export function DashboardContent({
                 if (!plan) return null;
                 const planName = getText(plan.display_name_en, plan.display_name_ar) || plan.name;
                 const planTargetHref = `/paths?planId=${plan.id}`;
-                const billingType =
+                const isOneTime =
                   plan.payment_type === "one_time" ||
                   ((plan.price_one_time_egp ?? 0) > 0 &&
                     (plan.price_monthly_egp ?? 0) === 0 &&
-                    (plan.price_yearly_egp ?? 0) === 0)
-                    ? t.oneTime
-                    : record.billing_cycle === "yearly"
+                    (plan.price_yearly_egp ?? 0) === 0);
+                const billingType = isOneTime
+                  ? t.oneTime
+                  : record.billing_cycle === "yearly"
                     ? t.yearly
                     : t.monthly;
+                const checkoutHref = isOneTime
+                  ? `/checkout?planId=${plan.id}`
+                  : `/checkout?planId=${plan.id}&billingCycle=${
+                      record.billing_cycle === "yearly" ? "yearly" : "monthly"
+                    }`;
+
+                const cardClass =
+                  "bg-white rounded-xl border border-slate-200 p-5 hover:border-teal-300 hover:shadow-md transition";
+
+                if (record.status === "pending") {
+                  return (
+                    <div key={record.id} className={cardClass}>
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <h3 className="font-semibold text-slate-900">{planName}</h3>
+                        <span className="text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-800">
+                          {getStatusLabel(record.status)}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mb-1">
+                        {t.purchasedOn}: {formatDate(record.created_at)}
+                      </p>
+                      <p className="text-xs text-slate-500 mb-3">{billingType}</p>
+                      <p className="text-xs text-slate-600 mb-3">
+                        {language === "ar"
+                          ? "لم يكتمل الدفع بعد. أكمل الدفع لفتح المسارات."
+                          : "Payment not completed yet. Finish checkout to unlock paths."}
+                      </p>
+                      <Link
+                        href={checkoutHref}
+                        className="inline-flex text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 px-4 py-2 rounded-lg transition-colors"
+                      >
+                        {t.completePayment}
+                      </Link>
+                    </div>
+                  );
+                }
 
                 return (
-                  <Link
-                    key={record.id}
-                    href={planTargetHref}
-                    className="bg-white rounded-xl border border-slate-200 p-5 hover:border-teal-300 hover:shadow-md transition"
-                  >
+                  <Link key={record.id} href={planTargetHref} className={cardClass}>
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <h3 className="font-semibold text-slate-900">{planName}</h3>
                       <span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-700">

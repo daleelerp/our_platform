@@ -51,15 +51,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Plan not found" }, { status: 404 });
     }
 
-    // Prevent purchasing the same already-owned plan again.
-    // Keep "expired" to protect one-time purchases that remain owned after term expiry.
-    // Keep "pending" to avoid duplicate checkout while provider confirmation is in progress.
+    // Cancel incomplete checkouts so the user can retry payment on the same plan.
+    await supabase
+      .from("user_subscriptions")
+      .update({ status: "cancelled" })
+      .eq("user_id", user.id)
+      .eq("plan_id", planId)
+      .eq("status", "pending");
+
+    // Block only real ownership (not pending — failed/incomplete payments are cancelled above).
     const { data: existingSubscription } = await supabase
       .from("user_subscriptions")
       .select("id, plan_id, status")
       .eq("user_id", user.id)
       .eq("plan_id", planId)
-      .in("status", ["active", "trial", "paused", "pending", "expired"])
+      .in("status", ["active", "trial", "paused", "expired"])
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
