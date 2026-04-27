@@ -339,8 +339,10 @@ export function AllPathsWithPlans({
     );
   }
 
-  // Enforce cycle: choose plan first, then browse paths inside that plan
-  if (!effectiveSelectedPlanId) {
+  // Enforce cycle only for users without subscribed plans.
+  // Subscribed users can browse their accessible paths even without planId in URL.
+  const hasAnySubscribedPlan = (userSubscribedPlans?.length || 0) > 0;
+  if (!effectiveSelectedPlanId && !hasAnySubscribedPlan) {
     return (
       <main className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">

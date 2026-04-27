@@ -137,7 +137,7 @@ export default async function PathsPage({ searchParams }: Props) {
       .from("user_subscriptions")
       .select("plan_id")
       .eq("user_id", user.id)
-      .in("status", ["active", "trial", "paused"]);
+      .in("status", ["active", "trial", "paused", "expired"]);
     
     if (subscriptions) {
       userSubscribedPlans = subscriptions.map((s: any) => s.plan_id);
