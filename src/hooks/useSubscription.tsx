@@ -56,6 +56,8 @@ export function useSubscription(): UseSubscriptionReturn {
           `)
           .eq("user_id", user.id)
           .in("status", ["active", "trial", "paused"])
+          .order("created_at", { ascending: false })
+          .limit(1)
           .maybeSingle();
 
         // If table doesn't exist (406 error), skip subscription check

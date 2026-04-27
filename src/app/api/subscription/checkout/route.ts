@@ -60,6 +60,7 @@ export async function POST(request: NextRequest) {
       .from("user_subscriptions")
       .select("id, plan_id, status")
       .eq("user_id", user.id)
+      .eq("plan_id", planId)
       .in("status", ["active", "trial", "paused"])
       .maybeSingle();
 
@@ -176,27 +177,24 @@ export async function POST(request: NextRequest) {
 
       const { data: subscription, error: subError } = await supabase
         .from("user_subscriptions")
-        .upsert(
-          {
-            user_id: user.id,
-            plan_id: planId,
-            status: "trial",
-            billing_cycle: finalBillingCycle,
-            started_at: new Date().toISOString(),
-            current_period_start: new Date().toISOString(),
-            current_period_end: periodEnd.toISOString(),
-            trial_ends_at: new Date(
-              Date.now() + 7 * 24 * 60 * 60 * 1000
-            ).toISOString(),
-            price_locked_egp: amount,
-            is_founders_club: promoCode?.toUpperCase() === "FOUNDERS2024",
-            discount_applied:
-              discountApplied && discountApplied.type === "percentage"
-                ? discountApplied.value
-                : null,
-          },
-          { onConflict: "user_id" }
-        )
+        .insert({
+          user_id: user.id,
+          plan_id: planId,
+          status: "trial",
+          billing_cycle: finalBillingCycle,
+          started_at: new Date().toISOString(),
+          current_period_start: new Date().toISOString(),
+          current_period_end: periodEnd.toISOString(),
+          trial_ends_at: new Date(
+            Date.now() + 7 * 24 * 60 * 60 * 1000
+          ).toISOString(),
+          price_locked_egp: amount,
+          is_founders_club: promoCode?.toUpperCase() === "FOUNDERS2024",
+          discount_applied:
+            discountApplied && discountApplied.type === "percentage"
+              ? discountApplied.value
+              : null,
+        })
         .select()
         .single();
 
@@ -337,22 +335,19 @@ export async function POST(request: NextRequest) {
     // Store pending subscription with session ID
     const { data: subscription, error: subError } = await supabase
       .from("user_subscriptions")
-      .upsert(
-        {
-          user_id: user.id,
-          plan_id: planId,
-          status: "pending",
-          billing_cycle: finalBillingCycle,
-          external_subscription_id: sessionId,
-          price_locked_egp: amount,
-          is_founders_club: promoCode?.toUpperCase() === "FOUNDERS2024",
-          discount_applied:
-            discountApplied && discountApplied.type === "percentage"
-              ? discountApplied.value
-              : null,
-        },
-        { onConflict: "user_id" }
-      )
+      .insert({
+        user_id: user.id,
+        plan_id: planId,
+        status: "pending",
+        billing_cycle: finalBillingCycle,
+        external_subscription_id: sessionId,
+        price_locked_egp: amount,
+        is_founders_club: promoCode?.toUpperCase() === "FOUNDERS2024",
+        discount_applied:
+          discountApplied && discountApplied.type === "percentage"
+            ? discountApplied.value
+            : null,
+      })
       .select()
       .single();
 

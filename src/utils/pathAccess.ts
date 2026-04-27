@@ -76,29 +76,31 @@ export async function isPathInUserPlan(
 
   // Get user's current plan
   let userPlanId = planId;
+  let userPlanIds: string[] = userPlanId ? [userPlanId] : [];
   
   if (!userPlanId) {
-    const { data: subscription } = await supabase
+    const { data: subscriptions } = await supabase
       .from("user_subscriptions")
       .select("plan_id")
       .eq("user_id", userId)
-      .in("status", ["active", "trial", "paused"])
-      .maybeSingle();
+      .in("status", ["active", "trial", "paused"]);
 
-    if (!subscription) {
+    if (!subscriptions || subscriptions.length === 0) {
       // User has no subscription - they can only access free plan paths
       // We already checked that above, so return false
       return false;
     } else {
-      userPlanId = subscription.plan_id;
+      userPlanIds = subscriptions.map((subscription) => subscription.plan_id);
     }
+  } else {
+    userPlanIds = [userPlanId];
   }
 
   // Check if path is in user's plan
   const { data: planPath } = await supabase
     .from("plan_paths")
     .select("id")
-    .eq("plan_id", userPlanId)
+    .in("plan_id", userPlanIds)
     .eq("learning_path_id", pathId)
     .maybeSingle();
 
@@ -135,26 +137,28 @@ export async function getPathsInUserPlan(
 
   // 2. Get user's current plan paths (if user is logged in)
   let userPlanId = planId;
+  let userPlanIds: string[] = userPlanId ? [userPlanId] : [];
   
   if (!userPlanId && userId) {
-    const { data: subscription } = await supabase
+    const { data: subscriptions } = await supabase
       .from("user_subscriptions")
       .select("plan_id")
       .eq("user_id", userId)
-      .in("status", ["active", "trial", "paused"])
-      .maybeSingle();
+      .in("status", ["active", "trial", "paused"]);
 
-    if (subscription) {
-      userPlanId = subscription.plan_id;
+    if (subscriptions && subscriptions.length > 0) {
+      userPlanIds = subscriptions.map((subscription) => subscription.plan_id);
     }
+  } else if (userPlanId) {
+    userPlanIds = [userPlanId];
   }
 
   // Get paths from user's subscription plan
-  if (userPlanId) {
+  if (userPlanIds.length > 0) {
     const { data: userPlanPaths } = await supabase
       .from("plan_paths")
       .select("learning_path_id")
-      .eq("plan_id", userPlanId);
+      .in("plan_id", userPlanIds);
 
     if (userPlanPaths) {
       userPlanPaths.forEach((pp) => accessiblePathIds.add(pp.learning_path_id));
