@@ -45,20 +45,6 @@ export async function GET(request: NextRequest) {
 
         sessionId = pendingSubscription?.external_subscription_id || null;
 
-        // If webhook already activated the subscription, allow callback page to continue as success
-        if (!sessionId) {
-          const { data: activeSubscription } = await supabase
-            .from("user_subscriptions")
-            .select("id")
-            .eq("user_id", lookupUserId)
-            .eq("status", "active")
-            .order("updated_at", { ascending: false })
-            .maybeSingle();
-
-          if (activeSubscription) {
-            return NextResponse.json({ status: "success" });
-          }
-        }
       }
     }
 
@@ -163,6 +149,31 @@ export async function GET(request: NextRequest) {
 
     if (status === "PENDING" || status === "PROCESSING") {
       return NextResponse.json({ status: "pending" });
+    }
+
+    // Mark non-successful payments as cancelled so they are not treated as owned.
+    let { data: failedSubscription } = await supabase
+      .from("user_subscriptions")
+      .select("id, user_id")
+      .eq("external_subscription_id", sessionId)
+      .maybeSingle();
+
+    if (!failedSubscription && parsedUserIdFromOrder) {
+      const { data: pendingByUser } = await supabase
+        .from("user_subscriptions")
+        .select("id, user_id")
+        .eq("user_id", parsedUserIdFromOrder)
+        .eq("status", "pending")
+        .order("created_at", { ascending: false })
+        .maybeSingle();
+      failedSubscription = pendingByUser;
+    }
+
+    if (failedSubscription) {
+      await supabase
+        .from("user_subscriptions")
+        .update({ status: "cancelled" })
+        .eq("id", failedSubscription.id);
     }
 
     return NextResponse.json({ status: "failed" });

@@ -107,7 +107,16 @@ export function DashboardContent({
       (plan.price_monthly_egp ?? 0) > 0 ||
       (plan.price_yearly_egp ?? 0) > 0 ||
       (plan.price_one_time_egp ?? 0) > 0;
-    return isPaid && ["active", "trial", "paused", "pending"].includes(record.status);
+    return isPaid && ["active", "trial", "paused"].includes(record.status);
+  });
+  const displayPurchasedPlans = purchasedPlans.filter((record) => {
+    const plan = record.subscription_plans;
+    if (!plan) return false;
+    const isPaid =
+      (plan.price_monthly_egp ?? 0) > 0 ||
+      (plan.price_yearly_egp ?? 0) > 0 ||
+      (plan.price_one_time_egp ?? 0) > 0;
+    return isPaid && ["active", "trial", "paused", "expired"].includes(record.status);
   });
   const isFreePlan = activePaidPlans.length === 0;
 
@@ -179,12 +188,6 @@ export function DashboardContent({
   };
 
   const getStatusLabel = (status: string) => {
-    // One-time purchases can stay "pending" briefly while provider callbacks sync.
-    // For purchased plan cards, show a user-friendly active state instead.
-    if (status === "pending") {
-      return t.active;
-    }
-
     switch (status) {
       case "active":
         return t.active;
@@ -409,13 +412,13 @@ export function DashboardContent({
         {/* Purchased Plans - separate from enrolled paths */}
         <div className="mb-8">
           <h2 className="text-lg font-semibold text-slate-900 mb-4">{t.purchasedPlans}</h2>
-          {purchasedPlans.length === 0 ? (
+          {displayPurchasedPlans.length === 0 ? (
             <div className="bg-white rounded-xl border border-slate-200 p-5 text-sm text-slate-600">
               {t.noPurchasedPlans}
             </div>
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {purchasedPlans.map((record) => {
+              {displayPurchasedPlans.map((record) => {
                 const plan = record.subscription_plans;
                 if (!plan) return null;
                 const planName = getText(plan.display_name_en, plan.display_name_ar) || plan.name;

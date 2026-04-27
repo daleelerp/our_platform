@@ -114,7 +114,7 @@ export default async function DashboardPage() {
   const ownedPlanIds = Array.from(
     new Set(
       normalizedPurchasedPlans
-        .filter((record) => ["active", "trial", "paused", "pending", "expired"].includes(record.status))
+        .filter((record) => ["active", "trial", "paused", "expired"].includes(record.status))
         .map((record) => record.subscription_plans?.id)
         .filter((id): id is string => !!id)
     )
