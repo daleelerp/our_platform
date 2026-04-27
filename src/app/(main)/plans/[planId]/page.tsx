@@ -31,6 +31,7 @@ export default async function PlanDetailsPage({ params }: Props) {
 
   let checkoutPending = false;
   let alreadyOwned = false;
+  let hasLiveAccess = false;
   if (user) {
     const { data: liveAccessRow } = await supabase
       .from("user_subscriptions")
@@ -42,7 +43,7 @@ export default async function PlanDetailsPage({ params }: Props) {
       .limit(1)
       .maybeSingle();
 
-    const hasLiveAccess = !!liveAccessRow;
+    hasLiveAccess = !!liveAccessRow;
 
     const { data: pendingSubscription } = await supabase
       .from("user_subscriptions")
@@ -169,16 +170,33 @@ export default async function PlanDetailsPage({ params }: Props) {
               <p className="text-xs text-slate-500 mt-1">
                 {oneTime ? "One-time payment, lifetime access" : "Subscription plan"}
               </p>
-              <Link
-                href={ctaHref}
-                className={`mt-4 block w-full text-center py-3 rounded-xl font-semibold transition-colors ${
-                  checkoutPending || alreadyOwned
-                    ? "bg-teal-600 text-white hover:bg-teal-700 shadow-md hover:shadow-lg"
-                    : "bg-teal-600 text-white hover:bg-teal-700"
-                }`}
-              >
-                {checkoutPending ? "Complete payment" : alreadyOwned ? "Buy again" : "Buy Now"}
-              </Link>
+              {checkoutPending ? (
+                <Link
+                  href={ctaHref}
+                  className="mt-4 block w-full text-center py-3 rounded-xl font-semibold bg-teal-600 text-white hover:bg-teal-700 transition-colors"
+                >
+                  Complete payment
+                </Link>
+              ) : hasLiveAccess ? (
+                <div className="mt-4 space-y-3">
+                  <div className="w-full text-center py-3 px-4 rounded-xl text-sm font-semibold bg-teal-50 border border-teal-200 text-teal-900">
+                    You&apos;re subscribed — no need to pay again.
+                  </div>
+                  <Link
+                    href={`/paths?planId=${plan.id}`}
+                    className="block w-full text-center py-3 rounded-xl font-semibold border-2 border-teal-600 text-teal-700 hover:bg-teal-50 transition-colors"
+                  >
+                    View included paths
+                  </Link>
+                </div>
+              ) : (
+                <Link
+                  href={ctaHref}
+                  className="mt-4 block w-full text-center py-3 rounded-xl font-semibold bg-teal-600 text-white hover:bg-teal-700 transition-colors"
+                >
+                  {alreadyOwned ? "Buy again" : "Buy Now"}
+                </Link>
+              )}
             </div>
           </div>
         </div>

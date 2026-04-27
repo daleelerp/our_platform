@@ -295,32 +295,22 @@ function PricingCard({
               )}
             </button>
           ) : isCurrentPlan ? (
-            <button
-              type="button"
-              onClick={() => handleSubscribe(plan.id)}
-              disabled={isLoading && selectedPlan === plan.id}
-              className={`w-full py-3 px-4 rounded-xl font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2 ${
-                isPremium
-                  ? "bg-gradient-to-r from-[#429874] to-[#357a5d] text-white hover:from-[#357a5d] hover:to-[#285c46] shadow-lg hover:shadow-xl hover:-translate-y-0.5"
-                  : isTeam
-                  ? "bg-slate-900 text-white hover:bg-slate-800 shadow-lg hover:shadow-xl hover:-translate-y-0.5"
-                  : "bg-[#429874] text-white hover:bg-[#357a5d] shadow-lg hover:shadow-xl hover:-translate-y-0.5"
-              } disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0`}
-            >
-              {isLoading && selectedPlan === plan.id ? (
-                <>
-                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            <div className="space-y-3">
+              <div className="w-full py-3 px-4 rounded-xl font-bold text-sm flex flex-col items-center justify-center gap-1 bg-teal-50 text-teal-900 border-2 border-teal-200">
+                <div className="flex items-center justify-center gap-2">
+                  <svg className="w-5 h-5 text-teal-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <span>{t.processing}</span>
-                </>
-              ) : isTeam ? (
-                t.contactSales
-              ) : (
-                t.buyAgain
-              )}
-            </button>
+                  <span>{t.subscribedToPlan}</span>
+                </div>
+              </div>
+              <Link
+                href={`/paths?planId=${plan.id}`}
+                className="block w-full py-3 px-4 text-center rounded-xl text-sm font-semibold bg-white border-2 border-[#429874] text-[#429874] hover:bg-[#429874]/5 transition-colors"
+              >
+                {t.viewPathsCta}
+              </Link>
+            </div>
           ) : isOwnedPlan ? (
             <div className="w-full py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 bg-slate-100 text-slate-600 border-2 border-dashed border-slate-300">
               <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -448,6 +438,8 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
     contactSales: isArabic ? "تواصل معنا" : "Contact Sales",
     buyNow: isArabic ? "اشتري الآن" : "Buy Now",
     buyAgain: isArabic ? "اشترِ مرة أخرى" : "Buy again",
+    subscribedToPlan: isArabic ? "أنت مشترك في هذه الخطة" : "You're subscribed to this plan",
+    viewPathsCta: isArabic ? "عرض المسارات المتضمنة" : "View included paths",
     viewDetails: isArabic ? "عرض التفاصيل" : "View Details",
     features: isArabic ? "المميزات" : "Features",
     guarantee: isArabic ? "ضمان استرداد 7 أيام" : "7-day money-back",
