@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { SubscriptionPlan, SubscriptionFeature, BillingCycle, calculatePricingDisplay } from "@/types/subscription";
 import { createClient } from "@/utils/supabase/client";
@@ -104,6 +104,7 @@ function PricingCard({
   getFeatureName,
   handleSubscribe,
   isCurrentPlan,
+  isOwnedPlan,
 }: {
   plan: SubscriptionPlan;
   price: any;
@@ -119,6 +120,7 @@ function PricingCard({
   getFeatureName: (feature: SubscriptionFeature) => string;
   handleSubscribe: (planId: string) => void;
   isCurrentPlan: boolean;
+  isOwnedPlan: boolean;
 }) {
   // Get audience info for this plan
   const audience = getValidAudience((plan as any).target_audience);
@@ -166,8 +168,20 @@ function PricingCard({
         </div>
       )}
 
+      {/* Purchased Badge for other owned paid plans */}
+      {isOwnedPlan && !isFree && !isCurrentPlan && (
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
+          <span className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg whitespace-nowrap flex items-center gap-1.5">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            {t.purchased}
+          </span>
+        </div>
+      )}
+
       {/* Card Content */}
-        <div className={`p-6 flex flex-col h-full ${plan.is_popular || isFree || isCurrentPlan ? "pt-8" : ""}`}>
+        <div className={`p-6 flex flex-col h-full ${plan.is_popular || isFree || isCurrentPlan || isOwnedPlan ? "pt-8" : ""}`}>
         {/* Top Section - Fixed Height */}
         <div className="space-y-4">
           {/* Audience Badge */}
@@ -238,13 +252,13 @@ function PricingCard({
 
         {/* CTA Button or Current Plan Indicator */}
         <div className="py-4">
-          {isFree || isCurrentPlan ? (
+          {isFree || isCurrentPlan || isOwnedPlan ? (
             /* Free Plan - Current Plan Indicator */
             <div className="w-full py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 bg-slate-100 text-slate-600 border-2 border-dashed border-slate-300">
               <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              {t.currentPlan}
+              {isOwnedPlan && !isCurrentPlan && !isFree ? t.purchased : t.currentPlan}
             </div>
           ) : (
             /* Paid Plans - Buy Button */
@@ -315,6 +329,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
   const [isLoading, setIsLoading] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [selectedAudience, setSelectedAudience] = useState<AudienceType | null>(null);
+  const [ownedPaidPlanIds, setOwnedPaidPlanIds] = useState<string[]>([]);
 
   const isArabic = language === "ar";
 
@@ -385,7 +400,33 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
     choosingHelpBody: isArabic
       ? "ابدأ بالخطة المناسبة لدورك الحالي، ثم افتح تفاصيل الخطة لمعرفة المسارات والفوائد قبل الشراء."
       : "Start with the plan matching your current role, then open plan details to review included paths and benefits before buying.",
+    purchased: isArabic ? "تم الشراء" : "Purchased",
   };
+
+  useEffect(() => {
+    async function fetchOwnedPaidPlans() {
+      if (!user) {
+        setOwnedPaidPlanIds([]);
+        return;
+      }
+
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("user_subscriptions")
+        .select("plan_id")
+        .eq("user_id", user.id)
+        .in("status", ["active", "trial", "paused"]);
+
+      if (!data) {
+        setOwnedPaidPlanIds([]);
+        return;
+      }
+
+      setOwnedPaidPlanIds(Array.from(new Set(data.map((row) => row.plan_id))));
+    }
+
+    fetchOwnedPaidPlans();
+  }, [user]);
 
   const featuresByCategory = features.reduce((acc, feature) => {
     if (!acc[feature.category]) {
@@ -769,6 +810,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
               const isOneTime = isOneTimePlan(plan);
               const isFree = isFreePlan(plan);
               const isCurrentPlan = subscription?.plan_id === plan.id;
+              const isOwnedPlan = ownedPaidPlanIds.includes(plan.id);
 
               const allPlanFeatures = Object.entries(featuresByCategory).flatMap(([_, categoryFeatures]) =>
                 categoryFeatures.filter((f) => planHasFeature(plan, f.key))
@@ -791,6 +833,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
                   getFeatureName={getFeatureName}
                   handleSubscribe={handleSubscribe}
                   isCurrentPlan={isCurrentPlan}
+                  isOwnedPlan={isOwnedPlan}
                 />
               );
             })}

@@ -930,7 +930,16 @@ export function AllPathsWithPlans({
                       <div className="flex-1 min-w-0">
                         {/* Title Row */}
                         <div className="flex items-center gap-2 flex-wrap mb-2">
-                          <h3 className="text-lg font-bold text-slate-900">{title}</h3>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/paths/${path.slug}`);
+                            }}
+                            className="text-lg font-bold text-slate-900 hover:text-teal-700 transition-colors text-left"
+                          >
+                            {title}
+                          </button>
                           <PathTypeBadge plans={item.plans} />
                           {hasSubscription && (
                             <span className="text-xs px-2 py-0.5 bg-teal-600 text-white rounded-full font-medium">
@@ -1009,28 +1018,6 @@ export function AllPathsWithPlans({
                           </button>
                         )}
 
-                        {/* Expand Icon */}
-                        <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-                            isExpanded ? "bg-slate-200" : "bg-slate-100 hover:bg-slate-200"
-                          }`}
-                        >
-                          <svg
-                            className={`w-5 h-5 text-slate-500 transition-transform duration-300 ${
-                              isExpanded ? "rotate-180" : ""
-                            }`}
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M19 9l-7 7-7-7"
-                            />
-                          </svg>
-                        </div>
                       </div>
                     </div>
                   </div>

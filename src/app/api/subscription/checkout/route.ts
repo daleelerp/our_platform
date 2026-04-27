@@ -62,6 +62,8 @@ export async function POST(request: NextRequest) {
       .eq("user_id", user.id)
       .eq("plan_id", planId)
       .in("status", ["active", "trial", "paused"])
+      .order("created_at", { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     if (existingSubscription?.plan_id === planId) {
