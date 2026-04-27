@@ -144,18 +144,16 @@ export default async function PlanDetailsPage({ params }: Props) {
               <p className="text-xs text-slate-500 mt-1">
                 {oneTime ? "One-time payment, lifetime access" : "Subscription plan"}
               </p>
-              {alreadyOwned ? (
-                <div className="mt-4 block w-full text-center py-3 rounded-xl bg-slate-100 border border-slate-200 text-slate-600 font-semibold cursor-not-allowed">
-                  Current Plan
-                </div>
-              ) : (
-                <Link
-                  href={ctaHref}
-                  className="mt-4 block w-full text-center py-3 rounded-xl bg-teal-600 text-white font-semibold hover:bg-teal-700 transition-colors"
-                >
-                  Buy Now
-                </Link>
-              )}
+              <Link
+                href={ctaHref}
+                className={`mt-4 block w-full text-center py-3 rounded-xl font-semibold transition-colors ${
+                  alreadyOwned
+                    ? "bg-teal-600 text-white hover:bg-teal-700 shadow-md hover:shadow-lg"
+                    : "bg-teal-600 text-white hover:bg-teal-700"
+                }`}
+              >
+                {alreadyOwned ? "Buy again" : "Buy Now"}
+              </Link>
             </div>
           </div>
         </div>
