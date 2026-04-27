@@ -1,9 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import {
-  extractKashierPaymentStatus,
-  getKashierApiBaseUrl,
-  isKashierSuccessStatus,
-} from "@/lib/kashier";
+import { extractKashierPaymentStatus, getKashierApiBaseUrl } from "@/lib/kashier";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,6 +8,19 @@ const supabase = createClient(
 
 const KASHIER_SECRET_KEY = process.env.KASHIER_SECRET_KEY!;
 const KASHIER_API_KEY = process.env.KASHIER_API_KEY;
+
+const SUCCESS_STATUSES = [
+  "SUCCESS",
+  "PAID",
+  "CAPTURED",
+  "COMPLETED",
+  "COMPLETE",
+  "AUTHORIZED",
+  "APPROVED",
+  "SETTLED",
+  "SUCCESSFUL",
+  "SUCCEEDED",
+];
 
 async function fetchKashierSessionPayment(sessionId: string): Promise<{
   ok: boolean;
@@ -118,7 +127,7 @@ export async function verifyKashierSessionAndSyncDb(params: {
         : [],
   });
 
-  if (isKashierSuccessStatus(status)) {
+  if (SUCCESS_STATUSES.includes(status)) {
     let { data: subscription } = await supabase
       .from("user_subscriptions")
       .select("*, subscription_plans(*)")
