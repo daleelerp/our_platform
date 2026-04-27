@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useAppStore } from "@/store/useAppStore";
 // Subscription system removed - using free plan only
 import Link from "next/link";
@@ -95,8 +96,31 @@ export function DashboardContent({
   recommendedPaths,
   savedPreferences,
 }: Props) {
+  const router = useRouter();
   const language = useAppStore((state) => state.language);
   const isHydrated = useAppStore((state) => state.isHydrated);
+
+  useEffect(() => {
+    router.refresh();
+  }, [router]);
+
+  const reconcileKeyRef = useRef<string>("");
+
+  useEffect(() => {
+    const pendingSubs = purchasedPlans.filter((r) => r.status === "pending");
+    if (pendingSubs.length === 0) return;
+
+    const key = pendingSubs
+      .map((r) => r.id)
+      .sort()
+      .join(",");
+    if (key === reconcileKeyRef.current) return;
+    reconcileKeyRef.current = key;
+
+    fetch("/api/subscription/reconcile", { method: "POST" }).finally(() => {
+      router.refresh();
+    });
+  }, [purchasedPlans, router]);
   const [pathSearch, setPathSearch] = useState("");
   const [difficultyFilter, setDifficultyFilter] = useState<"all" | "beginner" | "intermediate" | "advanced">("all");
   const [visiblePathCount, setVisiblePathCount] = useState(6);

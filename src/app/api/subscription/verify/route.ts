@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/utils/supabase/server";
+import { extractKashierPaymentStatus, getKashierApiBaseUrl } from "@/lib/kashier";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -9,10 +10,6 @@ const supabase = createClient(
 );
 
 const KASHIER_SECRET_KEY = process.env.KASHIER_SECRET_KEY!;
-const KASHIER_MODE = process.env.KASHIER_MODE || "test";
-const KASHIER_BASE_URL = KASHIER_MODE === "live"
-  ? "https://api.kashier.io"
-  : "https://test-api.kashier.io";
 
 export async function GET(request: NextRequest) {
   try {
@@ -73,7 +70,7 @@ export async function GET(request: NextRequest) {
 
     // Call Kashier GET session API to verify payment status
     const kashierResponse = await fetch(
-      `${KASHIER_BASE_URL}/v3/payment/sessions/${sessionId}/payment`,
+      `${getKashierApiBaseUrl()}/v3/payment/sessions/${sessionId}/payment`,
       {
         method: "GET",
         headers: {
@@ -92,14 +89,24 @@ export async function GET(request: NextRequest) {
       kashierData?.data ??
       kashierData?.payment ??
       kashierData;
-    const status = String(
-      paymentData?.status ??
-        paymentData?.paymentStatus ??
-        kashierData?.status ??
-        ""
-    ).toUpperCase();
+    let status =
+      extractKashierPaymentStatus(kashierData) ||
+      String(
+        (paymentData as { status?: string })?.status ??
+          (paymentData as { paymentStatus?: string })?.paymentStatus ??
+          (kashierData as { status?: string })?.status ??
+          ""
+      ).toUpperCase();
 
-    const successStatuses = ["SUCCESS", "PAID", "CAPTURED", "COMPLETED", "AUTHORIZED"];
+    const successStatuses = [
+      "SUCCESS",
+      "PAID",
+      "CAPTURED",
+      "COMPLETED",
+      "AUTHORIZED",
+      "APPROVED",
+      "SETTLED",
+    ];
 
     console.log("Kashier payment verification:", { sessionId, status, rawKeys: paymentData ? Object.keys(paymentData as object) : [] });
 
@@ -201,6 +208,19 @@ export async function GET(request: NextRequest) {
         }
 
         console.log(`✅ Subscription(s) for session ${sessionId} activated via callback verification`);
+      }
+
+      const { count: pendingLeft } = await supabase
+        .from("user_subscriptions")
+        .select("*", { count: "exact", head: true })
+        .eq("external_subscription_id", sessionId)
+        .eq("status", "pending");
+
+      if ((pendingLeft ?? 0) > 0) {
+        return NextResponse.json({
+          status: "pending",
+          detail: "paid_reported_but_subscription_still_pending",
+        });
       }
 
       return NextResponse.json({ status: "success" });

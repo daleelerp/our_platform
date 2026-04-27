@@ -1,3 +1,4 @@
+import { unstable_noStore as noStore } from "next/cache";
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
@@ -75,6 +76,7 @@ function dedupePurchasedPlansByPlan(records: PurchasedPlanRecord[]): PurchasedPl
 }
 
 export default async function DashboardPage() {
+  noStore();
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 

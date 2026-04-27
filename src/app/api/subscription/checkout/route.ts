@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
+import { getKashierApiBaseUrl } from "@/lib/kashier";
 
 // Kashier Payment Sessions API configuration
 const KASHIER_API_KEY = process.env.KASHIER_API_KEY;
 const KASHIER_SECRET_KEY = process.env.KASHIER_SECRET_KEY;
 const KASHIER_MERCHANT_ID = process.env.KASHIER_MERCHANT_ID;
-const KASHIER_MODE = process.env.KASHIER_MODE || "live"; // "test" or "live"
-
 // ✅ Fixed operator precedence bug
 const BASE_URL =
   process.env.NEXT_PUBLIC_BASE_URL ||
@@ -15,10 +14,7 @@ const BASE_URL =
     ? `https://${process.env.VERCEL_URL}`
     : "https://www.daleel.site");
 
-const KASHIER_BASE_URL =
-  KASHIER_MODE === "live"
-    ? "https://api.kashier.io"
-    : "https://test-api.kashier.io";
+const KASHIER_BASE_URL = getKashierApiBaseUrl();
 
 export async function POST(request: NextRequest) {
   try {

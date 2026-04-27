@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { useAppStore } from "@/store/useAppStore";
 import { SubscriptionPlan, SubscriptionFeature, BillingCycle, calculatePricingDisplay } from "@/types/subscription";
 import { createClient } from "@/utils/supabase/client";
@@ -322,6 +323,7 @@ function PricingCard({
 }
 
 export function PricingPage({ plans, features, erpProviders = [], selectedProvider, onProviderChange }: Props) {
+  const pathname = usePathname();
   const language = useAppStore((state) => state.language);
   const user = useAppStore((state) => state.user);
   const { subscription } = useSubscription();
@@ -426,7 +428,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
     }
 
     fetchOwnedPaidPlans();
-  }, [user]);
+  }, [user, pathname]);
 
   const featuresByCategory = features.reduce((acc, feature) => {
     if (!acc[feature.category]) {
