@@ -63,7 +63,7 @@ type Props = {
   purchasedPlans?: PurchasedPlanRecord[];
   recommendedPaths: Path[];
   savedPreferences?: SavedPreferences;
-  /** Set after payment redirect so we reconcile Kashier → DB immediately and refresh UI. */
+  /** Set after payment redirect — refresh subscription state from DB (activation via callback/webhook). */
   subscriptionActivated?: boolean;
 };
 
@@ -110,32 +110,10 @@ export function DashboardContent({
   useEffect(() => {
     if (!subscriptionActivated || paymentReturnRef.current) return;
     paymentReturnRef.current = true;
-    fetch("/api/subscription/reconcile", { method: "POST" })
-      .catch(() => {})
-      .finally(() => {
-        void refreshSubscription();
-        router.refresh();
-        router.replace("/dashboard", { scroll: false });
-      });
+    void refreshSubscription();
+    router.refresh();
+    router.replace("/dashboard", { scroll: false });
   }, [subscriptionActivated, router, refreshSubscription]);
-
-  const reconcileKeyRef = useRef<string>("");
-
-  useEffect(() => {
-    const pendingSubs = purchasedPlans.filter((r) => r.status === "pending");
-    if (pendingSubs.length === 0) return;
-
-    const key = pendingSubs
-      .map((r) => r.id)
-      .sort()
-      .join(",");
-    if (key === reconcileKeyRef.current) return;
-    reconcileKeyRef.current = key;
-
-    fetch("/api/subscription/reconcile", { method: "POST" }).finally(() => {
-      router.refresh();
-    });
-  }, [purchasedPlans, router]);
   const [pathSearch, setPathSearch] = useState("");
   const [difficultyFilter, setDifficultyFilter] = useState<"all" | "beginner" | "intermediate" | "advanced">("all");
   const [visiblePathCount, setVisiblePathCount] = useState(6);

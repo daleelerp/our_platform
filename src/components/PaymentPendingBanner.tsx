@@ -23,10 +23,9 @@ export function PaymentPendingBanner() {
     primaryPendingPlanName ||
     (isArabic ? "خطة أخرى" : "another plan");
 
-  const runReconcileThenRefresh = async () => {
+  const runRefresh = async () => {
     setChecking(true);
     try {
-      await fetch("/api/subscription/reconcile", { method: "POST", cache: "no-store" });
       await refresh();
     } finally {
       setChecking(false);
@@ -55,13 +54,13 @@ export function PaymentPendingBanner() {
         <button
           type="button"
           disabled={checking}
-          onClick={() => void runReconcileThenRefresh()}
+          onClick={() => void runRefresh()}
           className="inline-flex rounded-lg border border-amber-300 bg-white px-4 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100 disabled:opacity-60"
         >
           {checking
             ? isArabic
-              ? "جاري التحقق…"
-              : "Checking with Kashier…"
+              ? "جاري التحديث…"
+              : "Updating…"
             : isArabic
               ? "تحديث الحالة"
               : "Refresh status"}

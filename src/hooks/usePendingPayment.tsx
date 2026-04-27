@@ -11,8 +11,7 @@ type SubRow = {
 };
 
 /**
- * Tracks unresolved pending Kashier checkouts and keeps UI in sync via Realtime + reconcile polling.
- * "Unresolved" = status pending and no active/trial/paused row for the same plan (stale pending ignored).
+ * Tracks unresolved pending checkouts from DB + Supabase Realtime (no background Kashier polling).
  */
 export function usePendingPayment() {
   const user = useAppStore((s) => s.user);
@@ -101,34 +100,6 @@ export function usePendingPayment() {
   }, [rows, primaryPendingPlanId]);
 
   const hasUnresolvedPending = effectivePendingPlanIds.length > 0;
-
-  useEffect(() => {
-    if (!user) return;
-    if (effectivePendingPlanIds.length === 0) return;
-
-    let cancelled = false;
-    const tick = () => {
-      if (cancelled) return;
-      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
-      fetch("/api/subscription/reconcile", { method: "POST" }).finally(() => {
-        if (!cancelled) refresh();
-      });
-    };
-
-    tick();
-    const id = window.setInterval(tick, 8000);
-
-    const onVisible = () => {
-      if (document.visibilityState === "visible") tick();
-    };
-    document.addEventListener("visibilitychange", onVisible);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(id);
-      document.removeEventListener("visibilitychange", onVisible);
-    };
-  }, [user, effectivePendingPlanIds, refresh]);
 
   /** Start checkout for `planId` only if no other plan has an unresolved pending checkout. */
   const blocksCheckoutForPlan = useCallback(

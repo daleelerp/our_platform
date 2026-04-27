@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import CheckoutPage from "@/components/CheckoutPage";
-import CheckoutPaymentSyncScreen from "@/components/CheckoutPaymentSyncScreen";
 import { SubscriptionPlan } from "@/types/subscription";
 import { createClient } from "@/utils/supabase/client";
 import { usePendingPayment } from "@/hooks/usePendingPayment";
@@ -166,22 +165,6 @@ export default function CheckoutRoute() {
           </div>
         </div>
       </div>
-    );
-  }
-
-  if (
-    planId &&
-    pendingPayment.hasUnresolvedPendingForPlan(planId) &&
-    !pendingPayment.hasLiveAccessForPlan(planId)
-  ) {
-    return (
-      <CheckoutPaymentSyncScreen
-        planId={planId}
-        planDisplayName={plan.display_name_en || plan.name}
-        isArabic={isArabic}
-        refresh={pendingPayment.refresh}
-        hasLiveAccessForPlan={pendingPayment.hasLiveAccessForPlan}
-      />
     );
   }
 
