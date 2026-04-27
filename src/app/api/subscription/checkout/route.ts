@@ -57,12 +57,13 @@ export async function POST(request: NextRequest) {
 
     // Prevent purchasing the same already-owned plan again.
     // Keep "expired" to protect one-time purchases that remain owned after term expiry.
+    // Keep "pending" to avoid duplicate checkout while provider confirmation is in progress.
     const { data: existingSubscription } = await supabase
       .from("user_subscriptions")
       .select("id, plan_id, status")
       .eq("user_id", user.id)
       .eq("plan_id", planId)
-      .in("status", ["active", "trial", "paused", "expired"])
+      .in("status", ["active", "trial", "paused", "pending", "expired"])
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();

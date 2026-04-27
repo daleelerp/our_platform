@@ -36,7 +36,7 @@ export default async function PlanDetailsPage({ params }: Props) {
       .select("id")
       .eq("user_id", user.id)
       .eq("plan_id", plan.id)
-      .in("status", ["active", "trial", "paused", "expired"])
+      .in("status", ["active", "trial", "paused", "pending", "expired"])
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();

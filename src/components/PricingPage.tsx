@@ -415,7 +415,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
         .from("user_subscriptions")
         .select("plan_id")
         .eq("user_id", user.id)
-        .in("status", ["active", "trial", "paused", "expired"]);
+        .in("status", ["active", "trial", "paused", "pending", "expired"]);
 
       if (!data) {
         setOwnedPaidPlanIds([]);

@@ -107,7 +107,7 @@ export function DashboardContent({
       (plan.price_monthly_egp ?? 0) > 0 ||
       (plan.price_yearly_egp ?? 0) > 0 ||
       (plan.price_one_time_egp ?? 0) > 0;
-    return isPaid && ["active", "trial", "paused"].includes(record.status);
+    return isPaid && ["active", "trial", "paused", "pending"].includes(record.status);
   });
   const displayPurchasedPlans = purchasedPlans.filter((record) => {
     const plan = record.subscription_plans;
@@ -116,7 +116,7 @@ export function DashboardContent({
       (plan.price_monthly_egp ?? 0) > 0 ||
       (plan.price_yearly_egp ?? 0) > 0 ||
       (plan.price_one_time_egp ?? 0) > 0;
-    return isPaid && ["active", "trial", "paused", "expired"].includes(record.status);
+    return isPaid && ["active", "trial", "paused", "pending", "expired"].includes(record.status);
   });
   const isFreePlan = activePaidPlans.length === 0;
 
@@ -189,6 +189,8 @@ export function DashboardContent({
 
   const getStatusLabel = (status: string) => {
     switch (status) {
+      case "pending":
+        return t.pending;
       case "active":
         return t.active;
       case "trial":
