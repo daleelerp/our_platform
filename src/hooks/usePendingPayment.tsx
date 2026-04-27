@@ -108,7 +108,7 @@ export function usePendingPayment() {
 
     const id = window.setInterval(() => {
       fetch("/api/subscription/reconcile", { method: "POST" }).finally(() => refresh());
-    }, 7000);
+    }, 4500);
 
     return () => window.clearInterval(id);
   }, [user, effectivePendingPlanIds, refresh]);
@@ -117,6 +117,19 @@ export function usePendingPayment() {
   const blocksCheckoutForPlan = useCallback(
     (planId: string) => effectivePendingPlanIds.some((pid) => pid !== planId),
     [effectivePendingPlanIds]
+  );
+
+  /** Unresolved pending row exists for this plan (user should not start a duplicate checkout). */
+  const hasUnresolvedPendingForPlan = useCallback(
+    (planId: string) => effectivePendingPlanIds.includes(planId),
+    [effectivePendingPlanIds]
+  );
+
+  /** Paid or active access for this plan — ready to send user to dashboard. */
+  const hasLiveAccessForPlan = useCallback(
+    (planId: string) =>
+      rows.some((r) => r.plan_id === planId && ["active", "trial", "paused"].includes(r.status)),
+    [rows]
   );
 
   const resumeCheckoutHref = primaryPendingPlanId
@@ -131,6 +144,8 @@ export function usePendingPayment() {
     primaryPendingPlanId,
     primaryPendingPlanName,
     blocksCheckoutForPlan,
+    hasUnresolvedPendingForPlan,
+    hasLiveAccessForPlan,
     resumeCheckoutHref,
   };
 }

@@ -409,6 +409,9 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [selectedAudience, setSelectedAudience] = useState<AudienceType | null>(null);
   const [ownedPaidPlanIds, setOwnedPaidPlanIds] = useState<string[]>([]);
+  const [subscribeNotice, setSubscribeNotice] = useState<{ text: string; tone: "amber" | "red" } | null>(
+    null
+  );
   const pendingPaymentPlanIds = pendingPayment.effectivePendingPlanIds;
 
   const isArabic = language === "ar";
@@ -490,6 +493,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
       ? "لديك دفع قيد الانتظار لخطة أخرى. أكملها أولاً."
       : "You have another checkout waiting. Finish that first.",
     resumePendingCheckout: isArabic ? "متابعة الدفع المعلق" : "Resume pending checkout",
+    dismissNotice: isArabic ? "إغلاق" : "Dismiss",
   };
 
   useEffect(() => {
@@ -543,6 +547,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
 
   const handleSubscribe = async (planId: string) => {
     const plan = plans.find((p) => p.id === planId);
+    setSubscribeNotice(null);
 
     if (!user) {
       if (typeof window !== "undefined") {
@@ -560,17 +565,21 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
         },
       });
       if (error) {
-        alert(isArabic ? "فشل تسجيل الدخول" : "Login failed");
+        setSubscribeNotice({
+          tone: "red",
+          text: isArabic ? "فشل تسجيل الدخول" : "Login failed",
+        });
       }
       return;
     }
 
     if (pendingPayment.blocksCheckoutForPlan(planId)) {
-      alert(
-        isArabic
+      setSubscribeNotice({
+        tone: "amber",
+        text: isArabic
           ? "أكمل الدفع للخطة الأخرى أولاً (شريط التنبيه أعلى الصفحة)."
-          : "Finish your pending checkout for the other plan first (see the banner at the top)."
-      );
+          : "Finish your pending checkout for the other plan first (see the banner at the top).",
+      });
       return;
     }
 
@@ -585,7 +594,10 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
       }
       window.location.href = `/checkout?${checkoutParams.toString()}`;
     } catch (error) {
-      alert(isArabic ? "حدث خطأ. حاول مرة أخرى." : "An error occurred. Please try again.");
+      setSubscribeNotice({
+        tone: "red",
+        text: isArabic ? "حدث خطأ. حاول مرة أخرى." : "An error occurred. Please try again.",
+      });
       setIsLoading(false);
       setSelectedPlan(null);
     }
@@ -669,6 +681,31 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
       {/* Compact Sticky Header */}
       <div className="bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-20">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          {subscribeNotice && (
+            <div
+              className={`mt-3 mb-2 rounded-xl px-4 py-3 text-sm border ${
+                subscribeNotice.tone === "amber"
+                  ? "border-amber-200 bg-amber-50 text-amber-950"
+                  : "border-red-200 bg-red-50 text-red-900"
+              }`}
+              role="status"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="font-medium flex-1 min-w-[200px]">{subscribeNotice.text}</p>
+                <button
+                  type="button"
+                  onClick={() => setSubscribeNotice(null)}
+                  className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold border ${
+                    subscribeNotice.tone === "amber"
+                      ? "border-amber-300 bg-white text-amber-900 hover:bg-amber-100"
+                      : "border-red-300 bg-white text-red-800 hover:bg-red-100"
+                  }`}
+                >
+                  {t.dismissNotice}
+                </button>
+              </div>
+            </div>
+          )}
           {/* Row 1: Title & Trust Badge */}
           <div className="py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">

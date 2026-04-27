@@ -4,13 +4,17 @@ import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import CheckoutPage from "@/components/CheckoutPage";
+import CheckoutPaymentSyncScreen from "@/components/CheckoutPaymentSyncScreen";
 import { SubscriptionPlan } from "@/types/subscription";
 import { createClient } from "@/utils/supabase/client";
 import { usePendingPayment } from "@/hooks/usePendingPayment";
+import { useAppStore } from "@/store/useAppStore";
 
 export default function CheckoutRoute() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const language = useAppStore((s) => s.language);
+  const isArabic = language === "ar";
   const planId = searchParams.get("planId");
   const billingCycleFromUrl = searchParams.get("billingCycle");
   const pendingPayment = usePendingPayment();
@@ -57,6 +61,13 @@ export default function CheckoutRoute() {
     fetchPlan();
   }, [planId, billingCycleFromUrl]);
 
+  useEffect(() => {
+    if (!planId || pendingPayment.loading) return;
+    if (pendingPayment.hasLiveAccessForPlan(planId)) {
+      router.replace("/dashboard?subscription=activated");
+    }
+  }, [planId, pendingPayment.loading, pendingPayment.hasLiveAccessForPlan, router]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -85,6 +96,32 @@ export default function CheckoutRoute() {
     );
   }
 
+  if (planId && pendingPayment.loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <div className="w-12 h-12 rounded-full border-4 border-slate-200 border-t-[#429874] animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-600">
+            {isArabic ? "جاري التحقق من حالة الاشتراك…" : "Checking subscription status…"}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (planId && pendingPayment.hasLiveAccessForPlan(planId)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <div className="w-12 h-12 rounded-full border-4 border-slate-200 border-t-[#429874] animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-600">
+            {isArabic ? "جاري التوجيه إلى لوحة التحكم…" : "Taking you to your dashboard…"}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // Determine the amount based on billing cycle
   const isOneTime = plan.payment_type === "one_time" || 
                     (plan.price_one_time_egp && plan.price_one_time_egp > 0 && 
@@ -98,7 +135,6 @@ export default function CheckoutRoute() {
 
   if (
     planId &&
-    !pendingPayment.loading &&
     pendingPayment.blocksCheckoutForPlan(planId) &&
     pendingPayment.resumeCheckoutHref
   ) {
@@ -130,6 +166,22 @@ export default function CheckoutRoute() {
           </div>
         </div>
       </div>
+    );
+  }
+
+  if (
+    planId &&
+    pendingPayment.hasUnresolvedPendingForPlan(planId) &&
+    !pendingPayment.hasLiveAccessForPlan(planId)
+  ) {
+    return (
+      <CheckoutPaymentSyncScreen
+        planId={planId}
+        planDisplayName={plan.display_name_en || plan.name}
+        isArabic={isArabic}
+        refresh={pendingPayment.refresh}
+        hasLiveAccessForPlan={pendingPayment.hasLiveAccessForPlan}
+      />
     );
   }
 
