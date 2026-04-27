@@ -59,7 +59,6 @@ type PurchasedPlanRecord = {
   created_at?: string;
   current_period_end?: string;
   billing_cycle?: string | null;
-  included_path_slug?: string | null;
   subscription_plans: {
     id: string;
     name: string;
@@ -316,9 +315,7 @@ export function DashboardContent({
                 const plan = record.subscription_plans;
                 if (!plan) return null;
                 const planName = getText(plan.display_name_en, plan.display_name_ar) || plan.name;
-                const planTargetHref = record.included_path_slug
-                  ? `/paths/${record.included_path_slug}?planId=${plan.id}`
-                  : `/paths?planId=${plan.id}`;
+                const planTargetHref = `/paths?planId=${plan.id}&openFirst=1`;
                 const billingType =
                   plan.payment_type === "one_time" ||
                   ((plan.price_one_time_egp ?? 0) > 0 &&

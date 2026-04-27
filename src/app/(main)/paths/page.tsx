@@ -1,9 +1,10 @@
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { AllPathsWithPlans } from "@/components/AllPathsWithPlans";
+import { redirect } from "next/navigation";
 
 type Props = {
-  searchParams?: Promise<{ error?: string; planId?: string }>;
+  searchParams?: Promise<{ error?: string; planId?: string; openFirst?: string }>;
 };
 
 type PathWithPlanWithMetadata = {
@@ -33,6 +34,7 @@ export default async function PathsPage({ searchParams }: Props) {
   
   const resolvedSearchParams = await searchParams;
   const selectedPlanId = resolvedSearchParams?.planId || null;
+  const openFirst = resolvedSearchParams?.openFirst === "1";
 
   const {
     data: { user },
@@ -141,6 +143,35 @@ export default async function PathsPage({ searchParams }: Props) {
     
     if (subscriptions) {
       userSubscribedPlans = subscriptions.map((s: any) => s.plan_id);
+    }
+  }
+
+  // Optional direct-open mode: open first included path for selected owned plan.
+  if (
+    user &&
+    openFirst &&
+    selectedPlanId &&
+    userSubscribedPlans?.includes(selectedPlanId)
+  ) {
+    const { data: firstPlanPath } = await supabase
+      .from("plan_paths")
+      .select(`
+        learning_paths (
+          slug
+        )
+      `)
+      .eq("plan_id", selectedPlanId)
+      .order("learning_path_id", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    const learningPathRelation = (firstPlanPath as any)?.learning_paths;
+    const firstSlug = Array.isArray(learningPathRelation)
+      ? learningPathRelation[0]?.slug
+      : learningPathRelation?.slug;
+
+    if (firstSlug) {
+      redirect(`/paths/${firstSlug}?planId=${selectedPlanId}`);
     }
   }
 

@@ -10,7 +10,6 @@ type PurchasedPlanRecord = {
   created_at?: string;
   current_period_end?: string;
   billing_cycle?: string | null;
-  included_path_slug?: string | null;
   subscription_plans: {
     id: string;
     name: string;
@@ -104,44 +103,6 @@ export default async function DashboardPage() {
     };
   }) || [];
 
-  const purchasedPlanIds = Array.from(
-    new Set(
-      normalizedPurchasedPlans
-        .map((record) => record.subscription_plans?.id)
-        .filter((id): id is string => !!id)
-    )
-  );
-
-  let firstPathSlugByPlanId = new Map<string, string>();
-  if (purchasedPlanIds.length > 0) {
-    const { data: planPaths } = await supabase
-      .from("plan_paths")
-      .select(`
-        plan_id,
-        learning_paths (
-          slug
-        )
-      `)
-      .in("plan_id", purchasedPlanIds);
-
-    if (planPaths) {
-      for (const item of planPaths as any[]) {
-        const planId = item.plan_id as string;
-        const slug = item.learning_paths?.slug as string | undefined;
-        if (planId && slug && !firstPathSlugByPlanId.has(planId)) {
-          firstPathSlugByPlanId.set(planId, slug);
-        }
-      }
-    }
-  }
-
-  const enrichedPurchasedPlans: PurchasedPlanRecord[] = normalizedPurchasedPlans.map((record) => {
-    const planId = record.subscription_plans?.id;
-    return {
-      ...record,
-      included_path_slug: planId ? firstPathSlugByPlanId.get(planId) ?? null : null,
-    };
-  });
 
   // Fetch saved path finder recommendations
   const { data: savedPreferences } = await supabase
@@ -183,7 +144,7 @@ export default async function DashboardPage() {
     <DashboardContent 
       profile={profile}
       enrolledPaths={enrollments || []}
-      purchasedPlans={enrichedPurchasedPlans}
+      purchasedPlans={normalizedPurchasedPlans}
       recommendedPaths={recommendedPaths}
       savedPreferences={savedPreferences}
     />
