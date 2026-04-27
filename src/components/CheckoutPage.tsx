@@ -29,6 +29,8 @@ export default function CheckoutPage({
   const language = useAppStore((state) => state.language);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** When API returns 409 payment_pending_elsewhere — link to resume that checkout. */
+  const [pendingElsewhereResumeUrl, setPendingElsewhereResumeUrl] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("kashier");
   const [showSuccess, setShowSuccess] = useState(false);
   
@@ -114,6 +116,10 @@ export default function CheckoutPage({
     removePromo: isArabic ? "إزالة" : "Remove",
     havePromoCode: isArabic ? "لديك كود خصم؟" : "Have a promo code?",
     youSave: isArabic ? "توفر" : "You save",
+    pendingElsewhereCheckout: isArabic
+      ? "لديك دفع قيد التنفيذ لخطة أخرى. أكمل ذلك من صفحة الدفع الخاصة بتلك الخطة أو من الشريط أعلى الصفحة."
+      : "You already have a checkout in progress for another plan. Open that checkout from the banner at the top or use the button below.",
+    resumePendingCheckout: isArabic ? "متابعة الدفع المعلق" : "Resume pending checkout",
   };
 
   // Apply Promo Code Handler
@@ -180,6 +186,7 @@ export default function CheckoutPage({
 
     setIsLoading(true);
     setError(null);
+    setPendingElsewhereResumeUrl(null);
 
     try {
       const response = await fetch("/api/subscription/checkout", {
@@ -196,7 +203,18 @@ export default function CheckoutPage({
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error || "Failed to initiate checkout");
+        if (response.status === 409 && data.error === "payment_pending_elsewhere") {
+          setError(
+            isArabic
+              ? t.pendingElsewhereCheckout
+              : typeof data.message === "string"
+                ? data.message
+                : t.pendingElsewhereCheckout
+          );
+          setPendingElsewhereResumeUrl(typeof data.resumeUrl === "string" ? data.resumeUrl : null);
+        } else {
+          setError(data.error || data.message || "Failed to initiate checkout");
+        }
         setIsLoading(false);
         return;
       }
@@ -587,8 +605,22 @@ export default function CheckoutPage({
 
           {/* Error Message */}
           {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-600">{error}</p>
+            <div
+              className={`mb-6 p-4 rounded-lg border ${
+                pendingElsewhereResumeUrl
+                  ? "bg-amber-50 border-amber-200 text-amber-950"
+                  : "bg-red-50 border-red-200"
+              }`}
+            >
+              <p className={`text-sm ${pendingElsewhereResumeUrl ? "text-amber-900" : "text-red-600"}`}>{error}</p>
+              {pendingElsewhereResumeUrl && (
+                <Link
+                  href={pendingElsewhereResumeUrl}
+                  className="mt-3 inline-flex items-center justify-center w-full py-2.5 px-4 rounded-xl text-sm font-semibold bg-amber-600 text-white hover:bg-amber-700 transition-colors"
+                >
+                  {t.resumePendingCheckout}
+                </Link>
+              )}
             </div>
           )}
 

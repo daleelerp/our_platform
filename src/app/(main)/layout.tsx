@@ -1,6 +1,7 @@
 import { LandingNavbar } from "@/components/landing/LandingNavbar";
 import { LandingFooter } from "@/components/landing/LandingFooter";
 import { AIChatAssistant } from "@/components/AIChatAssistant";
+import { PaymentPendingBanner } from "@/components/PaymentPendingBanner";
 
 export default function MainLayout({
   children,
@@ -10,6 +11,7 @@ export default function MainLayout({
   return (
     <>
       <LandingNavbar />
+      <PaymentPendingBanner />
       {children}
       <LandingFooter />
       <AIChatAssistant />

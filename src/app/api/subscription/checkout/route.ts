@@ -51,6 +51,41 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Plan not found" }, { status: 404 });
     }
 
+    // Block starting checkout for plan B while plan A still has unresolved pending (prevents double charges / confusion).
+    const { data: flowRows } = await supabase
+      .from("user_subscriptions")
+      .select("plan_id, status")
+      .eq("user_id", user.id)
+      .in("status", ["pending", "active", "trial", "paused"]);
+
+    const livePlanIds = new Set(
+      (flowRows || [])
+        .filter((r) => ["active", "trial", "paused"].includes(r.status))
+        .map((r) => r.plan_id)
+    );
+    const unresolvedPendingPlanIds = Array.from(
+      new Set(
+        (flowRows || [])
+          .filter((r) => r.status === "pending")
+          .map((r) => r.plan_id)
+          .filter((pid) => !livePlanIds.has(pid))
+      )
+    );
+    const pendingForAnotherPlan = unresolvedPendingPlanIds.filter((pid) => pid !== planId);
+    if (pendingForAnotherPlan.length > 0) {
+      const blockPlanId = pendingForAnotherPlan[0];
+      return NextResponse.json(
+        {
+          error: "payment_pending_elsewhere",
+          message:
+            "You already have a payment in progress for another plan. Finish or refresh that checkout first.",
+          pendingPlanId: blockPlanId,
+          resumeUrl: `/checkout?planId=${blockPlanId}`,
+        },
+        { status: 409 }
+      );
+    }
+
     // Cancel incomplete checkouts so the user can retry payment on the same plan.
     await supabase
       .from("user_subscriptions")

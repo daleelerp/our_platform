@@ -6,6 +6,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { SubscriptionPlan, SubscriptionFeature, BillingCycle, calculatePricingDisplay } from "@/types/subscription";
 import { createClient } from "@/utils/supabase/client";
 import { useSubscription } from "@/hooks/useSubscription";
+import { usePendingPayment } from "@/hooks/usePendingPayment";
 import Link from "next/link";
 
 type Props = {
@@ -107,6 +108,8 @@ function PricingCard({
   isCurrentPlan,
   isOwnedPlan,
   isPaymentPending,
+  blockedByForeignPending,
+  resumeCheckoutHref,
 }: {
   plan: SubscriptionPlan;
   price: any;
@@ -125,6 +128,9 @@ function PricingCard({
   isOwnedPlan: boolean;
   /** Kashier checkout started but payment not completed (`user_subscriptions.status === pending`). */
   isPaymentPending: boolean;
+  /** Another plan has unresolved pending — block purchase on this card. */
+  blockedByForeignPending: boolean;
+  resumeCheckoutHref: string | null;
 }) {
   // Get audience info for this plan
   const audience = getValidAudience((plan as any).target_audience);
@@ -275,6 +281,20 @@ function PricingCard({
               </svg>
               {t.yourDefaultPlan}
             </div>
+          ) : blockedByForeignPending ? (
+            <div className="space-y-3">
+              <div className="w-full py-3 px-4 rounded-xl text-sm font-medium text-center bg-amber-50 text-amber-900 border border-amber-200">
+                {t.checkoutBlockedShort}
+              </div>
+              {resumeCheckoutHref && (
+                <Link
+                  href={resumeCheckoutHref}
+                  className="block w-full py-3 px-4 text-center rounded-xl text-sm font-semibold bg-amber-600 text-white hover:bg-amber-700 transition-colors"
+                >
+                  {t.resumePendingCheckout}
+                </Link>
+              )}
+            </div>
           ) : isPaymentPending ? (
             <button
               type="button"
@@ -383,12 +403,13 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
   const language = useAppStore((state) => state.language);
   const user = useAppStore((state) => state.user);
   const { subscription } = useSubscription();
+  const pendingPayment = usePendingPayment();
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
   const [isLoading, setIsLoading] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [selectedAudience, setSelectedAudience] = useState<AudienceType | null>(null);
   const [ownedPaidPlanIds, setOwnedPaidPlanIds] = useState<string[]>([]);
-  const [pendingPaymentPlanIds, setPendingPaymentPlanIds] = useState<string[]>([]);
+  const pendingPaymentPlanIds = pendingPayment.effectivePendingPlanIds;
 
   const isArabic = language === "ar";
 
@@ -465,13 +486,16 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
     purchased: isArabic ? "تم الشراء" : "Purchased",
     paymentIncomplete: isArabic ? "دفع غير مكتمل" : "Payment incomplete",
     completePayment: isArabic ? "إكمال الدفع" : "Complete payment",
+    checkoutBlockedShort: isArabic
+      ? "لديك دفع قيد الانتظار لخطة أخرى. أكملها أولاً."
+      : "You have another checkout waiting. Finish that first.",
+    resumePendingCheckout: isArabic ? "متابعة الدفع المعلق" : "Resume pending checkout",
   };
 
   useEffect(() => {
-    async function fetchSubscriptionPlanIds() {
+    async function fetchOwnedPlanIds() {
       if (!user) {
         setOwnedPaidPlanIds([]);
-        setPendingPaymentPlanIds([]);
         return;
       }
 
@@ -480,34 +504,23 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
         .from("user_subscriptions")
         .select("plan_id, status")
         .eq("user_id", user.id)
-        .in("status", ["active", "trial", "paused", "expired", "pending"]);
+        .in("status", ["active", "trial", "paused", "expired"]);
 
       if (!data) {
         setOwnedPaidPlanIds([]);
-        setPendingPaymentPlanIds([]);
         return;
       }
 
       const owned = new Set<string>();
-      const pending = new Set<string>();
-      const liveAccess = new Set<string>();
       for (const row of data) {
-        if (row.status === "pending") {
-          pending.add(row.plan_id);
-        } else if (["active", "trial", "paused", "expired"].includes(row.status)) {
+        if (["active", "trial", "paused", "expired"].includes(row.status)) {
           owned.add(row.plan_id);
         }
-        if (["active", "trial", "paused"].includes(row.status)) {
-          liveAccess.add(row.plan_id);
-        }
       }
-      // Stale pending rows often remain after a successful payment; never show "incomplete" if access is active.
-      const pendingForUi = Array.from(pending).filter((planId) => !liveAccess.has(planId));
       setOwnedPaidPlanIds(Array.from(owned));
-      setPendingPaymentPlanIds(pendingForUi);
     }
 
-    fetchSubscriptionPlanIds();
+    fetchOwnedPlanIds();
   }, [user, pathname]);
 
   const featuresByCategory = features.reduce((acc, feature) => {
@@ -549,6 +562,15 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
       if (error) {
         alert(isArabic ? "فشل تسجيل الدخول" : "Login failed");
       }
+      return;
+    }
+
+    if (pendingPayment.blocksCheckoutForPlan(planId)) {
+      alert(
+        isArabic
+          ? "أكمل الدفع للخطة الأخرى أولاً (شريط التنبيه أعلى الصفحة)."
+          : "Finish your pending checkout for the other plan first (see the banner at the top)."
+      );
       return;
     }
 
@@ -894,6 +916,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
               const isPaymentPending = pendingPaymentPlanIds.includes(plan.id);
               const isCurrentPlan = subscription?.plan_id === plan.id;
               const isOwnedPlan = ownedPaidPlanIds.includes(plan.id);
+              const blockedByForeignPending = pendingPayment.blocksCheckoutForPlan(plan.id);
 
               const allPlanFeatures = Object.entries(featuresByCategory).flatMap(([_, categoryFeatures]) =>
                 categoryFeatures.filter((f) => planHasFeature(plan, f.key))
@@ -918,6 +941,8 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
                   isCurrentPlan={isCurrentPlan}
                   isOwnedPlan={isOwnedPlan}
                   isPaymentPending={isPaymentPending}
+                  blockedByForeignPending={blockedByForeignPending}
+                  resumeCheckoutHref={pendingPayment.resumeCheckoutHref}
                 />
               );
             })}
