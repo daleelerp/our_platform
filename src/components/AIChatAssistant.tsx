@@ -18,7 +18,72 @@ type Props = {
 
 const FREE_DAILY_LIMIT = 10;
 
-export function AIChatAssistant({ initialMessage }: Props) {
+function isPaidPlan(plan: Record<string, unknown> | null | undefined): boolean {
+  if (!plan) return false;
+  return (
+    Number(plan.price_monthly_egp ?? 0) > 0 ||
+    Number(plan.price_yearly_egp ?? 0) > 0 ||
+    Number(plan.price_one_time_egp ?? 0) > 0 ||
+    Number(plan.price_per_user_egp ?? 0) > 0
+  );
+}
+
+function normalizeAiRequests(lim: unknown): number | undefined {
+  if (lim === undefined || lim === null) return undefined;
+  if (typeof lim === "number" && Number.isFinite(lim)) return lim;
+  if (typeof lim === "string") {
+    const n = Number(lim.trim());
+    return Number.isFinite(n) ? n : undefined;
+  }
+  return undefined;
+}
+
+/** Sum ai_requests across plans; any plan with -1 means unlimited. */
+function aggregateAiDailyLimit(
+  subscriptions: { subscription_plans?: Record<string, unknown> | Record<string, unknown>[] | null }[]
+): { hasPaidPlan: boolean; dailyLimit: number } {
+  let combined = 0;
+  let unlimited = false;
+  let anyPaid = false;
+
+  for (const row of subscriptions) {
+    const raw = row.subscription_plans;
+    const plan = (Array.isArray(raw) ? raw[0] : raw) as Record<string, unknown> | undefined;
+    if (!isPaidPlan(plan)) continue;
+    anyPaid = true;
+    let limitations = plan?.limitations as Record<string, unknown> | string | undefined;
+    if (typeof limitations === "string") {
+      try {
+        limitations = JSON.parse(limitations) as Record<string, unknown>;
+      } catch {
+        limitations = undefined;
+      }
+    }
+    const lim = normalizeAiRequests(
+      limitations && typeof limitations === "object"
+        ? (limitations as Record<string, unknown>).ai_requests
+        : undefined
+    );
+    if (lim === -1) {
+      unlimited = true;
+      break;
+    }
+    if (lim !== undefined && lim >= 0) {
+      combined += lim;
+    }
+  }
+
+  if (!anyPaid) {
+    return { hasPaidPlan: false, dailyLimit: FREE_DAILY_LIMIT };
+  }
+  if (unlimited) {
+    return { hasPaidPlan: true, dailyLimit: -1 };
+  }
+  const fallback = combined > 0 ? combined : FREE_DAILY_LIMIT;
+  return { hasPaidPlan: true, dailyLimit: fallback };
+}
+
+export function AIChatAssistant({ initialMessage: _initialMessage }: Props) {
   const language = useAppStore((state) => state.language);
   const user = useAppStore((state) => state.user);
   const userProfile = useAppStore((state) => state.userProfile);
@@ -30,7 +95,8 @@ export function AIChatAssistant({ initialMessage }: Props) {
   const [hasGreeted, setHasGreeted] = useState(false);
   const [dailyMessagesUsed, setDailyMessagesUsed] = useState(0);
   const [dailyLimit, setDailyLimit] = useState(FREE_DAILY_LIMIT);
-  const [isPremium, setIsPremium] = useState(false);
+  /** At least one paid subscription row (aggregated limits apply). */
+  const [hasPaidPlan, setHasPaidPlan] = useState(false);
   const [isCheckingSubscription, setIsCheckingSubscription] = useState(true);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -74,7 +140,8 @@ export function AIChatAssistant({ initialMessage }: Props) {
   useEffect(() => {
     async function checkSubscription() {
       if (!user) {
-        setIsPremium(false);
+        setHasPaidPlan(false);
+        setDailyLimit(FREE_DAILY_LIMIT);
         setIsCheckingSubscription(false);
         return;
       }
@@ -82,45 +149,32 @@ export function AIChatAssistant({ initialMessage }: Props) {
       const supabase = createClient();
       
       try {
-        // Check if user has premium subscription (only if table exists)
         try {
-          const { data: subscription, error: subError } = await supabase
+          const { data: subscriptions, error: subError } = await supabase
             .from("user_subscriptions")
             .select("*, subscription_plans(*)")
             .eq("user_id", user.id)
-            .in("status", ["active", "trial"])
-            .maybeSingle();
+            .in("status", ["active", "trial", "paused", "expired"]);
 
-          // If table doesn't exist (406 error), skip subscription check
           if (subError && (subError.code === "PGRST116" || subError?.message?.includes("406"))) {
             console.debug("Subscription tables not available, using free plan");
-            setIsPremium(false);
-          } else if (subscription?.subscription_plans) {
-            const plan = subscription.subscription_plans as any;
-            const isPaidPlan =
-              (plan.price_monthly_egp ?? 0) > 0 ||
-              (plan.price_yearly_egp ?? 0) > 0 ||
-              (plan.price_one_time_egp ?? 0) > 0 ||
-              (plan.price_per_user_egp ?? 0) > 0;
-
-            setIsPremium(isPaidPlan);
-
-            const planAiLimit = plan?.limitations?.ai_requests;
-            if (typeof planAiLimit === "number") {
-              setDailyLimit(planAiLimit);
-            } else {
-              setDailyLimit(FREE_DAILY_LIMIT);
-            }
+            setHasPaidPlan(false);
+            setDailyLimit(FREE_DAILY_LIMIT);
+          } else if (subscriptions?.length) {
+            const { hasPaidPlan: paid, dailyLimit: agg } =
+              aggregateAiDailyLimit(subscriptions);
+            setHasPaidPlan(paid);
+            setDailyLimit(agg);
           } else {
-            setIsPremium(false);
+            setHasPaidPlan(false);
             setDailyLimit(FREE_DAILY_LIMIT);
           }
-        } catch (error: any) {
-          // Table doesn't exist
-          if (error?.code === "PGRST116" || error?.message?.includes("406")) {
+        } catch (error: unknown) {
+          const err = error as { code?: string; message?: string };
+          if (err?.code === "PGRST116" || err?.message?.includes("406")) {
             console.debug("Subscription table not available");
           }
-          setIsPremium(false);
+          setHasPaidPlan(false);
           setDailyLimit(FREE_DAILY_LIMIT);
         }
 
@@ -145,9 +199,10 @@ export function AIChatAssistant({ initialMessage }: Props) {
           } else {
             setDailyMessagesUsed(0);
           }
-        } catch (error: any) {
+        } catch (error: unknown) {
+          const err = error as { code?: string; message?: string };
           // Table doesn't exist
-          if (error?.code === "PGRST116" || error?.message?.includes("406")) {
+          if (err?.code === "PGRST116" || err?.message?.includes("406")) {
             console.debug("Usage table not available");
           }
           setDailyMessagesUsed(0);
@@ -155,7 +210,7 @@ export function AIChatAssistant({ initialMessage }: Props) {
       } catch (error) {
         // General error
         console.debug("Subscription check error:", error);
-        setIsPremium(false);
+        setHasPaidPlan(false);
         setDailyLimit(FREE_DAILY_LIMIT);
         setDailyMessagesUsed(0);
       }
@@ -191,12 +246,15 @@ export function AIChatAssistant({ initialMessage }: Props) {
     }
   }, [isOpen]);
 
-  const effectiveLimit = dailyLimit === -1 ? Number.MAX_SAFE_INTEGER : dailyLimit;
-  const canSendMessage = isPremium || dailyMessagesUsed < effectiveLimit;
-  const messagesRemaining = Math.max(0, effectiveLimit - dailyMessagesUsed);
+  const isUnlimited = dailyLimit === -1;
+  const effectiveLimit = isUnlimited ? Number.MAX_SAFE_INTEGER : dailyLimit;
+  const canSendMessage = dailyMessagesUsed < effectiveLimit;
+  const messagesRemaining = isUnlimited
+    ? 0
+    : Math.max(0, dailyLimit - dailyMessagesUsed);
 
   const incrementUsage = async () => {
-    if (!user || isPremium) return;
+    if (!user || isUnlimited) return;
 
     const supabase = createClient();
     const today = new Date();
@@ -331,7 +389,7 @@ export function AIChatAssistant({ initialMessage }: Props) {
               <div>
                 <h3 className="font-semibold text-white">{t.title}</h3>
                 <p className="text-xs text-teal-100">
-                  {isPremium ? t.unlimited : t.online}
+                  {isUnlimited ? t.unlimited : t.online}
                 </p>
               </div>
             </div>
@@ -404,7 +462,7 @@ export function AIChatAssistant({ initialMessage }: Props) {
             )}
 
             {/* Limit reached message */}
-            {!isPremium && !canSendMessage && (
+            {!canSendMessage && !isUnlimited && (
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
                 <p className="text-amber-800 text-sm mb-3">{t.limitReached}</p>
                 <Link
@@ -419,19 +477,33 @@ export function AIChatAssistant({ initialMessage }: Props) {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Usage indicator for free users */}
-          {!isPremium && !isCheckingSubscription && canSendMessage && (
+          {/* Usage bar: free tier or paid plans with a numeric daily cap (aggregated across plans). Unlimited paid = no bar. */}
+          {!isUnlimited && !isCheckingSubscription && canSendMessage && (
             <div className="px-4 py-2 bg-slate-100 border-t border-slate-200 flex-shrink-0">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-600">{t.messagesRemaining(messagesRemaining)}</span>
-                <Link href="/plans" className="text-teal-600 hover:text-teal-700 font-medium">
-                  {t.upgrade}
-                </Link>
+              <div className="flex items-center justify-between text-xs gap-2">
+                <span className="text-slate-600">
+                  {hasPaidPlan && dailyLimit !== FREE_DAILY_LIMIT
+                    ? `${messagesRemaining} / ${dailyLimit} ${isArabic ? "رسالة اليوم (مجمّعة من خططك)" : "messages today (combined plans)"}`
+                    : t.messagesRemaining(messagesRemaining)}
+                </span>
+                {!hasPaidPlan ? (
+                  <Link href="/plans" className="text-teal-600 hover:text-teal-700 font-medium shrink-0">
+                    {t.upgrade}
+                  </Link>
+                ) : null}
               </div>
               <div className="mt-1 h-1 bg-slate-200 rounded-full overflow-hidden">
                 <div 
                   className="h-full bg-teal-500 transition-all duration-300"
-                  style={{ width: `${Math.max(0, Math.min(100, (messagesRemaining / effectiveLimit) * 100))}%` }}
+                  style={{
+                    width: `${Math.max(
+                      0,
+                      Math.min(
+                        100,
+                        dailyLimit > 0 ? (messagesRemaining / dailyLimit) * 100 : 0
+                      )
+                    )}%`,
+                  }}
                 />
               </div>
             </div>
