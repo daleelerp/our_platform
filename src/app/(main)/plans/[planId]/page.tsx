@@ -25,6 +25,25 @@ export default async function PlanDetailsPage({ params }: Props) {
     redirect("/plans");
   }
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let alreadyOwned = false;
+  if (user) {
+    const { data: ownedSubscription } = await supabase
+      .from("user_subscriptions")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("plan_id", plan.id)
+      .in("status", ["active", "trial", "paused", "pending", "expired"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    alreadyOwned = !!ownedSubscription;
+  }
+
   const { data: includedPlanPaths } = await supabase
     .from("plan_paths")
     .select(`
@@ -125,12 +144,18 @@ export default async function PlanDetailsPage({ params }: Props) {
               <p className="text-xs text-slate-500 mt-1">
                 {oneTime ? "One-time payment, lifetime access" : "Subscription plan"}
               </p>
-              <Link
-                href={ctaHref}
-                className="mt-4 block w-full text-center py-3 rounded-xl bg-teal-600 text-white font-semibold hover:bg-teal-700 transition-colors"
-              >
-                Buy Now
-              </Link>
+              {alreadyOwned ? (
+                <div className="mt-4 block w-full text-center py-3 rounded-xl bg-slate-100 border border-slate-200 text-slate-600 font-semibold cursor-not-allowed">
+                  Current Plan
+                </div>
+              ) : (
+                <Link
+                  href={ctaHref}
+                  className="mt-4 block w-full text-center py-3 rounded-xl bg-teal-600 text-white font-semibold hover:bg-teal-700 transition-colors"
+                >
+                  Buy Now
+                </Link>
+              )}
             </div>
           </div>
         </div>
