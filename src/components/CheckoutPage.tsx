@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
@@ -39,6 +39,16 @@ export default function CheckoutPage({
   const [promoError, setPromoError] = useState<string | null>(null);
 
   const isArabic = language === "ar";
+
+  // Returning from Kashier via "back" or bfcache can restore React state with isLoading=true — always reset on load.
+  useEffect(() => {
+    setIsLoading(false);
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) setIsLoading(false);
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, []);
 
   // Calculate discounted amount
   const calculateDiscountedAmount = () => {
@@ -192,8 +202,13 @@ export default function CheckoutPage({
       }
 
       if (data.sessionUrl) {
-        // Redirect to Kashier payment session
-        window.location.href = data.sessionUrl;
+        try {
+          sessionStorage.setItem("daleel_kashier_redirect", String(Date.now()));
+        } catch {
+          /* ignore */
+        }
+        // Full navigation — leaves this page; prevents stuck "Processing" if user returns via back button.
+        window.location.assign(data.sessionUrl);
       } else if (data.redirectUrl) {
         // Direct redirect (for free plan or trial)
         window.location.href = data.redirectUrl;

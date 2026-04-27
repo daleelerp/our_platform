@@ -3,6 +3,7 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/store/useAppStore";
+import { useSubscription } from "@/hooks/useSubscription";
 // Subscription system removed - using free plan only
 import Link from "next/link";
 
@@ -62,6 +63,8 @@ type Props = {
   purchasedPlans?: PurchasedPlanRecord[];
   recommendedPaths: Path[];
   savedPreferences?: SavedPreferences;
+  /** Set after payment redirect so we reconcile Kashier → DB immediately and refresh UI. */
+  subscriptionActivated?: boolean;
 };
 
 type PurchasedPlanRecord = {
@@ -95,14 +98,26 @@ export function DashboardContent({
   purchasedPlans = [],
   recommendedPaths,
   savedPreferences,
+  subscriptionActivated = false,
 }: Props) {
   const router = useRouter();
   const language = useAppStore((state) => state.language);
   const isHydrated = useAppStore((state) => state.isHydrated);
+  const { refresh: refreshSubscription } = useSubscription();
+
+  const paymentReturnRef = useRef(false);
 
   useEffect(() => {
-    router.refresh();
-  }, [router]);
+    if (!subscriptionActivated || paymentReturnRef.current) return;
+    paymentReturnRef.current = true;
+    fetch("/api/subscription/reconcile", { method: "POST" })
+      .catch(() => {})
+      .finally(() => {
+        void refreshSubscription();
+        router.refresh();
+        router.replace("/dashboard", { scroll: false });
+      });
+  }, [subscriptionActivated, router, refreshSubscription]);
 
   const reconcileKeyRef = useRef<string>("");
 

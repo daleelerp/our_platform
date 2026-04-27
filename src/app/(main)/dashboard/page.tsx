@@ -75,10 +75,17 @@ function dedupePurchasedPlansByPlan(records: PurchasedPlanRecord[]): PurchasedPl
   );
 }
 
-export default async function DashboardPage() {
+type DashboardPageProps = {
+  searchParams?: Promise<{ subscription?: string }>;
+};
+
+export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   noStore();
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
+
+  const sp = searchParams ? await searchParams : {};
+  const subscriptionActivated = sp.subscription === "activated";
 
   const {
     data: { user },
@@ -283,6 +290,7 @@ export default async function DashboardPage() {
       purchasedPlans={dedupedPurchasedPlans}
       recommendedPaths={recommendedPaths}
       savedPreferences={savedPreferences}
+      subscriptionActivated={subscriptionActivated}
     />
   );
 }

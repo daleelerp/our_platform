@@ -10,6 +10,7 @@ export default function CheckoutRoute() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const planId = searchParams.get("planId");
+  const billingCycleFromUrl = searchParams.get("billingCycle");
   
   const [plan, setPlan] = useState<SubscriptionPlan | null>(null);
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
@@ -39,10 +40,8 @@ export default function CheckoutRoute() {
 
         setPlan(data);
 
-        // Get billing cycle from URL if provided
-        const cycle = searchParams.get("billingCycle");
-        if (cycle === "yearly" || cycle === "monthly") {
-          setBillingCycle(cycle);
+        if (billingCycleFromUrl === "yearly" || billingCycleFromUrl === "monthly") {
+          setBillingCycle(billingCycleFromUrl);
         }
       } catch (err) {
         console.error("Error fetching plan:", err);
@@ -53,7 +52,7 @@ export default function CheckoutRoute() {
     };
 
     fetchPlan();
-  }, [planId, searchParams]);
+  }, [planId, billingCycleFromUrl]);
 
   if (isLoading) {
     return (
