@@ -101,11 +101,8 @@ export function usePendingPayment() {
 
   const hasUnresolvedPending = effectivePendingPlanIds.length > 0;
 
-  /** Start checkout for `planId` only if no other plan has an unresolved pending checkout. */
-  const blocksCheckoutForPlan = useCallback(
-    (planId: string) => effectivePendingPlanIds.some((pid) => pid !== planId),
-    [effectivePendingPlanIds]
-  );
+  /** Other-plan pending rows no longer block checkout (each plan has its own session). */
+  const blocksCheckoutForPlan = useCallback((_planId: string) => false, []);
 
   /** Unresolved pending row exists for this plan (user should not start a duplicate checkout). */
   const hasUnresolvedPendingForPlan = useCallback(

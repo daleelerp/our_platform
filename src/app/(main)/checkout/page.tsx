@@ -132,42 +132,6 @@ export default function CheckoutRoute() {
     ? (plan.price_yearly_egp || 0)
     : (plan.price_monthly_egp || 0);
 
-  if (
-    planId &&
-    pendingPayment.blocksCheckoutForPlan(planId) &&
-    pendingPayment.resumeCheckoutHref
-  ) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
-        <div className="max-w-md text-center bg-white rounded-2xl border border-amber-200 shadow-lg p-8">
-          <h1 className="text-xl font-bold text-slate-900 mb-3">Checkout already in progress</h1>
-          <p className="text-slate-600 text-sm mb-6">
-            You have an unfinished payment for another plan. Complete or refresh that session before
-            starting a new purchase.
-          </p>
-          <div className="space-y-3">
-            <Link
-              href={pendingPayment.resumeCheckoutHref}
-              className="block w-full py-3 rounded-xl bg-teal-600 text-white font-semibold hover:bg-teal-700"
-            >
-              Resume pending checkout
-            </Link>
-            <button
-              type="button"
-              onClick={() => pendingPayment.refresh()}
-              className="block w-full py-2 text-sm font-medium text-teal-700 hover:underline"
-            >
-              Refresh payment status
-            </button>
-            <Link href="/plans" className="block text-sm text-slate-600 hover:text-slate-900">
-              ← Back to plans
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <CheckoutPage
       planId={planId || ''}

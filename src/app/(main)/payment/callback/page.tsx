@@ -4,13 +4,18 @@ import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAppStore } from "@/store/useAppStore";
 import Link from "next/link";
-import { callbackQueryIndicatesPaymentFailure } from "@/lib/kashier";
+import {
+  callbackQueryIndicatesPaymentFailure,
+  callbackQueryIndicatesPaymentSuccess,
+} from "@/lib/kashier";
 
 const REDIRECT_MS = 1400;
 const POLL_INTERVAL_MS = 2500;
-const MAX_POLL_ATTEMPTS = 12;
+const MAX_POLL_ATTEMPTS_QUICK = 12;
+const MAX_POLL_ATTEMPTS_EXTENDED = 28;
 const LOADING_SLOW_HINT_MS = 8000;
-const VERIFY_TIMEOUT_MS = 45000;
+const VERIFY_TIMEOUT_MS = 55000;
+const VERIFY_TIMEOUT_EXTENDED_MS = 95000;
 
 export default function PaymentCallbackPage() {
   const searchParams = useSearchParams();
@@ -20,8 +25,12 @@ export default function PaymentCallbackPage() {
   const [showSlowHint, setShowSlowHint] = useState(false);
 
   const provider = searchParams.get("provider");
-  const sessionId = searchParams.get("session_id");
-  const merchantOrderId = searchParams.get("merchantOrderId");
+  const sessionId =
+    searchParams.get("session_id") ||
+    searchParams.get("sessionId") ||
+    searchParams.get("_id");
+  const merchantOrderId =
+    searchParams.get("merchantOrderId") ?? searchParams.get("merchant_order_id");
   const successParam = searchParams.get("success");
   const kashierStatus = searchParams.get("status");
   const paymentStatus = searchParams.get("paymentStatus");
@@ -62,23 +71,25 @@ export default function PaymentCallbackPage() {
 
   useEffect(() => {
     const normalizedStatus = (kashierStatus || paymentStatus || "").toUpperCase();
+
     const verifyParams = new URLSearchParams();
+    searchParams.forEach((value, key) => {
+      if (!value.trim()) return;
+      if (key === "provider") return;
+      verifyParams.set(key, value);
+    });
     if (sessionId) verifyParams.set("session_id", sessionId);
-    if (merchantOrderId) verifyParams.set("merchant_order_id", merchantOrderId);
-    for (const key of [
-      "success",
-      "paymentSuccess",
-      "payment_success",
-      "status",
-      "paymentStatus",
-      "payment_status",
-      "failureReason",
-      "error",
-      "message",
-    ]) {
-      const v = searchParams.get(key);
-      if (v !== null && v !== "") verifyParams.set(key, v);
+    if (merchantOrderId) {
+      verifyParams.set("merchant_order_id", merchantOrderId);
+      verifyParams.set("merchantOrderId", merchantOrderId);
     }
+
+    const urlHintsSuccess =
+      callbackQueryIndicatesPaymentSuccess(searchParams) &&
+      !callbackQueryIndicatesPaymentFailure(searchParams);
+
+    const maxAttempts = urlHintsSuccess ? MAX_POLL_ATTEMPTS_EXTENDED : MAX_POLL_ATTEMPTS_QUICK;
+    const verifyBudgetMs = urlHintsSuccess ? VERIFY_TIMEOUT_EXTENDED_MS : VERIFY_TIMEOUT_MS;
 
     let slowTimer: ReturnType<typeof setTimeout> | undefined;
     let redirectTimer: ReturnType<typeof setTimeout> | undefined;
@@ -122,9 +133,9 @@ export default function PaymentCallbackPage() {
 
         const started = Date.now();
         try {
-          for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
+          for (let attempt = 0; attempt < maxAttempts; attempt++) {
             if (cancelled) return;
-            if (Date.now() - started > VERIFY_TIMEOUT_MS) {
+            if (Date.now() - started > verifyBudgetMs) {
               if (
                 normalizedStatus === "SUCCESS" ||
                 normalizedStatus === "PAID" ||
@@ -169,14 +180,7 @@ export default function PaymentCallbackPage() {
           }
 
           if (cancelled) return;
-          if (
-            normalizedStatus === "SUCCESS" ||
-            normalizedStatus === "PAID" ||
-            successParam === "true"
-          ) {
-            finishSuccess();
-            return;
-          }
+          // Never show paid UI from URL alone — avoids success modal while DB is still pending.
           if (
             successParam === "false" ||
             normalizedStatus === "FAILED" ||
@@ -192,7 +196,8 @@ export default function PaymentCallbackPage() {
           if (
             normalizedStatus === "SUCCESS" ||
             normalizedStatus === "PAID" ||
-            successParam === "true"
+            successParam === "true" ||
+            urlHintsSuccess
           ) {
             finishPending();
           } else {
@@ -235,6 +240,7 @@ export default function PaymentCallbackPage() {
     kashierStatus,
     paymentStatus,
     router,
+    searchParams.toString(),
   ]);
 
   return (

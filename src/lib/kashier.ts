@@ -91,3 +91,40 @@ export function callbackQueryIndicatesPaymentFailure(searchParams: {
   }
   return false;
 }
+
+/** Kashier redirects user to merchant URL with paymentStatus/status when paid (often before REST API reflects PAID). */
+export function callbackQueryIndicatesPaymentSuccess(searchParams: {
+  get(name: string): string | null;
+}): boolean {
+  const success =
+    searchParams.get("success") ??
+    searchParams.get("paymentSuccess") ??
+    searchParams.get("payment_success");
+  if (success === "true" || success === "1") return true;
+
+  const pieces = [
+    searchParams.get("status"),
+    searchParams.get("paymentStatus"),
+    searchParams.get("payment_status"),
+  ]
+    .filter((s): s is string => !!s && s.length > 0)
+    .map((s) => s.toUpperCase().trim());
+
+  const okExact = new Set([
+    "SUCCESS",
+    "PAID",
+    "CAPTURED",
+    "COMPLETE",
+    "COMPLETED",
+    "AUTHORIZED",
+    "SETTLED",
+    "APPROVED",
+    "SUCCESSFUL",
+  ]);
+
+  for (const p of pieces) {
+    if (p.includes("UNSUCCESSFUL") || p.includes("NOT_PAID") || p.includes("NON_SUCCESS")) continue;
+    if (okExact.has(p)) return true;
+  }
+  return false;
+}

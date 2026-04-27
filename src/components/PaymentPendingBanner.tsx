@@ -26,6 +26,7 @@ export function PaymentPendingBanner() {
   const runRefresh = async () => {
     setChecking(true);
     try {
+      await fetch("/api/subscription/reconcile", { method: "POST", cache: "no-store" }).catch(() => {});
       await refresh();
     } finally {
       setChecking(false);
@@ -39,8 +40,8 @@ export function PaymentPendingBanner() {
     >
       <p className="font-semibold">
         {isArabic
-          ? `لديك عملية دفع قيد الانتظار (${planLabel}). أكمل الدفع أو انتظر التأكيد قبل شراء خطة أخرى.`
-          : `You have a payment in progress (${planLabel}). Finish or wait for confirmation before purchasing another plan.`}
+          ? `هناك اشتراك لم يُفعَّل بعد (${planLabel}). يمكنك استخدام «تحديث الحالة» أو متابعة الدفع — لا يزال بإمكانك شراء خطط أخرى.`
+          : `We’re still linking this payment to your account (${planLabel}). Use Refresh status or resume checkout — you can still buy other plans.`}
       </p>
       <div className="mt-2 flex flex-wrap items-center justify-center gap-3">
         {resumeCheckoutHref && (
@@ -59,8 +60,8 @@ export function PaymentPendingBanner() {
         >
           {checking
             ? isArabic
-              ? "جاري التحديث…"
-              : "Updating…"
+              ? "جاري المزامنة…"
+              : "Syncing payment…"
             : isArabic
               ? "تحديث الحالة"
               : "Refresh status"}

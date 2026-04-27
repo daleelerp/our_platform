@@ -110,9 +110,13 @@ export function DashboardContent({
   useEffect(() => {
     if (!subscriptionActivated || paymentReturnRef.current) return;
     paymentReturnRef.current = true;
-    void refreshSubscription();
-    router.refresh();
-    router.replace("/dashboard", { scroll: false });
+    fetch("/api/subscription/reconcile", { method: "POST" })
+      .catch(() => {})
+      .finally(() => {
+        void refreshSubscription();
+        router.refresh();
+        router.replace("/dashboard", { scroll: false });
+      });
   }, [subscriptionActivated, router, refreshSubscription]);
   const [pathSearch, setPathSearch] = useState("");
   const [difficultyFilter, setDifficultyFilter] = useState<"all" | "beginner" | "intermediate" | "advanced">("all");

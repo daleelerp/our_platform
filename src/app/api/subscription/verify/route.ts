@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/utils/supabase/server";
-import { callbackQueryIndicatesPaymentFailure } from "@/lib/kashier";
+import {
+  callbackQueryIndicatesPaymentFailure,
+  callbackQueryIndicatesPaymentSuccess,
+} from "@/lib/kashier";
 import {
   cancelPendingSubscriptionAfterPaymentFailure,
   verifyKashierSessionAndSyncDb,
@@ -16,8 +19,12 @@ const supabase = createClient(
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    let sessionId = searchParams.get("session_id");
-    const merchantOrderId = searchParams.get("merchant_order_id");
+    let sessionId =
+      searchParams.get("session_id") ||
+      searchParams.get("sessionId") ||
+      searchParams.get("_id");
+    const merchantOrderId =
+      searchParams.get("merchant_order_id") ?? searchParams.get("merchantOrderId");
     const parsedUserIdFromOrder =
       merchantOrderId?.startsWith("daleel-")
         ? merchantOrderId.replace(/^daleel-/, "").split("-")[0]
@@ -81,9 +88,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ status: "failed", source: "callback_query" });
     }
 
+    const merchantRedirectIndicatesSuccess =
+      callbackQueryIndicatesPaymentSuccess(searchParams) &&
+      !callbackQueryIndicatesPaymentFailure(searchParams);
+
     const result = await verifyKashierSessionAndSyncDb({
       sessionId,
       merchantOrderId,
+      merchantRedirectIndicatesSuccess,
     });
 
     if ("error" in result) {
