@@ -45,9 +45,17 @@ type EnrolledPath = {
   };
 };
 
+type EnrolledPathPlanBadge = {
+  id: string;
+  name: string;
+  display_name_en: string | null;
+  display_name_ar: string | null;
+};
+
 type Props = {
   profile: Profile | null;
   enrolledPaths?: EnrolledPath[];
+  enrolledPathPlanMap?: Record<string, EnrolledPathPlanBadge[]>;
   purchasedPlans?: PurchasedPlanRecord[];
   recommendedPaths: Path[];
   savedPreferences?: SavedPreferences;
@@ -80,6 +88,7 @@ const difficultyConfig: Record<string, { labelEn: string; labelAr: string; color
 export function DashboardContent({
   profile,
   enrolledPaths = [],
+  enrolledPathPlanMap = {},
   purchasedPlans = [],
   recommendedPaths,
   savedPreferences,
@@ -131,6 +140,7 @@ export function DashboardContent({
     yearly: language === "ar" ? "سنوي" : "Yearly",
     oneTime: language === "ar" ? "دفعة واحدة" : "One-Time",
     viewIncludedPaths: language === "ar" ? "عرض المسارات المتاحة" : "View Included Paths",
+    plan: language === "ar" ? "الخطة" : "Plan",
   };
 
   const formatDate = (dateString?: string) => {
@@ -275,6 +285,11 @@ export function DashboardContent({
               {enrolledPaths.map((enrollment) => {
                 const path = enrollment.learning_paths;
                 const difficulty = difficultyConfig[path.difficulty_level || "beginner"];
+                const pathPlans = enrolledPathPlanMap[path.id] || [];
+                const primaryPlan = pathPlans[0];
+                const primaryPlanName = primaryPlan
+                  ? (getText(primaryPlan.display_name_en, primaryPlan.display_name_ar) || primaryPlan.name)
+                  : null;
                 return (
                   <Link
                     key={enrollment.id}
@@ -285,9 +300,17 @@ export function DashboardContent({
                       <h3 className="font-medium text-slate-900 flex-1">
                         {getText(path.title, path.title_ar)}
                       </h3>
-                      <span className={`text-xs px-2 py-1 rounded-full ${difficulty.color} ml-2 flex-shrink-0`}>
-                        {language === "ar" ? difficulty.labelAr : difficulty.labelEn}
-                      </span>
+                      <div className="ml-2 flex flex-col items-end gap-1 flex-shrink-0">
+                        {primaryPlanName && (
+                          <span className="text-[10px] px-2 py-1 rounded-full bg-teal-100 text-teal-700 border border-teal-200 font-medium">
+                            {t.plan}: {primaryPlanName}
+                            {pathPlans.length > 1 ? ` +${pathPlans.length - 1}` : ""}
+                          </span>
+                        )}
+                        <span className={`text-xs px-2 py-1 rounded-full ${difficulty.color}`}>
+                          {language === "ar" ? difficulty.labelAr : difficulty.labelEn}
+                        </span>
+                      </div>
                     </div>
                     {path.description && (
                       <p className="text-sm text-slate-500 line-clamp-2 mb-3">

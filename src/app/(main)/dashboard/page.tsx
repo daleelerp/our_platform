@@ -26,6 +26,13 @@ type PurchasedPlanQueryRow = Omit<PurchasedPlanRecord, "subscription_plans"> & {
   subscription_plans: PurchasedPlanRecord["subscription_plans"] | PurchasedPlanRecord["subscription_plans"][];
 };
 
+type EnrolledPathPlanBadge = {
+  id: string;
+  name: string;
+  display_name_en: string | null;
+  display_name_ar: string | null;
+};
+
 export default async function DashboardPage() {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
@@ -103,6 +110,56 @@ export default async function DashboardPage() {
     };
   }) || [];
 
+  const ownedPlanIds = Array.from(
+    new Set(
+      normalizedPurchasedPlans
+        .filter((record) => ["active", "trial", "paused", "pending", "expired"].includes(record.status))
+        .map((record) => record.subscription_plans?.id)
+        .filter((id): id is string => !!id)
+    )
+  );
+
+  const enrolledPathIds = Array.from(
+    new Set(
+      (enrollments || [])
+        .map((enrollment: any) => enrollment.learning_paths?.id)
+        .filter((id: string | null | undefined): id is string => !!id)
+    )
+  );
+
+  const enrolledPathPlanMap: Record<string, EnrolledPathPlanBadge[]> = {};
+  if (ownedPlanIds.length > 0 && enrolledPathIds.length > 0) {
+    const { data: enrolledPathPlans } = await supabase
+      .from("plan_paths")
+      .select(`
+        learning_path_id,
+        subscription_plans (
+          id,
+          name,
+          display_name_en,
+          display_name_ar
+        )
+      `)
+      .in("plan_id", ownedPlanIds)
+      .in("learning_path_id", enrolledPathIds);
+
+    for (const row of (enrolledPathPlans || []) as any[]) {
+      const pathId = row.learning_path_id as string;
+      const planRelation = row.subscription_plans;
+      const plan = Array.isArray(planRelation) ? planRelation[0] : planRelation;
+      if (!pathId || !plan?.id) continue;
+
+      if (!enrolledPathPlanMap[pathId]) {
+        enrolledPathPlanMap[pathId] = [];
+      }
+
+      const exists = enrolledPathPlanMap[pathId].some((existingPlan) => existingPlan.id === plan.id);
+      if (!exists) {
+        enrolledPathPlanMap[pathId].push(plan);
+      }
+    }
+  }
+
 
   // Fetch saved path finder recommendations
   const { data: savedPreferences } = await supabase
@@ -144,6 +201,7 @@ export default async function DashboardPage() {
     <DashboardContent 
       profile={profile}
       enrolledPaths={enrollments || []}
+      enrolledPathPlanMap={enrolledPathPlanMap}
       purchasedPlans={normalizedPurchasedPlans}
       recommendedPaths={recommendedPaths}
       savedPreferences={savedPreferences}
