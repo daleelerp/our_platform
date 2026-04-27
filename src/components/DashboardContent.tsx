@@ -144,6 +144,12 @@ export function DashboardContent({
   };
 
   const getStatusLabel = (status: string) => {
+    // One-time purchases can stay "pending" briefly while provider callbacks sync.
+    // For purchased plan cards, show a user-friendly active state instead.
+    if (status === "pending") {
+      return t.active;
+    }
+
     switch (status) {
       case "active":
         return t.active;
@@ -151,8 +157,6 @@ export function DashboardContent({
         return t.trial;
       case "paused":
         return t.paused;
-      case "pending":
-        return t.pending;
       case "cancelled":
         return t.cancelled;
       case "expired":
