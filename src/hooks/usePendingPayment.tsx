@@ -108,7 +108,7 @@ export function usePendingPayment() {
 
     const id = window.setInterval(() => {
       fetch("/api/subscription/reconcile", { method: "POST" }).finally(() => refresh());
-    }, 4500);
+    }, 2800);
 
     return () => window.clearInterval(id);
   }, [user, effectivePendingPlanIds, refresh]);

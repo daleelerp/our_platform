@@ -2,14 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/utils/supabase/server";
-import { extractKashierPaymentStatus, getKashierApiBaseUrl } from "@/lib/kashier";
+import { verifyKashierSessionAndSyncDb } from "@/lib/kashierSubscriptionVerification";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
-
-const KASHIER_SECRET_KEY = process.env.KASHIER_SECRET_KEY!;
 
 export async function GET(request: NextRequest) {
   try {
@@ -34,7 +32,7 @@ export async function GET(request: NextRequest) {
         const { data: pendingSubscription } = await supabase
           .from("user_subscriptions")
           .select("external_subscription_id")
-          .eq("user_id", lookupUserId)
+          .eq("user_id", lookupUserId!)
           .eq("status", "pending")
           .not("external_subscription_id", "is", null)
           .order("created_at", { ascending: false })
@@ -48,7 +46,7 @@ export async function GET(request: NextRequest) {
           const { data: activeSubscription } = await supabase
             .from("user_subscriptions")
             .select("id")
-            .eq("user_id", lookupUserId)
+            .eq("user_id", lookupUserId!)
             .eq("status", "active")
             .order("updated_at", { ascending: false })
             .maybeSingle();
@@ -57,7 +55,6 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ status: "success" });
           }
         }
-
       }
     }
 
@@ -68,206 +65,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Call Kashier GET session API to verify payment status
-    const kashierResponse = await fetch(
-      `${getKashierApiBaseUrl()}/v3/payment/sessions/${sessionId}/payment`,
-      {
-        method: "GET",
-        headers: {
-          Authorization: KASHIER_SECRET_KEY,
-        },
-      }
-    );
+    const result = await verifyKashierSessionAndSyncDb({
+      sessionId,
+      merchantOrderId,
+    });
 
-    if (!kashierResponse.ok) {
-      return NextResponse.json({ error: "Failed to verify payment" }, { status: 500 });
+    if ("error" in result) {
+      return NextResponse.json(result, { status: 502 });
     }
 
-    const kashierData = await kashierResponse.json();
-    const paymentData =
-      kashierData?.data?.payment ??
-      kashierData?.data ??
-      kashierData?.payment ??
-      kashierData;
-    let status =
-      extractKashierPaymentStatus(kashierData) ||
-      String(
-        (paymentData as { status?: string })?.status ??
-          (paymentData as { paymentStatus?: string })?.paymentStatus ??
-          (kashierData as { status?: string })?.status ??
-          ""
-      ).toUpperCase();
-
-    const successStatuses = [
-      "SUCCESS",
-      "PAID",
-      "CAPTURED",
-      "COMPLETED",
-      "AUTHORIZED",
-      "APPROVED",
-      "SETTLED",
-    ];
-
-    console.log("Kashier payment verification:", { sessionId, status, rawKeys: paymentData ? Object.keys(paymentData as object) : [] });
-
-    // If payment is successful, activate all pending rows tied to this Kashier session
-    if (successStatuses.includes(status)) {
-      let { data: subscription } = await supabase
-        .from("user_subscriptions")
-        .select("*, subscription_plans(*)")
-        .eq("external_subscription_id", sessionId)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      // Fallback: if session mapping is missing, try the user inferred from merchant order id
-      if (!subscription && parsedUserIdFromOrder) {
-        const { data: pendingByUser } = await supabase
-          .from("user_subscriptions")
-          .select("*, subscription_plans(*)")
-          .eq("user_id", parsedUserIdFromOrder)
-          .eq("status", "pending")
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        subscription = pendingByUser;
-      }
-
-      if (subscription && subscription.status !== "active") {
-        const periodEnd = new Date();
-        if (subscription.billing_cycle === "yearly") {
-          periodEnd.setFullYear(periodEnd.getFullYear() + 1);
-        } else {
-          periodEnd.setMonth(periodEnd.getMonth() + 1);
-        }
-
-        const method =
-          (paymentData as { method?: string })?.method ||
-          (paymentData as { paymentMethod?: string })?.paymentMethod ||
-          "card";
-
-        const amountRaw =
-          (paymentData as { amount?: string | number })?.amount ??
-          (paymentData as { totalAmount?: string | number })?.totalAmount;
-        const amountNum =
-          typeof amountRaw === "number"
-            ? amountRaw
-            : parseFloat(String(amountRaw ?? "0")) || 0;
-
-        const activationPayload = {
-          status: "active" as const,
-          started_at: new Date().toISOString(),
-          current_period_start: new Date().toISOString(),
-          current_period_end: periodEnd.toISOString(),
-          payment_method: method,
-          payment_provider: "kashier",
-        };
-
-        // Activate every pending subscription row for this session (fixes duplicate checkout rows)
-        await supabase
-          .from("user_subscriptions")
-          .update(activationPayload)
-          .eq("external_subscription_id", sessionId)
-          .eq("status", "pending");
-
-        const { data: stillPending } = await supabase
-          .from("user_subscriptions")
-          .select("id")
-          .eq("id", subscription.id)
-          .eq("status", "pending")
-          .maybeSingle();
-
-        if (stillPending) {
-          await supabase
-            .from("user_subscriptions")
-            .update(activationPayload)
-            .eq("id", subscription.id)
-            .eq("status", "pending");
-        }
-
-        const { data: existingTx } = await supabase
-          .from("payment_transactions")
-          .select("id")
-          .eq("provider_transaction_id", sessionId)
-          .maybeSingle();
-
-        if (!existingTx) {
-          await supabase.from("payment_transactions").insert({
-            user_id: subscription.user_id,
-            subscription_id: subscription.id,
-            amount_egp: amountNum,
-            currency:
-              (paymentData as { currency?: string })?.currency || "EGP",
-            status: "completed",
-            type: "subscription",
-            payment_method: method,
-            payment_provider: "kashier",
-            provider_transaction_id: sessionId,
-            provider_response: paymentData,
-          });
-        }
-
-        console.log(`✅ Subscription(s) for session ${sessionId} activated via callback verification`);
-      }
-
-      const { count: pendingLeft } = await supabase
-        .from("user_subscriptions")
-        .select("*", { count: "exact", head: true })
-        .eq("external_subscription_id", sessionId)
-        .eq("status", "pending");
-
-      if ((pendingLeft ?? 0) > 0) {
-        return NextResponse.json({
-          status: "pending",
-          detail: "paid_reported_but_subscription_still_pending",
-        });
-      }
-
-      return NextResponse.json({ status: "success" });
-    }
-
-    if (status === "PENDING" || status === "PROCESSING") {
-      return NextResponse.json({ status: "pending" });
-    }
-
-    const isFailureStatus = ["FAILED", "CANCELLED", "EXPIRED", "DECLINED"].includes(status);
-
-    if (isFailureStatus) {
-      // Mark explicit failure statuses as cancelled so they are not treated as owned.
-      let { data: failedSubscription } = await supabase
-        .from("user_subscriptions")
-        .select("id, user_id")
-        .eq("external_subscription_id", sessionId)
-        .maybeSingle();
-
-      if (!failedSubscription && parsedUserIdFromOrder) {
-        const { data: pendingByUser } = await supabase
-          .from("user_subscriptions")
-          .select("id, user_id")
-          .eq("user_id", parsedUserIdFromOrder)
-          .eq("status", "pending")
-          .order("created_at", { ascending: false })
-          .maybeSingle();
-        failedSubscription = pendingByUser;
-      }
-
-      if (failedSubscription) {
-        await supabase
-          .from("user_subscriptions")
-          .update({ status: "cancelled" })
-          .eq("id", failedSubscription.id);
-      }
-      return NextResponse.json({ status: "failed" });
-    }
-
-    // Unknown provider statuses should keep the flow in pending instead of false-failing.
-    return NextResponse.json({ status: "pending" });
-
-  } catch (error: any) {
+    return NextResponse.json(result);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Verification failed";
     console.error("Verification error:", error);
-    return NextResponse.json(
-      { error: "Verification failed", details: error?.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Verification failed", details: message }, { status: 500 });
   }
 }

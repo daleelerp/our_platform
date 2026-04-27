@@ -1,10 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAppStore } from "@/store/useAppStore";
 import { usePendingPayment } from "@/hooks/usePendingPayment";
 
 export function PaymentPendingBanner() {
+  const router = useRouter();
   const language = useAppStore((s) => s.language);
   const isArabic = language === "ar";
   const {
@@ -14,11 +17,24 @@ export function PaymentPendingBanner() {
     refresh,
   } = usePendingPayment();
 
+  const [checking, setChecking] = useState(false);
+
   if (!hasUnresolvedPending) return null;
 
   const planLabel =
     primaryPendingPlanName ||
     (isArabic ? "خطة أخرى" : "another plan");
+
+  const runReconcileThenRefresh = async () => {
+    setChecking(true);
+    try {
+      await fetch("/api/subscription/reconcile", { method: "POST", cache: "no-store" });
+      await refresh();
+      router.refresh();
+    } finally {
+      setChecking(false);
+    }
+  };
 
   return (
     <div
@@ -41,10 +57,17 @@ export function PaymentPendingBanner() {
         )}
         <button
           type="button"
-          onClick={() => refresh()}
-          className="inline-flex rounded-lg border border-amber-300 bg-white px-4 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100"
+          disabled={checking}
+          onClick={() => void runReconcileThenRefresh()}
+          className="inline-flex rounded-lg border border-amber-300 bg-white px-4 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100 disabled:opacity-60"
         >
-          {isArabic ? "تحديث الحالة" : "Refresh status"}
+          {checking
+            ? isArabic
+              ? "جاري التحقق…"
+              : "Checking with Kashier…"
+            : isArabic
+              ? "تحديث الحالة"
+              : "Refresh status"}
         </button>
         <Link href="/dashboard" className="text-xs font-medium text-amber-800 underline">
           {isArabic ? "لوحة التحكم" : "Dashboard"}
