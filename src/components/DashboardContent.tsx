@@ -94,7 +94,7 @@ export function DashboardContent({
       (plan.price_monthly_egp ?? 0) > 0 ||
       (plan.price_yearly_egp ?? 0) > 0 ||
       (plan.price_one_time_egp ?? 0) > 0;
-    return isPaid && ["active", "trial", "paused"].includes(record.status);
+    return isPaid && ["active", "trial", "paused", "pending"].includes(record.status);
   });
   const isFreePlan = activePaidPlans.length === 0;
 
@@ -125,6 +125,7 @@ export function DashboardContent({
     active: language === "ar" ? "نشط" : "Active",
     trial: language === "ar" ? "تجريبي" : "Trial",
     paused: language === "ar" ? "متوقف" : "Paused",
+    pending: language === "ar" ? "قيد المعالجة" : "Pending",
     cancelled: language === "ar" ? "ملغي" : "Cancelled",
     expired: language === "ar" ? "منتهي" : "Expired",
     monthly: language === "ar" ? "شهري" : "Monthly",
@@ -151,6 +152,8 @@ export function DashboardContent({
         return t.trial;
       case "paused":
         return t.paused;
+      case "pending":
+        return t.pending;
       case "cancelled":
         return t.cancelled;
       case "expired":

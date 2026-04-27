@@ -55,14 +55,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Plan not found" }, { status: 404 });
     }
 
-    // Prevent purchasing the same currently active/trial/paused/expired plan again.
-    // "expired" is included to protect one-time purchases that should remain owned.
+    // Prevent purchasing the same currently active/trial/paused/pending/expired plan again.
+    // "expired" protects one-time purchases; "pending" avoids duplicate payments during processing.
     const { data: existingSubscription } = await supabase
       .from("user_subscriptions")
       .select("id, plan_id, status")
       .eq("user_id", user.id)
       .eq("plan_id", planId)
-      .in("status", ["active", "trial", "paused", "expired"])
+      .in("status", ["active", "trial", "paused", "pending", "expired"])
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();

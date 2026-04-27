@@ -83,7 +83,7 @@ export async function isPathInUserPlan(
       .from("user_subscriptions")
       .select("plan_id")
       .eq("user_id", userId)
-      .in("status", ["active", "trial", "paused"]);
+      .in("status", ["active", "trial", "paused", "pending"]);
 
     if (!subscriptions || subscriptions.length === 0) {
       // User has no subscription - they can only access free plan paths
@@ -144,7 +144,7 @@ export async function getPathsInUserPlan(
       .from("user_subscriptions")
       .select("plan_id")
       .eq("user_id", userId)
-      .in("status", ["active", "trial", "paused"]);
+      .in("status", ["active", "trial", "paused", "pending"]);
 
     if (subscriptions && subscriptions.length > 0) {
       userPlanIds = subscriptions.map((subscription) => subscription.plan_id);
