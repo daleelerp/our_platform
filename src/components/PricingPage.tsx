@@ -106,6 +106,7 @@ function PricingCard({
   handleSubscribe,
   isCurrentPlan,
   isOwnedPlan,
+  isPaymentPending,
 }: {
   plan: SubscriptionPlan;
   price: any;
@@ -122,6 +123,8 @@ function PricingCard({
   handleSubscribe: (planId: string) => void;
   isCurrentPlan: boolean;
   isOwnedPlan: boolean;
+  /** Kashier checkout started but payment not completed (`user_subscriptions.status === pending`). */
+  isPaymentPending: boolean;
 }) {
   // Get audience info for this plan
   const audience = getValidAudience((plan as any).target_audience);
@@ -157,8 +160,20 @@ function PricingCard({
         </div>
       )}
 
+      {/* Payment incomplete — matches dashboard */}
+      {isPaymentPending && !isFree && (
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
+          <span className="bg-gradient-to-r from-amber-500 to-amber-600 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg whitespace-nowrap flex items-center gap-1.5">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            {t.paymentIncomplete}
+          </span>
+        </div>
+      )}
+
       {/* Current Plan Badge for paid subscribed plan */}
-      {isCurrentPlan && !isFree && (
+      {!isPaymentPending && isCurrentPlan && !isFree && (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
           <span className="bg-gradient-to-r from-teal-600 to-teal-700 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg whitespace-nowrap flex items-center gap-1.5">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -170,7 +185,7 @@ function PricingCard({
       )}
 
       {/* Purchased Badge for other owned paid plans */}
-      {isOwnedPlan && !isFree && !isCurrentPlan && (
+      {!isPaymentPending && isOwnedPlan && !isFree && !isCurrentPlan && (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
           <span className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg whitespace-nowrap flex items-center gap-1.5">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -182,7 +197,7 @@ function PricingCard({
       )}
 
       {/* Card Content */}
-        <div className={`p-6 flex flex-col h-full ${plan.is_popular || isFree || isCurrentPlan || isOwnedPlan ? "pt-8" : ""}`}>
+        <div className={`p-6 flex flex-col h-full ${plan.is_popular || isFree || isPaymentPending || isCurrentPlan || isOwnedPlan ? "pt-8" : ""}`}>
         {/* Top Section - Fixed Height */}
         <div className="space-y-4">
           {/* Audience Badge */}
@@ -260,6 +275,25 @@ function PricingCard({
               </svg>
               {t.yourDefaultPlan}
             </div>
+          ) : isPaymentPending ? (
+            <button
+              type="button"
+              onClick={() => handleSubscribe(plan.id)}
+              disabled={isLoading && selectedPlan === plan.id}
+              className="w-full py-3 px-4 rounded-xl font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2 bg-teal-600 text-white hover:bg-teal-700 shadow-lg hover:shadow-xl hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+            >
+              {isLoading && selectedPlan === plan.id ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  <span>{t.processing}</span>
+                </>
+              ) : (
+                t.completePayment
+              )}
+            </button>
           ) : isCurrentPlan ? (
             <button
               type="button"
@@ -364,6 +398,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [selectedAudience, setSelectedAudience] = useState<AudienceType | null>(null);
   const [ownedPaidPlanIds, setOwnedPaidPlanIds] = useState<string[]>([]);
+  const [pendingPaymentPlanIds, setPendingPaymentPlanIds] = useState<string[]>([]);
 
   const isArabic = language === "ar";
 
@@ -436,31 +471,45 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
       ? "ابدأ بالخطة المناسبة لدورك الحالي، ثم افتح تفاصيل الخطة لمعرفة المسارات والفوائد قبل الشراء."
       : "Start with the plan matching your current role, then open plan details to review included paths and benefits before buying.",
     purchased: isArabic ? "تم الشراء" : "Purchased",
+    paymentIncomplete: isArabic ? "دفع غير مكتمل" : "Payment incomplete",
+    completePayment: isArabic ? "إكمال الدفع" : "Complete payment",
   };
 
   useEffect(() => {
-    async function fetchOwnedPaidPlans() {
+    async function fetchSubscriptionPlanIds() {
       if (!user) {
         setOwnedPaidPlanIds([]);
+        setPendingPaymentPlanIds([]);
         return;
       }
 
       const supabase = createClient();
       const { data } = await supabase
         .from("user_subscriptions")
-        .select("plan_id")
+        .select("plan_id, status")
         .eq("user_id", user.id)
-        .in("status", ["active", "trial", "paused", "expired"]);
+        .in("status", ["active", "trial", "paused", "expired", "pending"]);
 
       if (!data) {
         setOwnedPaidPlanIds([]);
+        setPendingPaymentPlanIds([]);
         return;
       }
 
-      setOwnedPaidPlanIds(Array.from(new Set(data.map((row) => row.plan_id))));
+      const owned = new Set<string>();
+      const pending = new Set<string>();
+      for (const row of data) {
+        if (row.status === "pending") {
+          pending.add(row.plan_id);
+        } else if (["active", "trial", "paused", "expired"].includes(row.status)) {
+          owned.add(row.plan_id);
+        }
+      }
+      setOwnedPaidPlanIds(Array.from(owned));
+      setPendingPaymentPlanIds(Array.from(pending));
     }
 
-    fetchOwnedPaidPlans();
+    fetchSubscriptionPlanIds();
   }, [user, pathname]);
 
   const featuresByCategory = features.reduce((acc, feature) => {
@@ -844,6 +893,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
               const isTeam = plan.name === "team";
               const isOneTime = isOneTimePlan(plan);
               const isFree = isFreePlan(plan);
+              const isPaymentPending = pendingPaymentPlanIds.includes(plan.id);
               const isCurrentPlan = subscription?.plan_id === plan.id;
               const isOwnedPlan = ownedPaidPlanIds.includes(plan.id);
 
@@ -869,6 +919,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
                   handleSubscribe={handleSubscribe}
                   isCurrentPlan={isCurrentPlan}
                   isOwnedPlan={isOwnedPlan}
+                  isPaymentPending={isPaymentPending}
                 />
               );
             })}

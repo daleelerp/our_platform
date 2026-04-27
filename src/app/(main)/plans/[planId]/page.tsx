@@ -29,8 +29,21 @@ export default async function PlanDetailsPage({ params }: Props) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  let checkoutPending = false;
   let alreadyOwned = false;
   if (user) {
+    const { data: pendingSubscription } = await supabase
+      .from("user_subscriptions")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("plan_id", plan.id)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    checkoutPending = !!pendingSubscription;
+
     const { data: ownedSubscription } = await supabase
       .from("user_subscriptions")
       .select("id")
@@ -147,12 +160,12 @@ export default async function PlanDetailsPage({ params }: Props) {
               <Link
                 href={ctaHref}
                 className={`mt-4 block w-full text-center py-3 rounded-xl font-semibold transition-colors ${
-                  alreadyOwned
+                  checkoutPending || alreadyOwned
                     ? "bg-teal-600 text-white hover:bg-teal-700 shadow-md hover:shadow-lg"
                     : "bg-teal-600 text-white hover:bg-teal-700"
                 }`}
               >
-                {alreadyOwned ? "Buy again" : "Buy Now"}
+                {checkoutPending ? "Complete payment" : alreadyOwned ? "Buy again" : "Buy Now"}
               </Link>
             </div>
           </div>
