@@ -315,7 +315,7 @@ export function DashboardContent({
                 const plan = record.subscription_plans;
                 if (!plan) return null;
                 const planName = getText(plan.display_name_en, plan.display_name_ar) || plan.name;
-                const planTargetHref = `/paths?planId=${plan.id}&openFirst=1`;
+                const planTargetHref = `/paths?planId=${plan.id}`;
                 const billingType =
                   plan.payment_type === "one_time" ||
                   ((plan.price_one_time_egp ?? 0) > 0 &&
