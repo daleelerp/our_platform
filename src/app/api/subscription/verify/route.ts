@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/utils/supabase/server";
-import { verifyKashierSessionAndSyncDb } from "@/lib/kashierSubscriptionVerification";
+import { callbackQueryIndicatesPaymentFailure } from "@/lib/kashier";
+import {
+  cancelPendingSubscriptionAfterPaymentFailure,
+  verifyKashierSessionAndSyncDb,
+} from "@/lib/kashierSubscriptionVerification";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -59,10 +63,22 @@ export async function GET(request: NextRequest) {
     }
 
     if (!sessionId) {
+      if (callbackQueryIndicatesPaymentFailure(searchParams) && merchantOrderId) {
+        await cancelPendingSubscriptionAfterPaymentFailure({
+          sessionId: null,
+          merchantOrderId,
+        });
+        return NextResponse.json({ status: "failed", source: "callback_query" });
+      }
       return NextResponse.json(
         { error: "Session ID required and no pending Kashier session found for this order/user" },
         { status: 400 }
       );
+    }
+
+    if (callbackQueryIndicatesPaymentFailure(searchParams)) {
+      await cancelPendingSubscriptionAfterPaymentFailure({ sessionId, merchantOrderId });
+      return NextResponse.json({ status: "failed", source: "callback_query" });
     }
 
     const result = await verifyKashierSessionAndSyncDb({

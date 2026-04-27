@@ -45,3 +45,49 @@ export function extractKashierPaymentStatus(kashierData: unknown): string {
 
   return "";
 }
+
+/**
+ * Kashier appends mixed query params on merchant redirect.
+ * When this is true, we can mark the checkout as failed without waiting on Kashier status API
+ * (which often stays "pending" or empty after a decline).
+ */
+export function callbackQueryIndicatesPaymentFailure(searchParams: {
+  get(name: string): string | null;
+}): boolean {
+  const success =
+    searchParams.get("success") ??
+    searchParams.get("paymentSuccess") ??
+    searchParams.get("payment_success");
+  if (success === "false" || success === "0") return true;
+
+  const pieces = [
+    searchParams.get("status"),
+    searchParams.get("paymentStatus"),
+    searchParams.get("payment_status"),
+    searchParams.get("failureReason"),
+    searchParams.get("error"),
+    searchParams.get("message"),
+  ]
+    .filter((s): s is string => !!s && s.length > 0)
+    .map((s) => s.toUpperCase());
+
+  const failTokens = [
+    "FAILED",
+    "FAIL",
+    "DECLINED",
+    "CANCELLED",
+    "CANCELED",
+    "REJECTED",
+    "VOIDED",
+    "EXPIRED",
+    "ERROR",
+    "DENIED",
+  ];
+
+  for (const p of pieces) {
+    for (const t of failTokens) {
+      if (p.includes(t)) return true;
+    }
+  }
+  return false;
+}

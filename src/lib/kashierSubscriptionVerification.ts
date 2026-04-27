@@ -68,6 +68,48 @@ function normalizeMerchantUserId(merchantOrderId?: string | null): string | null
   return merchantOrderId.replace(/^daleel-/, "").split("-")[0] || null;
 }
 
+/** Cancel pending checkout row after a confirmed failure (API or redirect). */
+export async function cancelPendingSubscriptionAfterPaymentFailure(params: {
+  sessionId?: string | null;
+  merchantOrderId?: string | null;
+}): Promise<boolean> {
+  const { sessionId, merchantOrderId } = params;
+  const parsedUserIdFromOrder = normalizeMerchantUserId(merchantOrderId);
+
+  let failedSubscription: { id: string; user_id: string } | null = null;
+
+  if (sessionId) {
+    const { data } = await supabase
+      .from("user_subscriptions")
+      .select("id, user_id")
+      .eq("external_subscription_id", sessionId)
+      .maybeSingle();
+    failedSubscription = data;
+  }
+
+  if (!failedSubscription && parsedUserIdFromOrder) {
+    const { data: pendingByUser } = await supabase
+      .from("user_subscriptions")
+      .select("id, user_id")
+      .eq("user_id", parsedUserIdFromOrder)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    failedSubscription = pendingByUser ?? null;
+  }
+
+  if (!failedSubscription) return false;
+
+  await supabase
+    .from("user_subscriptions")
+    .update({ status: "cancelled" })
+    .eq("id", failedSubscription.id)
+    .eq("status", "pending");
+
+  return true;
+}
+
 export type KashierVerifyJson =
   | { status: "success" }
   | { status: "pending"; detail?: string }
@@ -246,30 +288,7 @@ export async function verifyKashierSessionAndSyncDb(params: {
   const isFailureStatus = ["FAILED", "CANCELLED", "EXPIRED", "DECLINED"].includes(status);
 
   if (isFailureStatus) {
-    let { data: failedSubscription } = await supabase
-      .from("user_subscriptions")
-      .select("id, user_id")
-      .eq("external_subscription_id", sessionId)
-      .maybeSingle();
-
-    if (!failedSubscription && parsedUserIdFromOrder) {
-      const { data: pendingByUser } = await supabase
-        .from("user_subscriptions")
-        .select("id, user_id")
-        .eq("user_id", parsedUserIdFromOrder)
-        .eq("status", "pending")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      failedSubscription = pendingByUser;
-    }
-
-    if (failedSubscription) {
-      await supabase
-        .from("user_subscriptions")
-        .update({ status: "cancelled" })
-        .eq("id", failedSubscription.id);
-    }
+    await cancelPendingSubscriptionAfterPaymentFailure({ sessionId, merchantOrderId });
     return { status: "failed" };
   }
 

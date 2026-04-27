@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAppStore } from "@/store/useAppStore";
 import Link from "next/link";
+import { callbackQueryIndicatesPaymentFailure } from "@/lib/kashier";
 
 const REDIRECT_MS = 1400;
 const POLL_INTERVAL_MS = 2500;
@@ -64,6 +65,20 @@ export default function PaymentCallbackPage() {
     const verifyParams = new URLSearchParams();
     if (sessionId) verifyParams.set("session_id", sessionId);
     if (merchantOrderId) verifyParams.set("merchant_order_id", merchantOrderId);
+    for (const key of [
+      "success",
+      "paymentSuccess",
+      "payment_success",
+      "status",
+      "paymentStatus",
+      "payment_status",
+      "failureReason",
+      "error",
+      "message",
+    ]) {
+      const v = searchParams.get(key);
+      if (v !== null && v !== "") verifyParams.set(key, v);
+    }
 
     let slowTimer: ReturnType<typeof setTimeout> | undefined;
     let redirectTimer: ReturnType<typeof setTimeout> | undefined;
@@ -90,8 +105,21 @@ export default function PaymentCallbackPage() {
         setStatus("pending");
       };
 
-      // Kashier: verify server-side; poll while provider still settles activation
+      // Kashier: if redirect URL already says failure, sync DB and stop — no polling (API often stays "pending" on declines).
       if (provider === "kashier") {
+        if (callbackQueryIndicatesPaymentFailure(searchParams)) {
+          try {
+            await fetch(`/api/subscription/verify?${verifyParams.toString()}`, {
+              method: "GET",
+              cache: "no-store",
+            });
+          } catch {
+            /* ignore */
+          }
+          finishFailed();
+          return;
+        }
+
         const started = Date.now();
         try {
           for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
