@@ -39,11 +39,13 @@ export async function POST(request: NextRequest) {
 
       console.log(`Session Webhook received: Session ${sessionId}, Status: ${normalizedStatus}`);
 
-      // Find the subscription by session ID
+      // Find the subscription by session ID (limit 1: duplicates must not break maybeSingle)
       let { data: subscription, error: subError } = await supabase
         .from("user_subscriptions")
         .select("*, subscription_plans(*)")
         .eq("external_subscription_id", sessionId)
+        .order("created_at", { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       if ((!subscription || subError) && merchantOrderId) {
@@ -55,6 +57,7 @@ export async function POST(request: NextRequest) {
             .eq("user_id", fallbackUserId)
             .eq("status", "pending")
             .order("created_at", { ascending: false })
+            .limit(1)
             .maybeSingle();
           subscription = fallbackResult.data;
           subError = fallbackResult.error;
@@ -75,17 +78,35 @@ export async function POST(request: NextRequest) {
           periodEnd.setMonth(periodEnd.getMonth() + 1);
         }
 
+        const activationPayload = {
+          status: "active" as const,
+          started_at: new Date().toISOString(),
+          current_period_start: new Date().toISOString(),
+          current_period_end: periodEnd.toISOString(),
+          payment_method: method || "card",
+          payment_provider: "kashier",
+        };
+
         await supabase
           .from("user_subscriptions")
-          .update({
-            status: "active",
-            started_at: new Date().toISOString(),
-            current_period_start: new Date().toISOString(),
-            current_period_end: periodEnd.toISOString(),
-            payment_method: method || "card",
-            payment_provider: "kashier",
-          })
-          .eq("id", subscription.id);
+          .update(activationPayload)
+          .eq("external_subscription_id", sessionId)
+          .eq("status", "pending");
+
+        const { data: stillPending } = await supabase
+          .from("user_subscriptions")
+          .select("id")
+          .eq("id", subscription.id)
+          .eq("status", "pending")
+          .maybeSingle();
+
+        if (stillPending) {
+          await supabase
+            .from("user_subscriptions")
+            .update(activationPayload)
+            .eq("id", subscription.id)
+            .eq("status", "pending");
+        }
 
         // Record transaction
         const providerTransactionId = orderId || sessionId;

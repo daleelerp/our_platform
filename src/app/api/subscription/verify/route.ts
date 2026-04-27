@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
           .eq("status", "pending")
           .not("external_subscription_id", "is", null)
           .order("created_at", { ascending: false })
+          .limit(1)
           .maybeSingle();
 
         sessionId = pendingSubscription?.external_subscription_id || null;
@@ -86,18 +87,30 @@ export async function GET(request: NextRequest) {
     }
 
     const kashierData = await kashierResponse.json();
-    const paymentData = kashierData.data;
-    const status = String(paymentData?.status || "").toUpperCase();
+    const paymentData =
+      kashierData?.data?.payment ??
+      kashierData?.data ??
+      kashierData?.payment ??
+      kashierData;
+    const status = String(
+      paymentData?.status ??
+        paymentData?.paymentStatus ??
+        kashierData?.status ??
+        ""
+    ).toUpperCase();
 
-    console.log("Kashier payment verification:", { sessionId, status });
+    const successStatuses = ["SUCCESS", "PAID", "CAPTURED", "COMPLETED", "AUTHORIZED"];
 
-    // If payment is successful, update subscription
-    if (status === "SUCCESS" || status === "PAID") {
-      // Find subscription
+    console.log("Kashier payment verification:", { sessionId, status, rawKeys: paymentData ? Object.keys(paymentData as object) : [] });
+
+    // If payment is successful, activate all pending rows tied to this Kashier session
+    if (successStatuses.includes(status)) {
       let { data: subscription } = await supabase
         .from("user_subscriptions")
         .select("*, subscription_plans(*)")
         .eq("external_subscription_id", sessionId)
+        .order("created_at", { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       // Fallback: if session mapping is missing, try the user inferred from merchant order id
@@ -108,12 +121,12 @@ export async function GET(request: NextRequest) {
           .eq("user_id", parsedUserIdFromOrder)
           .eq("status", "pending")
           .order("created_at", { ascending: false })
+          .limit(1)
           .maybeSingle();
         subscription = pendingByUser;
       }
 
       if (subscription && subscription.status !== "active") {
-        // Calculate period end
         const periodEnd = new Date();
         if (subscription.billing_cycle === "yearly") {
           periodEnd.setFullYear(periodEnd.getFullYear() + 1);
@@ -121,20 +134,50 @@ export async function GET(request: NextRequest) {
           periodEnd.setMonth(periodEnd.getMonth() + 1);
         }
 
-        // Activate subscription
+        const method =
+          (paymentData as { method?: string })?.method ||
+          (paymentData as { paymentMethod?: string })?.paymentMethod ||
+          "card";
+
+        const amountRaw =
+          (paymentData as { amount?: string | number })?.amount ??
+          (paymentData as { totalAmount?: string | number })?.totalAmount;
+        const amountNum =
+          typeof amountRaw === "number"
+            ? amountRaw
+            : parseFloat(String(amountRaw ?? "0")) || 0;
+
+        const activationPayload = {
+          status: "active" as const,
+          started_at: new Date().toISOString(),
+          current_period_start: new Date().toISOString(),
+          current_period_end: periodEnd.toISOString(),
+          payment_method: method,
+          payment_provider: "kashier",
+        };
+
+        // Activate every pending subscription row for this session (fixes duplicate checkout rows)
         await supabase
           .from("user_subscriptions")
-          .update({
-            status: "active",
-            started_at: new Date().toISOString(),
-            current_period_start: new Date().toISOString(),
-            current_period_end: periodEnd.toISOString(),
-            payment_method: paymentData.method || "card",
-            payment_provider: "kashier",
-          })
-          .eq("id", subscription.id);
+          .update(activationPayload)
+          .eq("external_subscription_id", sessionId)
+          .eq("status", "pending");
 
-        // Record transaction if not already recorded
+        const { data: stillPending } = await supabase
+          .from("user_subscriptions")
+          .select("id")
+          .eq("id", subscription.id)
+          .eq("status", "pending")
+          .maybeSingle();
+
+        if (stillPending) {
+          await supabase
+            .from("user_subscriptions")
+            .update(activationPayload)
+            .eq("id", subscription.id)
+            .eq("status", "pending");
+        }
+
         const { data: existingTx } = await supabase
           .from("payment_transactions")
           .select("id")
@@ -145,18 +188,19 @@ export async function GET(request: NextRequest) {
           await supabase.from("payment_transactions").insert({
             user_id: subscription.user_id,
             subscription_id: subscription.id,
-            amount_egp: parseFloat(paymentData.amount),
-            currency: paymentData.currency || "EGP",
+            amount_egp: amountNum,
+            currency:
+              (paymentData as { currency?: string })?.currency || "EGP",
             status: "completed",
             type: "subscription",
-            payment_method: paymentData.method || "card",
+            payment_method: method,
             payment_provider: "kashier",
             provider_transaction_id: sessionId,
             provider_response: paymentData,
           });
         }
 
-        console.log(`✅ Subscription ${subscription.id} activated via callback verification`);
+        console.log(`✅ Subscription(s) for session ${sessionId} activated via callback verification`);
       }
 
       return NextResponse.json({ status: "success" });

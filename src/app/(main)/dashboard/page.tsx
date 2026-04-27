@@ -34,6 +34,46 @@ type EnrolledPathPlanBadge = {
   is_free: boolean;
 };
 
+/** One card per plan: multiple subscription rows (retries/duplicates) collapse to the best row. */
+function dedupePurchasedPlansByPlan(records: PurchasedPlanRecord[]): PurchasedPlanRecord[] {
+  const priority: Record<string, number> = {
+    active: 6,
+    trial: 5,
+    paused: 4,
+    pending: 3,
+    expired: 2,
+    cancelled: 1,
+  };
+  const score = (r: PurchasedPlanRecord) => priority[r.status] ?? 0;
+  const byPlan = new Map<string, PurchasedPlanRecord>();
+
+  for (const record of records) {
+    const pid = record.subscription_plans?.id;
+    if (!pid) continue;
+
+    const existing = byPlan.get(pid);
+    if (!existing) {
+      byPlan.set(pid, record);
+      continue;
+    }
+
+    const sNew = score(record);
+    const sOld = score(existing);
+    if (sNew > sOld) {
+      byPlan.set(pid, record);
+    } else if (sNew === sOld) {
+      const tNew = new Date(record.created_at || 0).getTime();
+      const tOld = new Date(existing.created_at || 0).getTime();
+      if (tNew >= tOld) byPlan.set(pid, record);
+    }
+  }
+
+  return Array.from(byPlan.values()).sort(
+    (a, b) =>
+      new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+  );
+}
+
 export default async function DashboardPage() {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
@@ -110,6 +150,8 @@ export default async function DashboardPage() {
       subscription_plans: normalizedPlan,
     };
   }) || [];
+
+  const dedupedPurchasedPlans = dedupePurchasedPlansByPlan(normalizedPurchasedPlans);
 
   const ownedPlanIds = Array.from(
     new Set(
@@ -236,7 +278,7 @@ export default async function DashboardPage() {
       profile={profile}
       enrolledPaths={enrollments || []}
       enrolledPathPlanMap={enrolledPathPlanMap}
-      purchasedPlans={normalizedPurchasedPlans}
+      purchasedPlans={dedupedPurchasedPlans}
       recommendedPaths={recommendedPaths}
       savedPreferences={savedPreferences}
     />

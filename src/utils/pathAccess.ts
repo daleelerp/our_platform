@@ -79,15 +79,18 @@ export async function isPathInUserPlan(
   let userPlanIds: string[] = [];
 
   if (planId) {
-    const { data: ownedPlan } = await supabase
+    // Multiple rows per user+plan are allowed; maybeSingle() errors if >1 row — pick latest.
+    const { data: ownedPlan, error: ownedErr } = await supabase
       .from("user_subscriptions")
       .select("plan_id")
       .eq("user_id", userId)
       .eq("plan_id", planId)
       .in("status", ["active", "trial", "paused", "pending", "expired"])
+      .order("created_at", { ascending: false })
+      .limit(1)
       .maybeSingle();
 
-    if (!ownedPlan) {
+    if (ownedErr || !ownedPlan) {
       return false;
     }
 
@@ -151,15 +154,17 @@ export async function getPathsInUserPlan(
   let userPlanIds: string[] = [];
 
   if (planId && userId) {
-    const { data: ownedPlan } = await supabase
+    const { data: ownedPlan, error: ownedErr } = await supabase
       .from("user_subscriptions")
       .select("plan_id")
       .eq("user_id", userId)
       .eq("plan_id", planId)
       .in("status", ["active", "trial", "paused", "pending", "expired"])
+      .order("created_at", { ascending: false })
+      .limit(1)
       .maybeSingle();
 
-    if (ownedPlan) {
+    if (!ownedErr && ownedPlan) {
       userPlanIds = [planId];
     }
   } else if (!planId && userId) {
