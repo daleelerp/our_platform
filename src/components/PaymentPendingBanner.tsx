@@ -2,12 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useAppStore } from "@/store/useAppStore";
 import { usePendingPayment } from "@/hooks/usePendingPayment";
 
 export function PaymentPendingBanner() {
-  const router = useRouter();
   const language = useAppStore((s) => s.language);
   const isArabic = language === "ar";
   const {
@@ -30,7 +28,6 @@ export function PaymentPendingBanner() {
     try {
       await fetch("/api/subscription/reconcile", { method: "POST", cache: "no-store" });
       await refresh();
-      router.refresh();
     } finally {
       setChecking(false);
     }

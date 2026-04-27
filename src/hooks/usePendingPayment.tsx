@@ -106,11 +106,28 @@ export function usePendingPayment() {
     if (!user) return;
     if (effectivePendingPlanIds.length === 0) return;
 
-    const id = window.setInterval(() => {
-      fetch("/api/subscription/reconcile", { method: "POST" }).finally(() => refresh());
-    }, 2800);
+    let cancelled = false;
+    const tick = () => {
+      if (cancelled) return;
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      fetch("/api/subscription/reconcile", { method: "POST" }).finally(() => {
+        if (!cancelled) refresh();
+      });
+    };
 
-    return () => window.clearInterval(id);
+    tick();
+    const id = window.setInterval(tick, 8000);
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") tick();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [user, effectivePendingPlanIds, refresh]);
 
   /** Start checkout for `planId` only if no other plan has an unresolved pending checkout. */

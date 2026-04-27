@@ -47,7 +47,7 @@ export default function CheckoutPaymentSyncScreen({
     };
 
     tick();
-    const id = window.setInterval(tick, 3500);
+    const id = window.setInterval(tick, 5000);
     return () => window.clearInterval(id);
   }, [refresh]);
 

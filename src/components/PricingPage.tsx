@@ -282,16 +282,14 @@ function PricingCard({
               {t.yourDefaultPlan}
             </div>
           ) : blockedByForeignPending ? (
-            <div className="space-y-3">
-              <div className="w-full py-3 px-4 rounded-xl text-sm font-medium text-center bg-amber-50 text-amber-900 border border-amber-200">
-                {t.checkoutBlockedShort}
-              </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-center space-y-2">
+              <p className="text-sm text-slate-600 leading-snug">{t.checkoutBlockedCardHint}</p>
               {resumeCheckoutHref && (
                 <Link
                   href={resumeCheckoutHref}
-                  className="block w-full py-3 px-4 text-center rounded-xl text-sm font-semibold bg-amber-600 text-white hover:bg-amber-700 transition-colors"
+                  className="inline-block text-sm font-semibold text-[#357a5f] hover:text-[#285c46] hover:underline"
                 >
-                  {t.resumePendingCheckout}
+                  {t.resumePendingCheckoutLink}
                 </Link>
               )}
             </div>
@@ -492,6 +490,11 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
     checkoutBlockedShort: isArabic
       ? "لديك دفع قيد الانتظار لخطة أخرى. أكملها أولاً."
       : "You have another checkout waiting. Finish that first.",
+    /** Softer copy on individual cards — banner already has primary actions */
+    checkoutBlockedCardHint: isArabic
+      ? "لا يمكن بدء شراء هذه الخطة حتى تُسوّى عملية الدفع السابقة (استخدم الشريط أعلاه)."
+      : "You can’t start this plan until the pending checkout above is cleared.",
+    resumePendingCheckoutLink: isArabic ? "فتح عملية الدفع المعلقة ←" : "Resume pending checkout →",
     resumePendingCheckout: isArabic ? "متابعة الدفع المعلق" : "Resume pending checkout",
     dismissNotice: isArabic ? "إغلاق" : "Dismiss",
   };
