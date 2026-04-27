@@ -12,7 +12,11 @@ const supabase = createClient(
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    let sessionId = searchParams.get("session_id");
+    let sessionId =
+      searchParams.get("session_id") ||
+      searchParams.get("sessionId") ||
+      searchParams.get("_id") ||
+      searchParams.get("id");
     const merchantOrderId = searchParams.get("merchant_order_id");
     const parsedUserIdFromOrder =
       merchantOrderId?.startsWith("daleel-")

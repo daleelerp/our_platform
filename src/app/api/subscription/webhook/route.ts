@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
+import { isKashierSuccessStatus } from "@/lib/kashier";
+import { verifyKashierSessionAndSyncDb } from "@/lib/kashierSubscriptionVerification";
 
 // Use service role key for webhook (no user context)
 const supabase = createClient(
@@ -24,14 +26,54 @@ export async function POST(request: NextRequest) {
 
     // Check if this is a session-based webhook (new API) or charge-based (old API)
     const payload = body?.data && typeof body.data === "object" ? body.data : body;
-    const sessionId = payload.sessionId || payload.session_id || payload.id || null;
-    const webhookStatus = payload.status || payload.paymentStatus || payload.payment_status || null;
-    const merchantOrderId = payload.merchantOrderId || payload.order || payload.orderId || null;
-    const amount = payload.amount;
-    const currency = payload.currency;
-    const method = payload.method || payload.paymentMethod || null;
-    const orderId = payload.orderId || payload.referenceNumber || payload.transactionId || null;
-    const isSessionWebhook = sessionId && webhookStatus;
+    const p = payload && typeof payload === "object" ? (payload as Record<string, unknown>) : {};
+    const paymentObj =
+      p.payment && typeof p.payment === "object" ? (p.payment as Record<string, unknown>) : null;
+
+    const sessionId =
+      (p.sessionId as string | undefined) ||
+      (p.session_id as string | undefined) ||
+      (p._id as string | undefined) ||
+      (p.id as string | undefined) ||
+      null;
+
+    const webhookStatus =
+      p.status ||
+      p.paymentStatus ||
+      p.payment_status ||
+      paymentObj?.status ||
+      paymentObj?.paymentStatus ||
+      (body as { status?: string })?.status ||
+      null;
+
+    const merchantOrderId =
+      (p.merchantOrderId as string | undefined) ||
+      (p.order as string | undefined) ||
+      (p.orderId as string | undefined) ||
+      null;
+    const amount = p.amount;
+    const currency = p.currency;
+    const method = (p.method as string | undefined) || (p.paymentMethod as string | undefined) || null;
+    const orderId =
+      (p.orderId as string | undefined) ||
+      (p.referenceNumber as string | undefined) ||
+      (p.transactionId as string | undefined) ||
+      null;
+
+    const hasWebhookStatus =
+      webhookStatus != null && String(webhookStatus).trim() !== "";
+
+    /** Session hooks may omit status; sync from Kashier API instead of falling through to legacy charge flow. */
+    if (sessionId && !hasWebhookStatus) {
+      const synced = await verifyKashierSessionAndSyncDb({
+        sessionId,
+        merchantOrderId: merchantOrderId ?? undefined,
+      });
+      console.log("Session webhook without status — verified via API:", synced);
+      return NextResponse.json({ received: true, synced });
+    }
+
+    const isSessionWebhook = Boolean(sessionId) && hasWebhookStatus;
 
     if (isSessionWebhook) {
       // Handle new Payment Sessions API webhook
@@ -69,7 +111,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Subscription not found" }, { status: 404 });
       }
 
-      if (normalizedStatus === "SUCCESS" || normalizedStatus === "PAID") {
+      if (isKashierSuccessStatus(normalizedStatus)) {
         // Payment successful - activate subscription
         const periodEnd = new Date();
         if (subscription.billing_cycle === "yearly") {

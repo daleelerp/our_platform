@@ -19,7 +19,11 @@ export default function PaymentCallbackPage() {
   const [showSlowHint, setShowSlowHint] = useState(false);
 
   const provider = searchParams.get("provider");
-  const sessionId = searchParams.get("session_id");
+  const sessionId =
+    searchParams.get("session_id") ||
+    searchParams.get("sessionId") ||
+    searchParams.get("_id") ||
+    searchParams.get("id");
   const merchantOrderId = searchParams.get("merchantOrderId");
   const successParam = searchParams.get("success");
   const kashierStatus = searchParams.get("status");
