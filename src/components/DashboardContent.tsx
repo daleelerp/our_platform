@@ -290,10 +290,13 @@ export function DashboardContent({
                 const primaryPlanName = primaryPlan
                   ? (getText(primaryPlan.display_name_en, primaryPlan.display_name_ar) || primaryPlan.name)
                   : null;
+                const enrolledPathHref = primaryPlan
+                  ? `/paths/${path.slug}?planId=${primaryPlan.id}`
+                  : `/paths/${path.slug}`;
                 return (
                   <Link
                     key={enrollment.id}
-                    href={`/paths/${path.slug}`}
+                    href={enrolledPathHref}
                     className="group bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md transition hover:border-teal-300"
                   >
                     <div className="flex items-center justify-between gap-2 mb-3">
