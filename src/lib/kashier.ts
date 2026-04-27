@@ -1,11 +1,14 @@
 /**
- * Kashier env must match checkout/webhook/reconcile or live payments never activate.
+ * Kashier API host — must match the Kashier dashboard mode you use:
+ * - Sandbox/test dashboard + test-api.kashier.io → set env `KASHIER_MODE=test`
+ * - Live merchant + api.kashier.io → set `KASHIER_MODE=live` (or omit; default is live)
+ *
+ * Checkout, verify, and reconcile all use this helper so they stay in sync.
  */
 export function getKashierApiBaseUrl(): string {
-  const mode = process.env.KASHIER_MODE || "live";
-  return mode === "live"
-    ? "https://api.kashier.io"
-    : "https://test-api.kashier.io";
+  const raw = (process.env.KASHIER_MODE || "live").trim().toLowerCase();
+  const isTest = raw === "test" || raw === "sandbox";
+  return isTest ? "https://test-api.kashier.io" : "https://api.kashier.io";
 }
 
 /** Walk nested Kashier JSON for a payment status string */
