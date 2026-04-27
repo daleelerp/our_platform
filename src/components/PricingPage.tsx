@@ -498,15 +498,21 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
 
       const owned = new Set<string>();
       const pending = new Set<string>();
+      const liveAccess = new Set<string>();
       for (const row of data) {
         if (row.status === "pending") {
           pending.add(row.plan_id);
         } else if (["active", "trial", "paused", "expired"].includes(row.status)) {
           owned.add(row.plan_id);
         }
+        if (["active", "trial", "paused"].includes(row.status)) {
+          liveAccess.add(row.plan_id);
+        }
       }
+      // Stale pending rows often remain after a successful payment; never show "incomplete" if access is active.
+      const pendingForUi = Array.from(pending).filter((planId) => !liveAccess.has(planId));
       setOwnedPaidPlanIds(Array.from(owned));
-      setPendingPaymentPlanIds(Array.from(pending));
+      setPendingPaymentPlanIds(pendingForUi);
     }
 
     fetchSubscriptionPlanIds();

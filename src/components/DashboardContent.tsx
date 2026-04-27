@@ -133,6 +133,18 @@ export function DashboardContent({
       (plan.price_one_time_egp ?? 0) > 0;
     return isPaid && ["active", "trial", "paused"].includes(record.status);
   });
+  const planIdsWithLiveAccess = useMemo(() => {
+    const ids = new Set<string>();
+    for (const record of purchasedPlans) {
+      const plan = record.subscription_plans;
+      if (!plan) continue;
+      if (["active", "trial", "paused"].includes(record.status)) {
+        ids.add(plan.id);
+      }
+    }
+    return ids;
+  }, [purchasedPlans]);
+
   const displayPurchasedPlans = purchasedPlans.filter((record) => {
     const plan = record.subscription_plans;
     if (!plan) return false;
@@ -140,7 +152,13 @@ export function DashboardContent({
       (plan.price_monthly_egp ?? 0) > 0 ||
       (plan.price_yearly_egp ?? 0) > 0 ||
       (plan.price_one_time_egp ?? 0) > 0;
-    return isPaid && ["active", "trial", "paused", "pending", "expired"].includes(record.status);
+    if (!isPaid || !["active", "trial", "paused", "pending", "expired"].includes(record.status)) {
+      return false;
+    }
+    if (record.status === "pending" && planIdsWithLiveAccess.has(plan.id)) {
+      return false;
+    }
+    return true;
   });
   const isFreePlan = activePaidPlans.length === 0;
 

@@ -32,6 +32,18 @@ export default async function PlanDetailsPage({ params }: Props) {
   let checkoutPending = false;
   let alreadyOwned = false;
   if (user) {
+    const { data: liveAccessRow } = await supabase
+      .from("user_subscriptions")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("plan_id", plan.id)
+      .in("status", ["active", "trial", "paused"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const hasLiveAccess = !!liveAccessRow;
+
     const { data: pendingSubscription } = await supabase
       .from("user_subscriptions")
       .select("id")
@@ -42,7 +54,7 @@ export default async function PlanDetailsPage({ params }: Props) {
       .limit(1)
       .maybeSingle();
 
-    checkoutPending = !!pendingSubscription;
+    checkoutPending = !!pendingSubscription && !hasLiveAccess;
 
     const { data: ownedSubscription } = await supabase
       .from("user_subscriptions")
