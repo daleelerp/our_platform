@@ -31,6 +31,7 @@ type EnrolledPathPlanBadge = {
   name: string;
   display_name_en: string | null;
   display_name_ar: string | null;
+  is_free: boolean;
 };
 
 export default async function DashboardPage() {
@@ -119,6 +120,24 @@ export default async function DashboardPage() {
     )
   );
 
+  // Include active free plans so free-enrolled paths can show a plan badge too.
+  const { data: freePlans } = await supabase
+    .from("subscription_plans")
+    .select("id, price_monthly_egp, price_yearly_egp, price_one_time_egp, price_per_user_egp")
+    .eq("is_active", true);
+
+  const freePlanIds = (freePlans || [])
+    .filter((plan: any) => {
+      const monthly = Number(plan.price_monthly_egp || 0);
+      const yearly = Number(plan.price_yearly_egp || 0);
+      const oneTime = Number(plan.price_one_time_egp || 0);
+      const perUser = Number(plan.price_per_user_egp || 0);
+      return monthly === 0 && yearly === 0 && oneTime === 0 && perUser === 0;
+    })
+    .map((plan: any) => plan.id as string);
+
+  const includedPlanIds = Array.from(new Set([...ownedPlanIds, ...freePlanIds]));
+
   const enrolledPathIds = Array.from(
     new Set(
       (enrollments || [])
@@ -128,7 +147,7 @@ export default async function DashboardPage() {
   );
 
   const enrolledPathPlanMap: Record<string, EnrolledPathPlanBadge[]> = {};
-  if (ownedPlanIds.length > 0 && enrolledPathIds.length > 0) {
+  if (includedPlanIds.length > 0 && enrolledPathIds.length > 0) {
     const { data: enrolledPathPlans } = await supabase
       .from("plan_paths")
       .select(`
@@ -137,10 +156,14 @@ export default async function DashboardPage() {
           id,
           name,
           display_name_en,
-          display_name_ar
+          display_name_ar,
+          price_monthly_egp,
+          price_yearly_egp,
+          price_one_time_egp,
+          price_per_user_egp
         )
       `)
-      .in("plan_id", ownedPlanIds)
+      .in("plan_id", includedPlanIds)
       .in("learning_path_id", enrolledPathIds);
 
     for (const row of (enrolledPathPlans || []) as any[]) {
@@ -148,6 +171,11 @@ export default async function DashboardPage() {
       const planRelation = row.subscription_plans;
       const plan = Array.isArray(planRelation) ? planRelation[0] : planRelation;
       if (!pathId || !plan?.id) continue;
+      const monthly = Number(plan.price_monthly_egp || 0);
+      const yearly = Number(plan.price_yearly_egp || 0);
+      const oneTime = Number(plan.price_one_time_egp || 0);
+      const perUser = Number(plan.price_per_user_egp || 0);
+      const isFree = monthly === 0 && yearly === 0 && oneTime === 0 && perUser === 0;
 
       if (!enrolledPathPlanMap[pathId]) {
         enrolledPathPlanMap[pathId] = [];
@@ -155,7 +183,13 @@ export default async function DashboardPage() {
 
       const exists = enrolledPathPlanMap[pathId].some((existingPlan) => existingPlan.id === plan.id);
       if (!exists) {
-        enrolledPathPlanMap[pathId].push(plan);
+        enrolledPathPlanMap[pathId].push({
+          id: plan.id,
+          name: plan.name,
+          display_name_en: plan.display_name_en,
+          display_name_ar: plan.display_name_ar,
+          is_free: isFree,
+        });
       }
     }
   }

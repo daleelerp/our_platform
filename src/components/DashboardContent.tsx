@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { useAppStore } from "@/store/useAppStore";
 // Subscription system removed - using free plan only
 import Link from "next/link";
@@ -50,6 +51,7 @@ type EnrolledPathPlanBadge = {
   name: string;
   display_name_en: string | null;
   display_name_ar: string | null;
+  is_free: boolean;
 };
 
 type Props = {
@@ -95,6 +97,9 @@ export function DashboardContent({
 }: Props) {
   const language = useAppStore((state) => state.language);
   const isHydrated = useAppStore((state) => state.isHydrated);
+  const [pathSearch, setPathSearch] = useState("");
+  const [difficultyFilter, setDifficultyFilter] = useState<"all" | "beginner" | "intermediate" | "advanced">("all");
+  const [visiblePathCount, setVisiblePathCount] = useState(6);
   const activePaidPlans = purchasedPlans.filter((record) => {
     const plan = record.subscription_plans;
     if (!plan) return false;
@@ -141,7 +146,27 @@ export function DashboardContent({
     oneTime: language === "ar" ? "دفعة واحدة" : "One-Time",
     viewIncludedPaths: language === "ar" ? "عرض المسارات المتاحة" : "View Included Paths",
     plan: language === "ar" ? "الخطة" : "Plan",
+    freePlanLabel: language === "ar" ? "الخطة المجانية" : "Free Plan",
+    searchPaths: language === "ar" ? "ابحث في المسارات..." : "Search enrolled paths...",
+    allLevels: language === "ar" ? "كل المستويات" : "All levels",
+    showing: language === "ar" ? "عرض" : "Showing",
+    of: language === "ar" ? "من" : "of",
+    loadMore: language === "ar" ? "عرض المزيد" : "Load more",
   };
+
+  const filteredEnrolledPaths = useMemo(() => {
+    const query = pathSearch.trim().toLowerCase();
+    return enrolledPaths.filter((enrollment) => {
+      const path = enrollment.learning_paths;
+      const pathTitle = getText(path.title, path.title_ar).toLowerCase();
+      const pathDescription = getText(path.description, path.description_ar).toLowerCase();
+      const matchesSearch =
+        !query || pathTitle.includes(query) || pathDescription.includes(query);
+      const matchesDifficulty =
+        difficultyFilter === "all" || (path.difficulty_level || "beginner") === difficultyFilter;
+      return matchesSearch && matchesDifficulty;
+    });
+  }, [enrolledPaths, pathSearch, difficultyFilter, language]);
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return "-";
@@ -278,11 +303,42 @@ export function DashboardContent({
         {/* Enrolled Paths */}
         {enrolledPaths.length > 0 && (
           <div className="mb-8">
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">
-              {language === "ar" ? "المسارات المسجلة" : "Enrolled Paths"}
-            </h2>
+            <div className="mb-4 flex flex-col gap-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <h2 className="text-lg font-semibold text-slate-900">
+                  {language === "ar" ? "المسارات المسجلة" : "Enrolled Paths"}
+                </h2>
+                <span className="text-sm text-slate-500">
+                  {t.showing} {Math.min(visiblePathCount, filteredEnrolledPaths.length)} {t.of} {filteredEnrolledPaths.length}
+                </span>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  value={pathSearch}
+                  onChange={(e) => {
+                    setPathSearch(e.target.value);
+                    setVisiblePathCount(6);
+                  }}
+                  placeholder={t.searchPaths}
+                  className="w-full sm:flex-1 px-3 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400"
+                />
+                <select
+                  value={difficultyFilter}
+                  onChange={(e) => {
+                    setDifficultyFilter(e.target.value as "all" | "beginner" | "intermediate" | "advanced");
+                    setVisiblePathCount(6);
+                  }}
+                  className="sm:w-44 px-3 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400"
+                >
+                  <option value="all">{t.allLevels}</option>
+                  <option value="beginner">{language === "ar" ? "مبتدئ" : "Beginner"}</option>
+                  <option value="intermediate">{language === "ar" ? "متوسط" : "Intermediate"}</option>
+                  <option value="advanced">{language === "ar" ? "متقدم" : "Advanced"}</option>
+                </select>
+              </div>
+            </div>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {enrolledPaths.map((enrollment) => {
+              {filteredEnrolledPaths.slice(0, visiblePathCount).map((enrollment) => {
                 const path = enrollment.learning_paths;
                 const difficulty = difficultyConfig[path.difficulty_level || "beginner"];
                 const pathPlans = enrolledPathPlanMap[path.id] || [];
@@ -313,7 +369,7 @@ export function DashboardContent({
                           className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200 px-2.5 py-1 text-[11px] font-medium"
                           title={`${t.plan}: ${primaryPlanName}`}
                         >
-                          <span className="shrink-0">{t.plan}:</span>
+                          <span className="shrink-0">{primaryPlan.is_free ? t.freePlanLabel : `${t.plan}:`}</span>
                           <span className="truncate">{primaryPlanName}</span>
                           {pathPlans.length > 1 && (
                             <span className="shrink-0 rounded-full bg-teal-100 px-1.5 py-0.5 text-[10px] font-semibold">
@@ -337,6 +393,16 @@ export function DashboardContent({
                 );
               })}
             </div>
+            {visiblePathCount < filteredEnrolledPaths.length && (
+              <div className="mt-4 text-center">
+                <button
+                  onClick={() => setVisiblePathCount((count) => count + 6)}
+                  className="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 hover:bg-white hover:border-teal-300 transition-colors text-sm font-medium"
+                >
+                  {t.loadMore}
+                </button>
+              </div>
+            )}
           </div>
         )}
 
