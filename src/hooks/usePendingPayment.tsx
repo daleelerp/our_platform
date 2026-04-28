@@ -1,6 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { usePathname } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { useAppStore } from "@/store/useAppStore";
 
@@ -10,13 +20,32 @@ type SubRow = {
   subscription_plans: { display_name_en: string | null; display_name_ar: string | null } | null;
 };
 
-/**
- * Tracks unresolved pending checkouts from DB + Supabase Realtime (no background Kashier polling).
- */
-export function usePendingPayment() {
+export type PendingPaymentContextValue = {
+  loading: boolean;
+  refresh: () => Promise<void>;
+  effectivePendingPlanIds: string[];
+  hasUnresolvedPending: boolean;
+  primaryPendingPlanId: string | null;
+  primaryPendingPlanName: string | null;
+  blocksCheckoutForPlan: (planId: string) => boolean;
+  hasUnresolvedPendingForPlan: (planId: string) => boolean;
+  hasLiveAccessForPlan: (planId: string) => boolean;
+  resumeCheckoutHref: string | null;
+};
+
+/** Regular automatic reconcile + DB refresh while a stale pending row exists */
+const POLL_MS_WHILE_PENDING = 4000;
+/** Extra checks right after payment return (no button needed) */
+const BURST_SYNC_DELAYS_MS = [500, 2000, 4500, 9000];
+
+const PendingPaymentContext = createContext<PendingPaymentContextValue | null>(null);
+
+function usePendingPaymentInternal(): PendingPaymentContextValue {
   const user = useAppStore((s) => s.user);
+  const pathname = usePathname();
   const [rows, setRows] = useState<SubRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const syncPendingRef = useRef<() => Promise<void>>(async () => {});
 
   const refresh = useCallback(async () => {
     if (!user) {
@@ -101,16 +130,60 @@ export function usePendingPayment() {
 
   const hasUnresolvedPending = effectivePendingPlanIds.length > 0;
 
-  /** Other-plan pending rows no longer block checkout (each plan has its own session). */
+  useEffect(() => {
+    if (!user || !hasUnresolvedPending) return;
+
+    let cancelled = false;
+
+    const syncPending = async () => {
+      if (cancelled) return;
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      try {
+        await fetch("/api/subscription/reconcile", { method: "POST", cache: "no-store" });
+      } catch {
+        /* ignore */
+      }
+      if (!cancelled) await refresh();
+    };
+
+    syncPendingRef.current = syncPending;
+
+    void syncPending();
+
+    const burstIds = BURST_SYNC_DELAYS_MS.map((delay) =>
+      window.setTimeout(() => void syncPending(), delay)
+    );
+
+    const id = window.setInterval(() => void syncPending(), POLL_MS_WHILE_PENDING);
+
+    const onResume = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") void syncPending();
+    };
+    document.addEventListener("visibilitychange", onResume);
+    window.addEventListener("focus", onResume);
+
+    return () => {
+      cancelled = true;
+      burstIds.forEach((tid) => window.clearTimeout(tid));
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onResume);
+      window.removeEventListener("focus", onResume);
+    };
+  }, [user, hasUnresolvedPending, refresh]);
+
+  /** Any navigation while pending — sync immediately (user doesn’t need to tap refresh). */
+  useEffect(() => {
+    if (!user || !hasUnresolvedPending) return;
+    void syncPendingRef.current();
+  }, [pathname, user, hasUnresolvedPending]);
+
   const blocksCheckoutForPlan = useCallback((_planId: string) => false, []);
 
-  /** Unresolved pending row exists for this plan (user should not start a duplicate checkout). */
   const hasUnresolvedPendingForPlan = useCallback(
     (planId: string) => effectivePendingPlanIds.includes(planId),
     [effectivePendingPlanIds]
   );
 
-  /** Paid or active access for this plan — ready to send user to dashboard. */
   const hasLiveAccessForPlan = useCallback(
     (planId: string) =>
       rows.some((r) => r.plan_id === planId && ["active", "trial", "paused"].includes(r.status)),
@@ -133,4 +206,19 @@ export function usePendingPayment() {
     hasLiveAccessForPlan,
     resumeCheckoutHref,
   };
+}
+
+export function PendingPaymentProvider({ children }: { children: ReactNode }) {
+  const value = usePendingPaymentInternal();
+  return (
+    <PendingPaymentContext.Provider value={value}>{children}</PendingPaymentContext.Provider>
+  );
+}
+
+export function usePendingPayment(): PendingPaymentContextValue {
+  const ctx = useContext(PendingPaymentContext);
+  if (!ctx) {
+    throw new Error("usePendingPayment must be used within PendingPaymentProvider (main app layout).");
+  }
+  return ctx;
 }

@@ -1,20 +1,9 @@
-import { LandingNavbar } from "@/components/landing/LandingNavbar";
-import { LandingFooter } from "@/components/landing/LandingFooter";
-import { AIChatAssistant } from "@/components/AIChatAssistant";
-import { PaymentPendingBanner } from "@/components/PaymentPendingBanner";
+import { MainShell } from "@/components/MainShell";
 
 export default function MainLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <>
-      <LandingNavbar />
-      <PaymentPendingBanner />
-      {children}
-      <LandingFooter />
-      <AIChatAssistant />
-    </>
-  );
+  return <MainShell>{children}</MainShell>;
 }
