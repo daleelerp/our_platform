@@ -9,6 +9,24 @@ const supabase = createClient(
 const KASHIER_SECRET_KEY = process.env.KASHIER_SECRET_KEY!;
 const KASHIER_API_KEY = process.env.KASHIER_API_KEY;
 
+async function recordPaymentTransaction(payload: {
+  user_id: string;
+  subscription_id: string;
+  amount_egp: number;
+  currency?: string | null;
+  status: "completed";
+  type: "subscription";
+  payment_method?: string | null;
+  payment_provider: "kashier";
+  provider_transaction_id: string;
+  provider_response: unknown;
+}) {
+  await supabase.from("payment_transactions").upsert(payload, {
+    onConflict: "provider_transaction_id",
+    ignoreDuplicates: true,
+  });
+}
+
 const SUCCESS_STATUSES = [
   "SUCCESS",
   "PAID",
@@ -201,26 +219,18 @@ async function finalizePaidSubscriptionInDb(params: {
         ? paymentData
         : { fallback: "merchant_redirect_or_api_unavailable" };
 
-    const { data: existingTx } = await supabase
-      .from("payment_transactions")
-      .select("id")
-      .eq("provider_transaction_id", sessionId)
-      .maybeSingle();
-
-    if (!existingTx) {
-      await supabase.from("payment_transactions").insert({
-        user_id: subscription.user_id,
-        subscription_id: subscription.id,
-        amount_egp: amountNum,
-        currency: (pd.currency as string | undefined) || "EGP",
-        status: "completed",
-        type: "subscription",
-        payment_method: method,
-        payment_provider: "kashier",
-        provider_transaction_id: sessionId,
-        provider_response: txPayload,
-      });
-    }
+    await recordPaymentTransaction({
+      user_id: subscription.user_id,
+      subscription_id: subscription.id,
+      amount_egp: amountNum,
+      currency: (pd.currency as string | undefined) || "EGP",
+      status: "completed",
+      type: "subscription",
+      payment_method: method,
+      payment_provider: "kashier",
+      provider_transaction_id: sessionId,
+      provider_response: txPayload,
+    });
 
     console.log(`✅ Subscription(s) for session ${sessionId} finalized as paid`);
   }

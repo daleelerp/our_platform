@@ -10,6 +10,25 @@ const supabase = createClient(
 
 const KASHIER_SECRET_KEY = process.env.KASHIER_SECRET_KEY;
 
+async function recordPaymentTransaction(payload: {
+  user_id: string;
+  subscription_id: string;
+  amount_egp: number;
+  currency?: string | null;
+  status: "completed" | "failed";
+  type: "subscription";
+  payment_method?: string | null;
+  payment_provider: "kashier";
+  provider_transaction_id: string;
+  provider_response: unknown;
+  description?: string;
+}) {
+  await supabase.from("payment_transactions").upsert(payload, {
+    onConflict: "provider_transaction_id",
+    ignoreDuplicates: true,
+  });
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -107,28 +126,18 @@ export async function POST(request: NextRequest) {
 
         // Record transaction
         const providerTransactionId = orderId || sessionId;
-        const { data: existingTx } = await supabase
-          .from("payment_transactions")
-          .select("id")
-          .eq("provider_transaction_id", providerTransactionId)
-          .maybeSingle();
-
-        if (!existingTx) {
-          await supabase
-            .from("payment_transactions")
-            .insert({
-              user_id: subscription.user_id,
-              subscription_id: subscription.id,
-              amount_egp: Number(amount) || 0,
-              currency: currency || "EGP",
-              status: "completed",
-              type: "subscription",
-              payment_method: method || "card",
-              payment_provider: "kashier",
-              provider_transaction_id: providerTransactionId,
-              provider_response: payload,
-            });
-        }
+        await recordPaymentTransaction({
+          user_id: subscription.user_id,
+          subscription_id: subscription.id,
+          amount_egp: Number(amount) || 0,
+          currency: currency || "EGP",
+          status: "completed",
+          type: "subscription",
+          payment_method: method || "card",
+          payment_provider: "kashier",
+          provider_transaction_id: providerTransactionId,
+          provider_response: payload,
+        });
 
       } else if (normalizedStatus === "PENDING" || normalizedStatus === "PROCESSING") {
         // Payment pending - keep subscription in pending state
@@ -143,28 +152,18 @@ export async function POST(request: NextRequest) {
 
         // Record failed transaction
         const providerTransactionId = orderId || sessionId;
-        const { data: existingTx } = await supabase
-          .from("payment_transactions")
-          .select("id")
-          .eq("provider_transaction_id", providerTransactionId)
-          .maybeSingle();
-
-        if (!existingTx) {
-          await supabase
-            .from("payment_transactions")
-            .insert({
-              user_id: subscription.user_id,
-              subscription_id: subscription.id,
-              amount_egp: Number(amount) || 0,
-              currency: currency || "EGP",
-              status: "failed",
-              type: "subscription",
-              payment_method: method || "card",
-              payment_provider: "kashier",
-              provider_transaction_id: providerTransactionId,
-              provider_response: payload,
-            });
-        }
+        await recordPaymentTransaction({
+          user_id: subscription.user_id,
+          subscription_id: subscription.id,
+          amount_egp: Number(amount) || 0,
+          currency: currency || "EGP",
+          status: "failed",
+          type: "subscription",
+          payment_method: method || "card",
+          payment_provider: "kashier",
+          provider_transaction_id: providerTransactionId,
+          provider_response: payload,
+        });
 
       } else {
         // Unknown status; ignore without leaking payload details.
@@ -203,7 +202,9 @@ export async function POST(request: NextRequest) {
         .from("user_subscriptions")
         .select("*, subscription_plans(*)")
         .eq("external_subscription_id", chargeId)
-        .single();
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
       if (subError || !subscription) {
         console.error("Subscription not found for charge:", chargeId);
@@ -232,20 +233,18 @@ export async function POST(request: NextRequest) {
           .eq("id", subscription.id);
 
         // Record transaction
-        await supabase
-          .from("payment_transactions")
-          .insert({
-            user_id: subscription.user_id,
-            subscription_id: subscription.id,
-            amount_egp: amount / 100, // Kashier uses fils (smallest unit)
-            currency: currency || "EGP",
-            status: "completed",
-            type: "subscription",
-            payment_method: paymentMethod || "kashier",
-            payment_provider: "kashier",
-            provider_transaction_id: referenceNumber || chargeId,
-            provider_response: body,
-          });
+        await recordPaymentTransaction({
+          user_id: subscription.user_id,
+          subscription_id: subscription.id,
+          amount_egp: amount / 100, // Kashier uses fils (smallest unit)
+          currency: currency || "EGP",
+          status: "completed",
+          type: "subscription",
+          payment_method: paymentMethod || "kashier",
+          payment_provider: "kashier",
+          provider_transaction_id: referenceNumber || chargeId,
+          provider_response: body,
+        });
 
       } else if (status === "PENDING") {
         // Payment pending - keep subscription in pending state
@@ -257,21 +256,19 @@ export async function POST(request: NextRequest) {
           .eq("id", subscription.id);
 
         // Record failed transaction
-        await supabase
-          .from("payment_transactions")
-          .insert({
-            user_id: subscription.user_id,
-            subscription_id: subscription.id,
-            amount_egp: amount / 100,
-            currency: currency || "EGP",
-            status: "failed",
-            type: "subscription",
-            payment_method: paymentMethod || "kashier",
-            payment_provider: "kashier",
-            provider_transaction_id: referenceNumber || chargeId,
-            provider_response: body,
-            description: `Payment ${status}`,
-          });
+        await recordPaymentTransaction({
+          user_id: subscription.user_id,
+          subscription_id: subscription.id,
+          amount_egp: amount / 100,
+          currency: currency || "EGP",
+          status: "failed",
+          type: "subscription",
+          payment_method: paymentMethod || "kashier",
+          payment_provider: "kashier",
+          provider_transaction_id: referenceNumber || chargeId,
+          provider_response: body,
+          description: `Payment ${status}`,
+        });
 
       }
     }
