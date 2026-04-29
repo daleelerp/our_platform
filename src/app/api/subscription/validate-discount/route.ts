@@ -33,6 +33,18 @@ export async function POST(request: NextRequest) {
     }
 
     const normalizedCode = promoCode.toUpperCase().trim();
+    const { data: plan } = await adminSupabase
+      .from("subscription_plans")
+      .select("id, payment_type, price_one_time_egp, price_monthly_egp, price_yearly_egp")
+      .eq("id", planId)
+      .maybeSingle();
+    const isOneTimePlan = !!plan && (
+      plan.payment_type === "one_time" ||
+      ((plan.price_one_time_egp || 0) > 0 &&
+        (plan.price_monthly_egp || 0) === 0 &&
+        (plan.price_yearly_egp || 0) === 0)
+    );
+
     const { data: discount } = await adminSupabase
       .from("subscription_discounts")
       .select("*")
@@ -58,7 +70,15 @@ export async function POST(request: NextRequest) {
     }
 
     if (Array.isArray(discount.applicable_cycles) && discount.applicable_cycles.length > 0) {
-      if (!discount.applicable_cycles.includes(billingCycle)) {
+      if (isOneTimePlan) {
+        const allowsOneTime =
+          discount.applicable_cycles.includes("one_time") ||
+          discount.applicable_cycles.includes("monthly") ||
+          discount.applicable_cycles.includes("yearly");
+        if (!allowsOneTime) {
+          return NextResponse.json({ error: "code_not_applicable_to_billing_cycle" }, { status: 400 });
+        }
+      } else if (!discount.applicable_cycles.includes(billingCycle)) {
         return NextResponse.json({ error: "code_not_applicable_to_billing_cycle" }, { status: 400 });
       }
     }

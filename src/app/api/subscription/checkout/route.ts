@@ -28,6 +28,7 @@ async function validateDiscount({
   billingCycle,
   promoCode,
   baseAmount,
+  isOneTimePlan,
 }: {
   supabase: any;
   userId: string;
@@ -35,6 +36,7 @@ async function validateDiscount({
   billingCycle: string;
   promoCode: string;
   baseAmount: number;
+  isOneTimePlan: boolean;
 }) {
   const normalizedCode = promoCode.toUpperCase().trim();
   const { data: discount } = await adminSupabase
@@ -63,7 +65,15 @@ async function validateDiscount({
   }
 
   if (Array.isArray(discount.applicable_cycles) && discount.applicable_cycles.length > 0) {
-    if (!discount.applicable_cycles.includes(billingCycle)) {
+    if (isOneTimePlan) {
+      const allowsOneTime =
+        discount.applicable_cycles.includes("one_time") ||
+        discount.applicable_cycles.includes("monthly") ||
+        discount.applicable_cycles.includes("yearly");
+      if (!allowsOneTime) {
+        return { ok: false as const, error: "code_not_applicable_to_billing_cycle" };
+      }
+    } else if (!discount.applicable_cycles.includes(billingCycle)) {
       return { ok: false as const, error: "code_not_applicable_to_billing_cycle" };
     }
   }
@@ -262,6 +272,7 @@ export async function POST(request: NextRequest) {
         billingCycle: finalBillingCycle,
         promoCode,
         baseAmount: amount,
+        isOneTimePlan: isOneTimePayment,
       });
 
       if (!validation.ok) {
