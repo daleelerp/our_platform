@@ -64,7 +64,11 @@ export async function POST(request: NextRequest) {
     }
 
     if (Array.isArray(discount.applicable_plans) && discount.applicable_plans.length > 0) {
-      if (!discount.applicable_plans.includes(planId)) {
+      const normalizedPlanId = String(planId).trim().toLowerCase();
+      const normalizedApplicablePlanIds = discount.applicable_plans
+        .map((id: unknown) => String(id || "").trim().toLowerCase())
+        .filter((id: string) => id.length > 0);
+      if (!normalizedApplicablePlanIds.includes(normalizedPlanId)) {
         return NextResponse.json({ error: "code_not_applicable_to_plan" }, { status: 400 });
       }
     }
