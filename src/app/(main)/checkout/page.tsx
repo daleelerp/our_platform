@@ -137,7 +137,7 @@ export default function CheckoutRoute() {
       planId={planId || ''}
       planName={plan.display_name_en || plan.name}
       amount={amount}
-      billingCycle={isOneTime ? undefined : billingCycle}
+      billingCycle={isOneTime ? "one_time" : billingCycle}
     />
   );
 }

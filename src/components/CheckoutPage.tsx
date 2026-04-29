@@ -8,7 +8,7 @@ interface CheckoutPageProps {
   planId: string;
   planName: string;
   amount: number;
-  billingCycle?: "monthly" | "yearly";
+  billingCycle?: "monthly" | "yearly" | "one_time";
 }
 
 type PaymentMethod = "kashier";
@@ -76,6 +76,7 @@ export default function CheckoutPage({
     egp: isArabic ? "ج.م" : "EGP",
     month: isArabic ? "/شهر" : "/month",
     year: isArabic ? "/سنة" : "/year",
+    oneTime: isArabic ? "دفعة واحدة" : "one-time",
     checkout: isArabic ? "متابعة للدفع" : "Proceed to Checkout",
     confirmOrder: isArabic ? "تأكيد الطلب" : "Confirm Order",
     processing: isArabic ? "جاري المعالجة..." : "Processing...",
@@ -422,7 +423,11 @@ export default function CheckoutPage({
                 {amount} {t.egp}
                 {billingCycle && (
                   <span className={`text-sm text-slate-500 ${isArabic ? "mr-1" : "ml-1"}`}>
-                    {billingCycle === "yearly" ? t.year : t.month}
+                    {billingCycle === "yearly"
+                      ? t.year
+                      : billingCycle === "monthly"
+                        ? t.month
+                        : ` ${t.oneTime}`}
                   </span>
                 )}
               </span>

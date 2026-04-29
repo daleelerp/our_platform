@@ -69,7 +69,15 @@ export async function POST(request: NextRequest) {
         .map((id: unknown) => String(id || "").trim().toLowerCase())
         .filter((id: string) => id.length > 0);
       if (!normalizedApplicablePlanIds.includes(normalizedPlanId)) {
-        return NextResponse.json({ error: "code_not_applicable_to_plan" }, { status: 400 });
+        return NextResponse.json(
+          {
+            error: "code_not_applicable_to_plan",
+            requestedPlanId: planId,
+            matchedPlanId: plan?.id || null,
+            applicablePlans: discount.applicable_plans,
+          },
+          { status: 400 }
+        );
       }
     }
 
