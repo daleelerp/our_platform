@@ -72,12 +72,27 @@ async function validateDiscount({
   }
 
   if (discount.max_uses_per_user && discount.max_uses_per_user > 0) {
-    const { count } = await supabase
+    const { data: usageRows } = await supabase
       .from("user_discount_usage")
-      .select("id", { count: "exact", head: true })
+      .select("subscription_id")
       .eq("user_id", userId)
       .eq("discount_id", discount.id);
-    if ((count || 0) >= discount.max_uses_per_user) {
+
+    const usageSubscriptionIds = (usageRows || [])
+      .map((row: any) => row.subscription_id as string | null)
+      .filter((id: string | null): id is string => !!id);
+
+    let successfulUsageCount = 0;
+    if (usageSubscriptionIds.length > 0) {
+      const { count } = await supabase
+        .from("user_subscriptions")
+        .select("id", { count: "exact", head: true })
+        .in("id", usageSubscriptionIds)
+        .in("status", ["active", "trial", "paused", "expired"]);
+      successfulUsageCount = count || 0;
+    }
+
+    if (successfulUsageCount >= discount.max_uses_per_user) {
       return { ok: false as const, error: "user_usage_limit_reached" };
     }
   }
@@ -450,19 +465,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Record discount usage if applied
-    if (discountApplied) {
-      await supabase.from("user_discount_usage").insert({
-        user_id: user.id,
-        discount_id: discountApplied.id,
-        subscription_id: subscription.id,
-      });
-
-      await supabase
-        .from("subscription_discounts")
-        .update({ current_uses: discountApplied.current_uses + 1 })
-        .eq("id", discountApplied.id);
-    }
+    // NOTE: Don't record discount usage on pending checkout.
+    // Usage should only count after a successful payment activation.
 
     console.log(`✅ Kashier payment session created: ${sessionId}`);
 
