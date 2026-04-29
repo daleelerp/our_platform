@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Modal } from "@/components/admin/Modal";
 
@@ -58,6 +58,28 @@ export default function AdminDiscountsPage() {
     requires_first_subscription: false,
     is_active: true,
   });
+
+  const formValidationError = useMemo(() => {
+    if (!formData.code.trim()) return "Code is required.";
+    if (formData.type === "percentage" && (formData.value <= 0 || formData.value > 100)) {
+      return "Percentage discount must be between 1 and 100.";
+    }
+    if ((formData.type === "fixed" || formData.type === "trial_extension") && formData.value <= 0) {
+      return "Value must be greater than 0.";
+    }
+    if (formData.valid_from && formData.valid_until) {
+      const from = new Date(formData.valid_from);
+      const until = new Date(formData.valid_until);
+      if (from > until) return "Valid Until must be after Valid From.";
+    }
+    if (formData.max_uses !== null && formData.max_uses < 1) {
+      return "Max Uses must be at least 1, or empty for unlimited.";
+    }
+    if (formData.max_uses_per_user < 1) {
+      return "Max Uses Per User must be at least 1.";
+    }
+    return null;
+  }, [formData]);
 
   useEffect(() => {
     loadData();
@@ -144,15 +166,28 @@ export default function AdminDiscountsPage() {
     });
   };
 
+  const generateCode = () => {
+    const baseName = (formData.name_en || formData.name_ar || "PROMO")
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, "")
+      .slice(0, 10);
+    const suffix = Math.floor(1000 + Math.random() * 9000);
+    handleChange("code", `${baseName || "PROMO"}${suffix}`);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setError("");
 
     try {
+      if (formValidationError) {
+        throw new Error(formValidationError);
+      }
+
       // Prepare data for API
       const submitData: any = {
-        code: formData.code.toUpperCase(),
+        code: formData.code.trim().toUpperCase(),
         name_ar: formData.name_ar || null,
         name_en: formData.name_en || null,
         type: formData.type,
@@ -386,14 +421,26 @@ export default function AdminDiscountsPage() {
                 <label className="block text-xs font-medium text-slate-600 mb-1.5">
                   Code <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  value={formData.code}
-                  onChange={(e) => handleChange("code", e.target.value.toUpperCase())}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                  required
-                  disabled={!!editingItem}
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={formData.code}
+                    onChange={(e) => handleChange("code", e.target.value.toUpperCase())}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                    required
+                    disabled={!!editingItem}
+                    placeholder="e.g. FOUNDERS2026"
+                  />
+                  {!editingItem && (
+                    <button
+                      type="button"
+                      onClick={generateCode}
+                      className="px-3 py-2 text-xs rounded-lg border border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-700"
+                    >
+                      Generate
+                    </button>
+                  )}
+                </div>
                 {editingItem && (
                   <p className="text-xs text-slate-500 mt-1">Code cannot be changed</p>
                 )}
@@ -531,6 +578,22 @@ export default function AdminDiscountsPage() {
                 <label className="block text-xs font-medium text-slate-600 mb-1.5">
                   Applicable Billing Cycles
                 </label>
+                <div className="mb-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleChange("applicable_cycles", ["monthly", "yearly"])}
+                    className="text-xs px-2 py-1 rounded border border-slate-300 bg-slate-50 hover:bg-slate-100"
+                  >
+                    Select all
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleChange("applicable_cycles", [])}
+                    className="text-xs px-2 py-1 rounded border border-slate-300 bg-white hover:bg-slate-50"
+                  >
+                    Clear
+                  </button>
+                </div>
                 <div className="space-y-2">
                   {["monthly", "yearly"].map((cycle) => (
                     <label key={cycle} className="flex items-center gap-2">
@@ -552,6 +615,22 @@ export default function AdminDiscountsPage() {
                 <label className="block text-xs font-medium text-slate-600 mb-1.5">
                   Applicable Plans
                 </label>
+                <div className="mb-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleChange("applicable_plans", plans.map((p) => p.id))}
+                    className="text-xs px-2 py-1 rounded border border-slate-300 bg-slate-50 hover:bg-slate-100"
+                  >
+                    Select all
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleChange("applicable_plans", [])}
+                    className="text-xs px-2 py-1 rounded border border-slate-300 bg-white hover:bg-slate-50"
+                  >
+                    Clear
+                  </button>
+                </div>
                 <div className="space-y-2 max-h-32 overflow-y-auto border border-slate-200 rounded p-2">
                   {plans.length > 0 ? (
                     plans.map((plan) => (
@@ -599,11 +678,17 @@ export default function AdminDiscountsPage() {
               </div>
             </div>
 
+            {formValidationError && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                {formValidationError}
+              </div>
+            )}
+
             <div className="flex gap-3 pt-2 border-t border-slate-200">
               <button
                 type="submit"
-                disabled={saving}
-                className="px-5 py-2 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 disabled:opacity-50"
+                disabled={saving || !!formValidationError}
+                className="px-5 py-2 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? "Saving..." : "Save"}
               </button>

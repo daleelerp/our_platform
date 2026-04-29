@@ -16,6 +16,97 @@ const BASE_URL =
 
 const KASHIER_BASE_URL = getKashierApiBaseUrl();
 
+async function validateDiscount({
+  supabase,
+  userId,
+  planId,
+  billingCycle,
+  promoCode,
+  baseAmount,
+}: {
+  supabase: any;
+  userId: string;
+  planId: string;
+  billingCycle: string;
+  promoCode: string;
+  baseAmount: number;
+}) {
+  const normalizedCode = promoCode.toUpperCase().trim();
+  const { data: discount } = await supabase
+    .from("subscription_discounts")
+    .select("*")
+    .eq("code", normalizedCode)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (!discount) {
+    return { ok: false as const, error: "invalid_or_inactive_code" };
+  }
+
+  const now = new Date();
+  const validFrom = discount.valid_from ? new Date(discount.valid_from) : null;
+  const validUntil = discount.valid_until ? new Date(discount.valid_until) : null;
+
+  if ((validFrom && now < validFrom) || (validUntil && now > validUntil)) {
+    return { ok: false as const, error: "code_not_in_valid_time_window" };
+  }
+
+  if (Array.isArray(discount.applicable_plans) && discount.applicable_plans.length > 0) {
+    if (!discount.applicable_plans.includes(planId)) {
+      return { ok: false as const, error: "code_not_applicable_to_plan" };
+    }
+  }
+
+  if (Array.isArray(discount.applicable_cycles) && discount.applicable_cycles.length > 0) {
+    if (!discount.applicable_cycles.includes(billingCycle)) {
+      return { ok: false as const, error: "code_not_applicable_to_billing_cycle" };
+    }
+  }
+
+  if (typeof discount.min_amount_egp === "number" && baseAmount < discount.min_amount_egp) {
+    return { ok: false as const, error: "minimum_amount_not_met" };
+  }
+
+  if (discount.max_uses && discount.current_uses >= discount.max_uses) {
+    return { ok: false as const, error: "max_usage_reached" };
+  }
+
+  if (discount.max_uses_per_user && discount.max_uses_per_user > 0) {
+    const { count } = await supabase
+      .from("user_discount_usage")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("discount_id", discount.id);
+    if ((count || 0) >= discount.max_uses_per_user) {
+      return { ok: false as const, error: "user_usage_limit_reached" };
+    }
+  }
+
+  if (discount.requires_first_subscription) {
+    const { count } = await supabase
+      .from("user_subscriptions")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .in("status", ["active", "trial", "paused", "expired"]);
+    if ((count || 0) > 0) {
+      return { ok: false as const, error: "first_subscription_only" };
+    }
+  }
+
+  let discountedAmount = baseAmount;
+  if (discount.type === "percentage") {
+    discountedAmount = Math.max(0, Math.round(baseAmount * (1 - discount.value / 100)));
+  } else if (discount.type === "fixed") {
+    discountedAmount = Math.max(0, baseAmount - discount.value);
+  }
+
+  return {
+    ok: true as const,
+    discount,
+    discountedAmount,
+  };
+}
+
 export async function POST(request: NextRequest) {
   try {
     const cookieStore = await cookies();
@@ -144,30 +235,24 @@ export async function POST(request: NextRequest) {
     // Apply promo code if provided
     let discountApplied: any = null;
     if (promoCode) {
-      const { data: discount } = await supabase
-        .from("subscription_discounts")
-        .select("*")
-        .eq("code", promoCode.toUpperCase())
-        .eq("is_active", true)
-        .single();
+      const validation = await validateDiscount({
+        supabase,
+        userId: user.id,
+        planId,
+        billingCycle: finalBillingCycle,
+        promoCode,
+        baseAmount: amount,
+      });
 
-      if (discount) {
-        const now = new Date();
-        const validFrom = discount.valid_from ? new Date(discount.valid_from) : null;
-        const validUntil = discount.valid_until ? new Date(discount.valid_until) : null;
-
-        if (
-          (!validFrom || now >= validFrom) &&
-          (!validUntil || now <= validUntil)
-        ) {
-          if (discount.type === "percentage") {
-            amount = amount * (1 - discount.value / 100);
-          } else if (discount.type === "fixed") {
-            amount = discount.value;
-          }
-          discountApplied = discount;
-        }
+      if (!validation.ok) {
+        return NextResponse.json(
+          { error: "invalid_discount_code", reason: validation.error },
+          { status: 400 }
+        );
       }
+
+      amount = validation.discountedAmount;
+      discountApplied = validation.discount;
     }
 
     // If Kashier is not configured, simulate checkout

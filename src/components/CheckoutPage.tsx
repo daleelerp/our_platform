@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useAppStore } from "@/store/useAppStore";
-import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
 
 interface CheckoutPageProps {
@@ -123,6 +122,29 @@ export default function CheckoutPage({
   };
 
   // Apply Promo Code Handler
+  const getPromoErrorMessage = (reason?: string, minAmount?: number) => {
+    if (!reason) return t.promoInvalid;
+    switch (reason) {
+      case "code_not_in_valid_time_window":
+        return t.promoExpired;
+      case "max_usage_reached":
+      case "user_usage_limit_reached":
+        return t.promoUsageLimitReached;
+      case "minimum_amount_not_met":
+        return isArabic
+          ? `الحد الأدنى لتطبيق الكود هو ${minAmount || 0} ${t.egp}`
+          : `Minimum amount for this code is ${minAmount || 0} ${t.egp}`;
+      case "code_not_applicable_to_plan":
+        return isArabic ? "هذا الكود غير متاح لهذه الخطة" : "This code is not valid for this plan";
+      case "code_not_applicable_to_billing_cycle":
+        return isArabic ? "هذا الكود غير متاح لدورة الدفع المختارة" : "This code is not valid for this billing cycle";
+      case "first_subscription_only":
+        return isArabic ? "هذا الكود متاح لأول اشتراك فقط" : "This code is only for first subscription";
+      default:
+        return t.promoInvalid;
+    }
+  };
+
   const handleApplyPromo = async () => {
     if (!promoCode.trim() || promoLoading) return;
 
@@ -130,39 +152,29 @@ export default function CheckoutPage({
     setPromoError(null);
 
     try {
-      const supabase = createClient();
-      const { data: discount, error: discountError } = await supabase
-        .from("subscription_discounts")
-        .select("*")
-        .eq("code", promoCode.toUpperCase().trim())
-        .eq("is_active", true)
-        .single();
+      const response = await fetch("/api/subscription/validate-discount", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          promoCode: promoCode.toUpperCase().trim(),
+          planId,
+          billingCycle,
+          amount,
+        }),
+      });
+      const data = await response.json();
 
-      if (discountError || !discount) {
-        setPromoError(t.promoInvalid);
-        setPromoLoading(false);
-        return;
-      }
-
-      // Check if code has expired
-      if (discount.expires_at && new Date(discount.expires_at) < new Date()) {
-        setPromoError(t.promoExpired);
-        setPromoLoading(false);
-        return;
-      }
-
-      // Check usage limit
-      if (discount.max_uses && discount.current_uses >= discount.max_uses) {
-        setPromoError(t.promoUsageLimitReached);
+      if (!response.ok || !data?.discount) {
+        setPromoError(getPromoErrorMessage(data?.error, data?.minAmount));
         setPromoLoading(false);
         return;
       }
 
       // Success - apply the discount
       setPromoApplied({
-        code: discount.code,
-        discount: discount.value,
-        type: discount.type,
+        code: data.discount.code,
+        discount: data.discount.value,
+        type: data.discount.type,
       });
       setPromoError(null);
       setPromoLoading(false);
