@@ -1,7 +1,61 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
+const SCRAPER_UA_PATTERNS = [
+  /python-requests/i,
+  /curl/i,
+  /wget/i,
+  /httpclient/i,
+  /scrapy/i,
+  /beautifulsoup/i,
+  /selenium/i,
+  /playwright/i,
+  /puppeteer/i,
+  /headlesschrome/i,
+  /go-http-client/i,
+];
+
+function isLikelyScraper(userAgent: string): boolean {
+  if (!userAgent) return true;
+  return SCRAPER_UA_PATTERNS.some((pattern) => pattern.test(userAgent));
+}
+
+function isRateLimited(key: string, maxRequests: number, windowMs: number): boolean {
+  const now = Date.now();
+  const existing = rateLimitStore.get(key);
+  if (!existing || now > existing.resetAt) {
+    rateLimitStore.set(key, { count: 1, resetAt: now + windowMs });
+    return false;
+  }
+  existing.count += 1;
+  rateLimitStore.set(key, existing);
+  return existing.count > maxRequests;
+}
+
 export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+  const userAgent = request.headers.get("user-agent") || "";
+  const forwardedFor = request.headers.get("x-forwarded-for") || "";
+  const ip = forwardedFor.split(",")[0]?.trim() || "unknown";
+
+  // Basic anti-scraping controls for frequently scraped routes.
+  const protectedScrapeTargets =
+    pathname.startsWith("/paths") ||
+    pathname.startsWith("/plans") ||
+    pathname.startsWith("/api/");
+
+  if (protectedScrapeTargets && isLikelyScraper(userAgent)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  if (protectedScrapeTargets) {
+    const key = `${ip}:${pathname}`;
+    if (isRateLimited(key, 120, 60_000)) {
+      return NextResponse.json({ error: "Too Many Requests" }, { status: 429 });
+    }
+  }
+
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -16,7 +70,6 @@ export async function middleware(request: NextRequest) {
 
   // If Supabase env vars are missing, skip auth checks and continue
   if (!supabaseUrl || !supabaseKey) {
-    console.error("Missing Supabase environment variables in middleware");
     return response;
   }
 
@@ -51,24 +104,8 @@ export async function middleware(request: NextRequest) {
     user = authUser;
   } catch (error: any) {
     // If auth fails, continue without user
-    const errorMessage = error?.message || String(error);
-    const isNetworkError = 
-      errorMessage.includes('ENOTFOUND') ||
-      errorMessage.includes('getaddrinfo') ||
-      errorMessage.includes('fetch failed') ||
-      error?.code === 'ENOTFOUND';
-    
-    if (isNetworkError) {
-      console.error("Network error in middleware connecting to Supabase:", {
-        url: supabaseUrl,
-        error: errorMessage
-      });
-    } else {
-      console.error("Auth error in middleware:", error);
-    }
+    // Keep middleware silent in production to avoid leaking internals.
   }
-
-  const pathname = request.nextUrl.pathname;
 
   // Public routes - anyone can access
   const publicRoutes = ["/", "/auth/callback", "/about", "/plans", "/paths"];
@@ -105,7 +142,6 @@ export async function middleware(request: NextRequest) {
       }
     } catch (error) {
       // If profile fetch fails, continue
-      console.error("Profile fetch error in middleware:", error);
     }
   }
 
@@ -115,6 +151,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("X-Frame-Options", "DENY");
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
   return response;
 }
 

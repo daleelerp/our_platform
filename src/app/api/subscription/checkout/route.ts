@@ -292,8 +292,6 @@ export async function POST(request: NextRequest) {
 
     // If Kashier is not configured, simulate checkout
     if (!KASHIER_API_KEY || !KASHIER_MERCHANT_ID || !KASHIER_SECRET_KEY) {
-      console.log("Kashier not configured, simulating checkout");
-
       const periodEnd = new Date();
       if (finalBillingCycle === "yearly") {
         periodEnd.setFullYear(periodEnd.getFullYear() + 1);
@@ -423,22 +421,9 @@ export async function POST(request: NextRequest) {
 
     if (!sessionResponse.ok) {
       const errorText = await sessionResponse.text();
-      console.error("=== KASHIER ERROR ===");
-      console.error("Status:", sessionResponse.status);
-      console.error("BASE_URL used:", BASE_URL);
-      console.error(
-        "merchantRedirect:",
-        `${BASE_URL}/payment/callback?provider=kashier`
-      );
-      console.error("serverWebhook:", `${BASE_URL}/api/subscription/webhook`);
-      console.error("Raw error:", errorText);
-      console.error("Request data:", {
-        order: sessionData.order,             // ✅ FIXED: was sessionData.orderId
-        amount: sessionData.amount,
-        currency: sessionData.currency,
-        merchant: sessionData.merchantId,
+      console.error("Kashier session creation failed", {
+        status: sessionResponse.status,
       });
-      console.error("===================");
 
       let errorMessage = "Failed to create payment session";
       try {
@@ -487,8 +472,6 @@ export async function POST(request: NextRequest) {
 
     // NOTE: Don't record discount usage on pending checkout.
     // Usage should only count after a successful payment activation.
-
-    console.log(`✅ Kashier payment session created: ${sessionId}`);
 
     return NextResponse.json({
       success: true,

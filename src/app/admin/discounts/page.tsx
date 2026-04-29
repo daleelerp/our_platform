@@ -114,6 +114,10 @@ export default function AdminDiscountsPage() {
   const startCreate = () => {
     setEditingItem(null);
     setIsCreating(true);
+    resetForm();
+  };
+
+  const resetForm = () => {
     setFormData({
       code: "",
       name_ar: "",
@@ -130,6 +134,12 @@ export default function AdminDiscountsPage() {
       requires_first_subscription: false,
       is_active: true,
     });
+  };
+
+  const closeModal = () => {
+    setEditingItem(null);
+    setIsCreating(false);
+    resetForm();
   };
 
   const startEdit = (item: Discount) => {
@@ -225,9 +235,7 @@ export default function AdminDiscountsPage() {
       }
 
       await loadData();
-      setEditingItem(null);
-      setIsCreating(false);
-      startCreate();
+      closeModal();
     } catch (err: any) {
       console.error(err);
       setError(err.message || "Failed to save");
@@ -410,11 +418,7 @@ export default function AdminDiscountsPage() {
       {/* Create / Edit Modal */}
       <Modal
         isOpen={!!(editingItem || isCreating)}
-        onClose={() => {
-          setEditingItem(null);
-          setIsCreating(false);
-          startCreate();
-        }}
+        onClose={closeModal}
         title={editingItem ? "Edit Discount" : "Add New Discount"}
         size="lg"
       >
@@ -700,11 +704,7 @@ export default function AdminDiscountsPage() {
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setEditingItem(null);
-                  setIsCreating(false);
-                  startCreate();
-                }}
+                onClick={closeModal}
                 className="px-5 py-2 bg-slate-100 text-slate-700 text-sm rounded-lg hover:bg-slate-200"
               >
                 Cancel

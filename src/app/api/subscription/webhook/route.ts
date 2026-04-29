@@ -14,8 +14,6 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    console.log("Webhook received:", JSON.stringify(body, null, 2));
-
     const parseUserIdFromOrder = (orderValue?: string | null): string | null => {
       if (!orderValue || typeof orderValue !== "string") return null;
       if (!orderValue.startsWith("daleel-")) return null;
@@ -37,7 +35,6 @@ export async function POST(request: NextRequest) {
       // Handle new Payment Sessions API webhook
       const normalizedStatus = String(webhookStatus || "").toUpperCase();
 
-      console.log(`Session Webhook received: Session ${sessionId}, Status: ${normalizedStatus}`);
 
       // Find the subscription by session ID (limit 1: duplicates must not break maybeSingle)
       let { data: subscription, error: subError } = await supabase
@@ -133,10 +130,8 @@ export async function POST(request: NextRequest) {
             });
         }
 
-        console.log(`Subscription ${subscription.id} activated successfully via Kashier session ${sessionId}`);
       } else if (normalizedStatus === "PENDING" || normalizedStatus === "PROCESSING") {
         // Payment pending - keep subscription in pending state
-        console.log(`Payment pending for subscription ${subscription.id}`);
       } else if (normalizedStatus === "FAILED" || normalizedStatus === "CANCELLED") {
         // Payment failed
         await supabase
@@ -171,9 +166,8 @@ export async function POST(request: NextRequest) {
             });
         }
 
-        console.log(`Payment failed for subscription ${subscription.id}, session ${sessionId}`);
       } else {
-        console.log(`Unknown payment status: ${normalizedStatus} for session ${sessionId}`);
+        // Unknown status; ignore without leaking payload details.
       }
     } else {
       // Handle legacy charge-based webhook (old API)
@@ -203,7 +197,6 @@ export async function POST(request: NextRequest) {
 
       const { chargeId, amount, currency, paymentMethod, status, orderId, referenceNumber } = body;
 
-      console.log(`Legacy Webhook received: Charge ${chargeId}, Status: ${status}`);
 
       // Find the subscription by charge ID
       const { data: subscription, error: subError } = await supabase
@@ -254,10 +247,8 @@ export async function POST(request: NextRequest) {
             provider_response: body,
           });
 
-        console.log(`Subscription ${subscription.id} activated successfully via legacy Kashier`);
       } else if (status === "PENDING") {
         // Payment pending - keep subscription in pending state
-        console.log(`Payment pending for subscription ${subscription.id}`);
       } else {
         // Payment failed or cancelled
         await supabase
@@ -282,7 +273,6 @@ export async function POST(request: NextRequest) {
             description: `Payment ${status}`,
           });
 
-        console.log(`Payment ${status} for subscription ${subscription.id}`);
       }
     }
 
