@@ -59,6 +59,8 @@ export default function AdminDiscountsPage() {
     is_active: true,
   });
 
+  const validPlanIds = useMemo(() => new Set(plans.map((plan) => plan.id)), [plans]);
+
   const formValidationError = useMemo(() => {
     if (!formData.code.trim()) return "Code is required.";
     if (formData.type === "percentage" && (formData.value <= 0 || formData.value > 100)) {
@@ -131,6 +133,7 @@ export default function AdminDiscountsPage() {
   };
 
   const startEdit = (item: Discount) => {
+    const normalizedApplicablePlans = (item.applicable_plans || []).filter((id) => validPlanIds.has(id));
     setEditingItem(item);
     setIsCreating(false);
     setFormData({
@@ -139,7 +142,7 @@ export default function AdminDiscountsPage() {
       name_en: item.name_en || "",
       type: item.type,
       value: item.value,
-      applicable_plans: item.applicable_plans || [],
+      applicable_plans: normalizedApplicablePlans,
       applicable_cycles: item.applicable_cycles || [],
       valid_from: item.valid_from ? new Date(item.valid_from).toISOString().slice(0, 16) : "",
       valid_until: item.valid_until ? new Date(item.valid_until).toISOString().slice(0, 16) : "",
@@ -186,13 +189,14 @@ export default function AdminDiscountsPage() {
       }
 
       // Prepare data for API
+      const sanitizedApplicablePlans = formData.applicable_plans.filter((id) => validPlanIds.has(id));
       const submitData: any = {
         code: formData.code.trim().toUpperCase(),
         name_ar: formData.name_ar || null,
         name_en: formData.name_en || null,
         type: formData.type,
         value: formData.value,
-        applicable_plans: formData.applicable_plans.length > 0 ? formData.applicable_plans : null,
+        applicable_plans: sanitizedApplicablePlans.length > 0 ? sanitizedApplicablePlans : null,
         applicable_cycles: formData.applicable_cycles.length > 0 ? formData.applicable_cycles : null,
         valid_from: formData.valid_from || null,
         valid_until: formData.valid_until || null,
@@ -595,7 +599,7 @@ export default function AdminDiscountsPage() {
                   </button>
                 </div>
                 <div className="space-y-2">
-                  {["monthly", "yearly"].map((cycle) => (
+                  {["monthly", "yearly", "one_time"].map((cycle) => (
                     <label key={cycle} className="flex items-center gap-2">
                       <input
                         type="checkbox"
@@ -603,7 +607,9 @@ export default function AdminDiscountsPage() {
                         onChange={(e) => handleArrayChange("applicable_cycles", cycle, e.target.checked)}
                         className="h-4 w-4 text-teal-600 border-slate-300 rounded"
                       />
-                      <span className="text-sm text-slate-700 capitalize">{cycle}</span>
+                      <span className="text-sm text-slate-700 capitalize">
+                        {cycle === "one_time" ? "one-time" : cycle}
+                      </span>
                     </label>
                   ))}
                 </div>
