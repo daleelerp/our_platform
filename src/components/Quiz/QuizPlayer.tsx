@@ -1,5 +1,4 @@
 "use client";
-
 import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useAppStore } from "@/store/useAppStore";
@@ -181,7 +180,7 @@ export function QuizPlayer({ quiz, questions, userId, onComplete }: QuizPlayerPr
       });
     });
 
-    const score = (totalPointsEarned / quiz.total_points) * 100;
+    const score = quiz.total_points > 0 ? (totalPointsEarned / quiz.total_points) * 100 : 0;
     const isPassed = score >= quiz.passing_score;
     const timeTaken = quiz.time_limit_minutes
       ? quiz.time_limit_minutes * 60 - (timeRemaining || 0)
