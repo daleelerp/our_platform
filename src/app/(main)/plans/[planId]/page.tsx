@@ -74,6 +74,7 @@ export default async function PlanDetailsPage({ params }: Props) {
     .from("plan_paths")
     .select(`
       learning_path_id,
+      sort_order,
       learning_paths (
         id,
         title,
@@ -85,14 +86,18 @@ export default async function PlanDetailsPage({ params }: Props) {
         estimated_duration_hours
       )
     `)
-    .eq("plan_id", plan.id);
+    .eq("plan_id", plan.id)
+    .order("sort_order", { ascending: true });
 
   const pathRows = (includedPlanPaths || [])
-    .map((item: any) => item.learning_paths)
+    .map((item: any) => ({
+      ...item.learning_paths,
+      _sort_order: item.sort_order ?? Number.MAX_SAFE_INTEGER,
+    }))
     .filter(Boolean);
 
-  const uniquePaths = Array.from(
-    new Map(pathRows.map((p: any) => [p.id, p])).values()
+  const uniquePaths = Array.from(new Map(pathRows.map((p: any) => [p.id, p])).values()).sort(
+    (a: any, b: any) => (a._sort_order || Number.MAX_SAFE_INTEGER) - (b._sort_order || Number.MAX_SAFE_INTEGER)
   );
 
   const featureKeys: string[] = Array.isArray(plan.features) ? plan.features : [];
