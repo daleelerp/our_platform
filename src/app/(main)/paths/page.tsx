@@ -25,6 +25,7 @@ type PathWithPlanWithMetadata = {
   plan_price_yearly_egp: number | null;
   plan_price_one_time_egp: number | null;
   plan_payment_type: string;
+  plan_sort_order: number | null;
 };
 
 export default async function PathsPage({ searchParams }: Props) {
@@ -54,6 +55,7 @@ export default async function PathsPage({ searchParams }: Props) {
       career_outcomes,
       plan_paths (
         plan_id,
+        sort_order,
         subscription_plans (
           id,
           name,
@@ -98,6 +100,7 @@ export default async function PathsPage({ searchParams }: Props) {
           plan_price_yearly_egp: null,
           plan_price_one_time_egp: null,
           plan_payment_type: "",
+          plan_sort_order: null,
         });
       } else {
         // Create a row for each plan associated with this path
@@ -123,6 +126,7 @@ export default async function PathsPage({ searchParams }: Props) {
               plan_price_yearly_egp: plan.price_yearly_egp,
               plan_price_one_time_egp: plan.price_one_time_egp,
               plan_payment_type: plan.payment_type,
+              plan_sort_order: planPath.sort_order ?? null,
             });
           }
         });

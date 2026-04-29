@@ -47,6 +47,7 @@ type PathWithPlanWithMetadata = PathWithPlans & {
   plan_price_yearly_egp: number | null;
   plan_price_one_time_egp: number | null;
   plan_payment_type: string;
+  plan_sort_order: number | null;
 };
 
 type FilterType = "all" | "free" | "paid";
@@ -370,6 +371,23 @@ export function AllPathsWithPlans({
   }
 
   const groupedPaths = groupPathsByPathId(pathsWithPlans);
+  const selectedPlanPathOrderMap = useMemo(() => {
+    if (!effectiveSelectedPlanId) return new Map<string, number>();
+    const orderMap = new Map<string, number>();
+
+    for (const item of pathsWithPlans) {
+      if (item.plan_id !== effectiveSelectedPlanId) continue;
+      const sortOrder = Number(item.plan_sort_order ?? 0);
+      if (!Number.isFinite(sortOrder) || sortOrder <= 0) continue;
+
+      const existing = orderMap.get(item.id);
+      if (existing === undefined || sortOrder < existing) {
+        orderMap.set(item.id, sortOrder);
+      }
+    }
+
+    return orderMap;
+  }, [pathsWithPlans, effectiveSelectedPlanId]);
 
   // Count paths by type
   const pathCounts = groupedPaths.reduce(
@@ -396,6 +414,17 @@ export function AllPathsWithPlans({
 
   // Sort paths: subscribed first, then free, then by price
   const sortedPaths = [...filteredPaths].sort((a, b) => {
+    if (isSubscribedView && effectiveSelectedPlanId) {
+      const aPlanOrder = selectedPlanPathOrderMap.get(a.path.id);
+      const bPlanOrder = selectedPlanPathOrderMap.get(b.path.id);
+      const aHasOrder = typeof aPlanOrder === "number";
+      const bHasOrder = typeof bPlanOrder === "number";
+
+      if (aHasOrder && bHasOrder) return (aPlanOrder as number) - (bPlanOrder as number);
+      if (aHasOrder) return -1;
+      if (bHasOrder) return 1;
+    }
+
     const aAnalysis = analyzePathPlans(a.plans);
     const bAnalysis = analyzePathPlans(b.plans);
 
