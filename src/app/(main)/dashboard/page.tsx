@@ -203,6 +203,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       .from("plan_paths")
       .select(`
         learning_path_id,
+        sort_order,
         subscription_plans (
           id,
           name,
@@ -245,6 +246,46 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     }
   }
 
+  // Match dashboard ordering with admin "Assigned Paths" ordering (plan_paths.sort_order).
+  // If a path appears in multiple included plans, use the smallest sort_order.
+  const enrolledPathSortOrderMap: Record<string, number> = {};
+  if (includedPlanIds.length > 0 && enrolledPathIds.length > 0) {
+    const { data: enrolledPathSortRows } = await supabase
+      .from("plan_paths")
+      .select("learning_path_id, sort_order")
+      .in("plan_id", includedPlanIds)
+      .in("learning_path_id", enrolledPathIds);
+
+    for (const row of (enrolledPathSortRows || []) as any[]) {
+      const pathId = row.learning_path_id as string | undefined;
+      const sortOrder = Number(row.sort_order ?? 0);
+      if (!pathId || !Number.isFinite(sortOrder) || sortOrder <= 0) continue;
+
+      const existingSortOrder = enrolledPathSortOrderMap[pathId];
+      if (existingSortOrder === undefined || sortOrder < existingSortOrder) {
+        enrolledPathSortOrderMap[pathId] = sortOrder;
+      }
+    }
+  }
+
+  const sortedEnrollments = [...(enrollments || [])].sort((a: any, b: any) => {
+    const aPathId = a.learning_paths?.id as string | undefined;
+    const bPathId = b.learning_paths?.id as string | undefined;
+    const aOrder = aPathId ? enrolledPathSortOrderMap[aPathId] : undefined;
+    const bOrder = bPathId ? enrolledPathSortOrderMap[bPathId] : undefined;
+
+    const aHasOrder = typeof aOrder === "number";
+    const bHasOrder = typeof bOrder === "number";
+
+    if (aHasOrder && bHasOrder) return (aOrder as number) - (bOrder as number);
+    if (aHasOrder) return -1;
+    if (bHasOrder) return 1;
+
+    const aCreatedAt = new Date(a.created_at || 0).getTime();
+    const bCreatedAt = new Date(b.created_at || 0).getTime();
+    return bCreatedAt - aCreatedAt;
+  });
+
 
   // Fetch saved path finder recommendations
   const { data: savedPreferences } = await supabase
@@ -285,7 +326,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   return (
     <DashboardContent 
       profile={profile}
-      enrolledPaths={enrollments || []}
+      enrolledPaths={sortedEnrollments}
       enrolledPathPlanMap={enrolledPathPlanMap}
       purchasedPlans={dedupedPurchasedPlans}
       recommendedPaths={recommendedPaths}
