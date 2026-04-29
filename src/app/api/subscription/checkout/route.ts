@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { getKashierApiBaseUrl } from "@/lib/kashier";
+import { createClient as createServiceRoleClient } from "@supabase/supabase-js";
 
 // Kashier Payment Sessions API configuration
 const KASHIER_API_KEY = process.env.KASHIER_API_KEY;
@@ -15,6 +16,10 @@ const BASE_URL =
     : "https://www.daleel.site");
 
 const KASHIER_BASE_URL = getKashierApiBaseUrl();
+const adminSupabase = createServiceRoleClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 async function validateDiscount({
   supabase,
@@ -32,7 +37,7 @@ async function validateDiscount({
   baseAmount: number;
 }) {
   const normalizedCode = promoCode.toUpperCase().trim();
-  const { data: discount } = await supabase
+  const { data: discount } = await adminSupabase
     .from("subscription_discounts")
     .select("*")
     .eq("code", normalizedCode)
@@ -72,7 +77,7 @@ async function validateDiscount({
   }
 
   if (discount.max_uses_per_user && discount.max_uses_per_user > 0) {
-    const { data: usageRows } = await supabase
+    const { data: usageRows } = await adminSupabase
       .from("user_discount_usage")
       .select("subscription_id")
       .eq("user_id", userId)
@@ -84,7 +89,7 @@ async function validateDiscount({
 
     let successfulUsageCount = 0;
     if (usageSubscriptionIds.length > 0) {
-      const { count } = await supabase
+      const { count } = await adminSupabase
         .from("user_subscriptions")
         .select("id", { count: "exact", head: true })
         .in("id", usageSubscriptionIds)
@@ -98,7 +103,7 @@ async function validateDiscount({
   }
 
   if (discount.requires_first_subscription) {
-    const { count } = await supabase
+    const { count } = await adminSupabase
       .from("user_subscriptions")
       .select("id", { count: "exact", head: true })
       .eq("user_id", userId)
@@ -313,13 +318,13 @@ export async function POST(request: NextRequest) {
       }
 
       if (discountApplied) {
-        await supabase.from("user_discount_usage").insert({
+        await adminSupabase.from("user_discount_usage").insert({
           user_id: user.id,
           discount_id: discountApplied.id,
           subscription_id: subscription.id,
         });
 
-        await supabase
+        await adminSupabase
           .from("subscription_discounts")
           .update({ current_uses: discountApplied.current_uses + 1 })
           .eq("id", discountApplied.id);

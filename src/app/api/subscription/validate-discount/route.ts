@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
+import { createClient as createServiceRoleClient } from "@supabase/supabase-js";
+
+const adminSupabase = createServiceRoleClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,7 +33,7 @@ export async function POST(request: NextRequest) {
     }
 
     const normalizedCode = promoCode.toUpperCase().trim();
-    const { data: discount } = await supabase
+    const { data: discount } = await adminSupabase
       .from("subscription_discounts")
       .select("*")
       .eq("code", normalizedCode)
@@ -72,7 +78,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (discount.max_uses_per_user && discount.max_uses_per_user > 0) {
-      const { data: usageRows } = await supabase
+      const { data: usageRows } = await adminSupabase
         .from("user_discount_usage")
         .select("subscription_id")
         .eq("user_id", user.id)
@@ -84,7 +90,7 @@ export async function POST(request: NextRequest) {
 
       let successfulUsageCount = 0;
       if (usageSubscriptionIds.length > 0) {
-        const { count } = await supabase
+        const { count } = await adminSupabase
           .from("user_subscriptions")
           .select("id", { count: "exact", head: true })
           .in("id", usageSubscriptionIds)
@@ -98,7 +104,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (discount.requires_first_subscription) {
-      const { count } = await supabase
+      const { count } = await adminSupabase
         .from("user_subscriptions")
         .select("id", { count: "exact", head: true })
         .eq("user_id", user.id)
