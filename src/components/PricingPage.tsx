@@ -275,11 +275,19 @@ function PricingCard({
         {/* CTA: buy / buy again / owned badge */}
         <div className="py-4">
           {isFree ? (
-            <div className="w-full py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 bg-slate-100 text-slate-600 border-2 border-dashed border-slate-300">
+            <div className="space-y-3">
+              <div className="w-full py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 bg-slate-100 text-slate-600 border-2 border-dashed border-slate-300">
               <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               {t.yourDefaultPlan}
+              </div>
+              <Link
+                href={`/paths?planId=${plan.id}`}
+                className="block w-full py-3 px-4 text-center rounded-xl text-sm font-semibold bg-white border-2 border-[#429874] text-[#429874] hover:bg-[#429874]/5 transition-colors"
+              >
+                {t.freePlanPathsCta}
+              </Link>
             </div>
           ) : blockedByForeignPending ? (
             <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-center space-y-2">
@@ -367,14 +375,12 @@ function PricingCard({
           )}
         </div>
 
-        {!isFree && (
-          <Link
-            href={`/plans/${plan.id}`}
-            className="block w-full mb-3 py-2.5 px-4 text-center border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 transition-colors"
-          >
-            {t.viewDetails}
-          </Link>
-        )}
+        <Link
+          href={isFree ? `/paths?planId=${plan.id}` : `/plans/${plan.id}`}
+          className="block w-full mb-3 py-2.5 px-4 text-center border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 transition-colors"
+        >
+          {isFree ? t.freePlanPathsCta : t.viewDetails}
+        </Link>
 
         {/* Simple Key Benefits */}
         <div className="flex-grow border border-slate-100 rounded-xl p-3">
@@ -455,6 +461,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
     popular: isArabic ? "الأكثر شعبية" : "Most Popular",
     currentPlan: isArabic ? "خطتك الحالية" : "Current Plan",
     yourDefaultPlan: isArabic ? "خطتك الافتراضية" : "Your Default Plan",
+    freePlanPathsCta: isArabic ? "عرض المسارات المجانية" : "View free paths",
     getStarted: isArabic ? "ابدأ الآن" : "Get Started",
     upgrade: isArabic ? "ترقية" : "Upgrade",
     contactSales: isArabic ? "تواصل معنا" : "Contact Sales",

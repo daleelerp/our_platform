@@ -177,6 +177,20 @@ export function PricingSection() {
               ? "نظام منظم يساعد متعلمي ERP على اتخاذ قرارات مهنية صحيحة والتقدم بثقة."
               : "A structured system that helps ERP learners make the right career decisions and progress with confidence."}
           </p>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <Link
+              href="/plans"
+              className="inline-flex items-center gap-2 rounded-xl bg-[#429874] px-5 py-3 text-sm font-semibold text-white shadow-md transition hover:bg-[#357a5d]"
+            >
+              {language === "ar" ? "اكتشف ما هو مجاني" : "See What's Free"}
+            </Link>
+            <Link
+              href="/paths"
+              className="inline-flex items-center gap-2 rounded-xl border border-[#429874]/30 bg-white px-5 py-3 text-sm font-semibold text-[#357a5d] transition hover:bg-[#f0f9f6]"
+            >
+              {language === "ar" ? "استعرض المسارات المجانية" : "Browse Free Paths"}
+            </Link>
+          </div>
         </div>
 
         {/* Plans Grid */}
