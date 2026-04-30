@@ -275,19 +275,11 @@ function PricingCard({
         {/* CTA: buy / buy again / owned badge */}
         <div className="py-4">
           {isFree ? (
-            <div className="space-y-3">
-              <div className="w-full py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 bg-slate-100 text-slate-600 border-2 border-dashed border-slate-300">
+            <div className="w-full py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 bg-slate-100 text-slate-600 border-2 border-dashed border-slate-300">
               <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               {t.yourDefaultPlan}
-              </div>
-              <Link
-                href={`/paths?planId=${plan.id}`}
-                className="block w-full py-3 px-4 text-center rounded-xl text-sm font-semibold bg-white border-2 border-[#429874] text-[#429874] hover:bg-[#429874]/5 transition-colors"
-              >
-                {t.freePlanPathsCta}
-              </Link>
             </div>
           ) : blockedByForeignPending ? (
             <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-center space-y-2">
