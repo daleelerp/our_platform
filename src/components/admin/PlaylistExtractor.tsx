@@ -5,21 +5,26 @@ import { useState } from "react";
 interface PlaylistExtractorProps {
   milestoneId: string;
   onExtractComplete: (videos: any[]) => void;
+  /** After “Fix order” — refetch videos in parent */
+  onVideosReload?: () => void | Promise<void>;
   defaultLanguage?: "en" | "ar";
 }
 
 export default function PlaylistExtractor({
   milestoneId,
   onExtractComplete,
+  onVideosReload,
   defaultLanguage = "en",
 }: PlaylistExtractorProps) {
   const [playlistUrl, setPlaylistUrl] = useState("");
   const [language, setLanguage] = useState<"en" | "ar">(defaultLanguage);
   const [isExtracting, setIsExtracting] = useState(false);
+  const [isRepairing, setIsRepairing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{
     inserted: number;
     skipped: number;
+    repaired?: number;
   } | null>(null);
 
   const handleExtract = async () => {
@@ -67,6 +72,38 @@ export default function PlaylistExtractor({
       setError(err.message || "An error occurred while extracting the playlist");
     } finally {
       setIsExtracting(false);
+    }
+  };
+
+  const handleRepairOrder = async () => {
+    if (!onVideosReload) return;
+    setIsRepairing(true);
+    setError(null);
+    setResult(null);
+    try {
+      const response = await fetch("/api/admin/milestones/reorder-videos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ milestone_id: milestoneId }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(
+          data.hint
+            ? `${data.error} — ${data.hint}`
+            : data.error || "Failed to repair order"
+        );
+      }
+      setResult({
+        inserted: 0,
+        skipped: 0,
+        repaired: data.updated,
+      } as { inserted: number; skipped: number; repaired?: number });
+      await onVideosReload();
+    } catch (err: any) {
+      setError(err.message || "Could not repair video order");
+    } finally {
+      setIsRepairing(false);
     }
   };
 
@@ -195,13 +232,39 @@ export default function PlaylistExtractor({
               />
             </svg>
             <span>
-              <strong>{result.inserted}</strong> videos added
-              {result.skipped > 0 && (
-                <span className="text-green-600">
-                  {" "}
-                  • {result.skipped} already existed
-                </span>
+              {typeof result.repaired === "number" ? (
+                <>
+                  Repaired order for <strong>{result.repaired}</strong> videos
+                </>
+              ) : (
+                <>
+                  <strong>{result.inserted}</strong> videos added
+                  {result.skipped > 0 && (
+                    <span className="text-green-600">
+                      {" "}
+                      • {result.skipped} already existed
+                    </span>
+                  )}
+                </>
               )}
+            </span>
+          </div>
+        )}
+
+        {onVideosReload && (
+          <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-purple-100">
+            <button
+              type="button"
+              onClick={handleRepairOrder}
+              disabled={isRepairing || isExtracting}
+              className="px-3 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-medium
+                         hover:bg-amber-700 transition-colors
+                         disabled:bg-amber-300 disabled:cursor-not-allowed"
+            >
+              {isRepairing ? "Fixing order…" : "Fix merged playlist order"}
+            </button>
+            <span className="text-xs text-purple-700">
+              Use after combining two playlists so learners see one series fully, then the next.
             </span>
           </div>
         )}
@@ -209,7 +272,9 @@ export default function PlaylistExtractor({
         {/* Help text */}
         <p className="text-xs text-purple-600">
           Paste a YouTube playlist URL to automatically extract all videos and add
-          them to this milestone.
+          them to this milestone. If two playlists mixed incorrectly, run{" "}
+          <strong>Fix merged playlist order</strong> (requires DB function — see
+          docs/sql/migrations/reorder_milestone_videos_function.sql).
         </p>
       </div>
     </div>

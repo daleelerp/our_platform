@@ -93,6 +93,21 @@ export async function POST(request: NextRequest) {
       existingVideos?.map((v) => v.youtube_video_id) || []
     );
 
+    const { data: orderRows } = await supabase
+      .from("video_content")
+      .select("video_order")
+      .eq("milestone_id", milestone_id);
+
+    const baseOrder =
+      orderRows && orderRows.length > 0
+        ? Math.max(
+            ...orderRows.map((r) =>
+              typeof r.video_order === "number" ? r.video_order : -1
+            ),
+            -1
+          ) + 1
+        : 0;
+
     // Prepare videos for insertion
     const videosToInsert = playlistItems
       .map((item, index) => {
@@ -133,7 +148,7 @@ export async function POST(request: NextRequest) {
           like_count: likeCount,
           published_at: publishedAt,
           milestone_id: milestone_id,
-          video_order: item.position ?? index,
+          video_order: baseOrder + (item.position ?? index),
           primary_language: language,
           is_embedded_allowed: isEmbeddable,
           is_active: true,

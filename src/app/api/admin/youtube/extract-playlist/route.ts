@@ -179,6 +179,24 @@ export async function POST(request: NextRequest) {
     );
     console.log(`${existingVideoIds.size} videos already exist`);
 
+    // Append after existing milestone videos so a second playlist does not reuse 0,1,2… (which sorts interleaved with the first playlist).
+    const { data: orderRows } = await supabase
+      .from("video_content")
+      .select("video_order")
+      .eq("milestone_id", milestone_id);
+
+    const baseOrder =
+      orderRows && orderRows.length > 0
+        ? Math.max(
+            ...orderRows.map((r) =>
+              typeof r.video_order === "number" ? r.video_order : -1
+            ),
+            -1
+          ) + 1
+        : 0;
+
+    console.log(`Next video_order starts at ${baseOrder} for milestone ${milestone_id}`);
+
     // Prepare videos for insertion
     const videosToInsert = playlistItems
     .map((item, index) => {
@@ -228,7 +246,7 @@ export async function POST(request: NextRequest) {
         like_count: likeCount,
         published_at: publishedAt,
         milestone_id: milestone_id,
-        video_order: item.position ?? index,
+        video_order: baseOrder + (item.position ?? index),
         primary_language: language,  // This controls display preference
         is_embedded_allowed: isEmbeddable,
         is_active: true,

@@ -7,6 +7,7 @@ interface VideoSectionProps {
   milestoneId: string;
   videos: VideoContent[];
   onDeleteVideo: (videoId: string) => void;
+  onReloadVideos?: (milestoneId: string) => Promise<void>;
   onVideosExtracted?: (videos: VideoContent[]) => void; // Make optional
   newVideo: {
     youtube_url: string;
@@ -35,6 +36,7 @@ export default function VideoSection({
   milestoneId,
   videos,
   onDeleteVideo,
+  onReloadVideos,
   onVideosExtracted,
   newVideo,
   setNewVideo,
@@ -61,6 +63,9 @@ export default function VideoSection({
       <PlaylistExtractor
         milestoneId={milestoneId}
         onExtractComplete={handleExtractComplete}
+        onVideosReload={
+          onReloadVideos ? () => onReloadVideos(milestoneId) : undefined
+        }
       />
 
       {/* Existing videos */}

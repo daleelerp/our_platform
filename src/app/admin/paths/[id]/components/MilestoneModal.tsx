@@ -12,6 +12,8 @@ interface MilestoneModalProps {
     videos: VideoContent[];
     onDeleteVideo: (videoId: string) => void;
     onVideosExtracted?: (milestoneId: string, videos: VideoContent[]) => void; // Add this
+    /** Refetch videos after repair-order API */
+    onReloadVideos?: (milestoneId: string) => Promise<void>;
     newVideo: any;
     setNewVideo: (data: any) => void;
     onAddVideo: (milestoneId: string) => void;
@@ -51,6 +53,7 @@ export default function MilestoneModal({
     videos,
     onDeleteVideo,
     onVideosExtracted, // Add this
+    onReloadVideos,
     newVideo,
     setNewVideo,
     onAddVideo,
@@ -118,6 +121,7 @@ export default function MilestoneModal({
                             milestoneId={milestone.id}
                             videos={videos}
                             onDeleteVideo={onDeleteVideo}
+                            onReloadVideos={onReloadVideos}
                             onVideosExtracted={
                                 onVideosExtracted 
                                     ? (extractedVideos) => onVideosExtracted(milestone.id, extractedVideos)

@@ -18,6 +18,21 @@ import AddMilestoneModal from "./components/AddMilestoneModal";
 import MilestoneItem from "./components/MilestoneItem";
 import MilestoneModal from "./components/MilestoneModal";
 
+function sortVideosForMilestone(raw: VideoContent[]): VideoContent[] {
+  return [...raw].sort((a, b) => {
+    const ao =
+      typeof a.video_order === "number"
+        ? a.video_order
+        : Number.MAX_SAFE_INTEGER;
+    const bo =
+      typeof b.video_order === "number"
+        ? b.video_order
+        : Number.MAX_SAFE_INTEGER;
+    if (ao !== bo) return ao - bo;
+    return String(a.title || "").localeCompare(String(b.title || ""));
+  });
+}
+
 export default function EditPathPage() {
   const params = useParams();
   const router = useRouter();
@@ -181,7 +196,9 @@ export default function EditPathPage() {
             );
             const videosJson = await videosRes.json();
             if (videosRes.ok) {
-              videosMap[m.id] = videosJson.data || [];
+              videosMap[m.id] = sortVideosForMilestone(
+                videosJson.data || []
+              );
             } else {
               videosMap[m.id] = [];
             }
@@ -476,6 +493,24 @@ export default function EditPathPage() {
       ...prev,
       [milestoneId]: prev[milestoneId].filter((v) => v.id !== videoId),
     }));
+  };
+
+  const reloadMilestoneVideos = async (milestoneId: string) => {
+    try {
+      const videosRes = await fetch(
+        `/api/admin/data?table=video_content&filterColumn=milestone_id&filterValue=${encodeURIComponent(
+          milestoneId
+        )}&limit=500`
+      );
+      const videosJson = await videosRes.json();
+      if (!videosRes.ok) return;
+      setVideosByMilestone((prev) => ({
+        ...prev,
+        [milestoneId]: sortVideosForMilestone(videosJson.data || []),
+      }));
+    } catch {
+      /* ignore */
+    }
   };
 
   const handleAddResource = async (milestoneId: string, resourceId?: string) => {
@@ -820,6 +855,7 @@ export default function EditPathPage() {
           onAddQuiz={handleAddQuiz}
           onEditMilestone={handleEditMilestone}
           onDeleteMilestone={handleDeleteMilestone}
+          onReloadVideos={reloadMilestoneVideos}
         />
       )}
     </div>
