@@ -1,6 +1,6 @@
--- Groups videos by playlist/series inferred from title, orders series by first insert time,
--- then assigns sequential video_order (fixes merged YouTube playlists that reused 0,1,2…).
--- Run once on Supabase, then use POST /api/admin/milestones/reorder-videos or admin UI button.
+-- Groups videos by series inferred from title, assigns playlist_slot (one per series)
+-- and video_order within each series. Run after add_video_playlist_slot.sql.
+-- Then POST /api/admin/milestones/reorder-videos or admin "Fix merged playlist order".
 
 CREATE OR REPLACE FUNCTION reorder_milestone_videos(p_milestone_id UUID)
 RETURNS INTEGER
@@ -44,18 +44,19 @@ BEGIN
   numbered AS (
     SELECT
       p.id,
+      DENSE_RANK() OVER (
+        ORDER BY sf.first_ts ASC NULLS LAST, p.series_key ASC
+      ) - 1 AS new_slot,
       ROW_NUMBER() OVER (
-        ORDER BY
-          sf.first_ts ASC NULLS LAST,
-          p.series_key ASC,
-          p.ep_num ASC,
-          p.created_at ASC
+        PARTITION BY p.series_key
+        ORDER BY p.ep_num ASC, p.created_at ASC
       ) - 1 AS new_ord
     FROM parsed p
     JOIN series_first sf ON sf.series_key = p.series_key
   )
   UPDATE video_content v
   SET
+    playlist_slot = n.new_slot,
     video_order = n.new_ord,
     updated_at = NOW()
   FROM numbered n

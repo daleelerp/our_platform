@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/store/useAppStore";
 import { VideoPlayer } from "./VideoPlayer";
@@ -43,9 +43,23 @@ type Video = {
   description: string | null;
   content_tier: string | null;
   video_order: number;
+  playlist_slot?: number | null;
+  source_youtube_playlist_id?: string | null;
   duration_seconds: number | null;
   primary_language?: string | null;
 };
+
+function playlistSectionLabel(
+  firstVideo: Video,
+  slot: number,
+  language: string
+): string {
+  const t = firstVideo.title || "";
+  const rest = t.replace(/^\s*\d+\s*-\s*/, "");
+  const series = rest.split(/\s-\s/)[0]?.trim();
+  if (series && series.length > 0 && series.length < 120) return series;
+  return language === "ar" ? `قائمة ${slot + 1}` : `Playlist ${slot + 1}`;
+}
 
 type Quiz = {
   id: string;
@@ -106,18 +120,28 @@ export function LearningInterface({
   const router = useRouter();
   const hasReloadedRef = useRef(false);
 
-  // Filter videos by language preference
-  const filteredVideos = videos.filter((video: any) => {
-    // If user prefers Arabic, show Arabic videos (primary_language = 'ar')
-    // If user prefers English, show English videos (primary_language = 'en')
-    // Also show 'mixed' language videos for both
-    // If primary_language is not set (legacy videos), show them for both languages
-    if (language === "ar") {
-      return !video.primary_language || video.primary_language === "ar" || video.primary_language === "mixed";
-    } else {
-      return !video.primary_language || video.primary_language === "en" || video.primary_language === "mixed";
-    }
-  });
+  const filteredVideos = useMemo(() => {
+    const sorted = [...videos].sort((a: Video, b: Video) => {
+      const as = a.playlist_slot ?? 0;
+      const bs = b.playlist_slot ?? 0;
+      if (as !== bs) return as - bs;
+      return (a.video_order ?? 0) - (b.video_order ?? 0);
+    });
+    return sorted.filter((video: any) => {
+      if (language === "ar") {
+        return (
+          !video.primary_language ||
+          video.primary_language === "ar" ||
+          video.primary_language === "mixed"
+        );
+      }
+      return (
+        !video.primary_language ||
+        video.primary_language === "en" ||
+        video.primary_language === "mixed"
+      );
+    });
+  }, [videos, language]);
 
   // Filter resources by language preference
   const filteredResources = resources.filter((resource) => {
@@ -178,20 +202,10 @@ export function LearningInterface({
     enrollment.progress_percentage || 0
   );
 
-  // Update selected video when language changes
   useEffect(() => {
-    const currentFilteredVideos = videos.filter((video: any) => {
-      if (language === "ar") {
-        return !video.primary_language || video.primary_language === "ar" || video.primary_language === "mixed";
-      } else {
-        return !video.primary_language || video.primary_language === "en" || video.primary_language === "mixed";
-      }
-    });
-
-    if (currentFilteredVideos.length > 0) {
-      // If current selected video is not in filtered list, select first filtered video
-      if (!selectedVideo || !currentFilteredVideos.find((v: any) => v.id === selectedVideo.id)) {
-        setSelectedVideo(currentFilteredVideos[0]);
+    if (filteredVideos.length > 0) {
+      if (!selectedVideo || !filteredVideos.find((v: any) => v.id === selectedVideo.id)) {
+        setSelectedVideo(filteredVideos[0]);
         setActiveTab("videos");
       }
     } else {
@@ -229,7 +243,7 @@ export function LearningInterface({
         setSelectedQuiz(quizzes[0]);
       }
     }
-  }, [language, videos, selectedVideo, resources, quizzes]);
+  }, [language, filteredVideos, selectedVideo, resources, quizzes]);
   // Track which videos have been played in the current session
   const [playedVideos, setPlayedVideos] = useState<Set<string>>(new Set());
   // Track current progress for videos being watched (updates in real-time)
@@ -239,6 +253,23 @@ export function LearningInterface({
   // Calculate user's content tier from budget
   const userBudgetEgp = userProfile?.budgetAmount || 0;
   const userTier = getContentTierFromBudget(userBudgetEgp);
+
+  const accessibleVideos = useMemo(() => {
+    return filteredVideos.filter((video) => {
+      if (!video.content_tier) return true;
+      return hasAccessToTier(userTier, video.content_tier as ContentTier);
+    });
+  }, [filteredVideos, userTier]);
+
+  const accessibleVideoGroups = useMemo(() => {
+    const slots = new Map<number, Video[]>();
+    for (const v of accessibleVideos) {
+      const s = v.playlist_slot ?? 0;
+      if (!slots.has(s)) slots.set(s, []);
+      slots.get(s)!.push(v);
+    }
+    return Array.from(slots.entries()).sort((a, b) => a[0] - b[0]);
+  }, [accessibleVideos]);
 
   // Get video progress map
   const videoProgressMap = new Map(
@@ -346,14 +377,6 @@ export function LearningInterface({
     currentMilestone.description_ar
   );
 
-  // Filter videos by both language and tier access
-  const accessibleVideos = filteredVideos.filter((video) => {
-    if (!video.content_tier) return true;
-    return hasAccessToTier(userTier, video.content_tier as ContentTier);
-  });
-
-  // Removed debug logging
-
   const accessibleQuizzes = quizzes.filter((quiz) => {
     if (!quiz.content_tier) return true;
     return hasAccessToTier(userTier, quiz.content_tier as ContentTier);
@@ -454,79 +477,91 @@ export function LearningInterface({
                 {language === "ar" ? "الفيديوهات" : "Videos"}
               </h3>
               {videos.length > 0 ? (
-                <div className="space-y-2">
-                  {accessibleVideos.map((video) => {
-                    const progress = videoProgressMap.get(video.id);
-                    const isSelected = selectedVideo?.id === video.id;
-                    const videoTitle = getText(video.title, video.title_ar);
+                <div className="space-y-3">
+                  {accessibleVideoGroups.map(([slot, groupVideos]) => (
+                    <div key={slot} className="space-y-2">
+                      {accessibleVideoGroups.length > 1 && (
+                        <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 px-1 pt-1 border-t border-slate-100 first:border-t-0 first:pt-0">
+                          {playlistSectionLabel(groupVideos[0], slot, language)}
+                        </div>
+                      )}
+                      <div className="space-y-2">
+                        {groupVideos.map((video) => {
+                          const progress = videoProgressMap.get(video.id);
+                          const isSelected = selectedVideo?.id === video.id;
+                          const videoTitle = getText(video.title, video.title_ar);
 
-                    return (
-                      <button
-                        key={video.id}
-                        onClick={() => {
-                          setSelectedVideo(video);
-                          setActiveTab("videos");
-                          setSelectedQuiz(null);
-                          setSelectedResource(null);
-                        }}
-                        className={`w-full text-left p-3 rounded-lg border transition-colors ${isSelected
-                            ? "border-teal-500 bg-teal-50"
-                            : "border-slate-200 hover:border-slate-300"
-                          }`}
-                      >
-                        <div className="flex items-start gap-2">
-                          <PlayIcon className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p
-                              className={`text-sm ${isSelected ? "font-semibold text-teal-900" : "text-slate-700"
+                          return (
+                            <button
+                              key={video.id}
+                              onClick={() => {
+                                setSelectedVideo(video);
+                                setActiveTab("videos");
+                                setSelectedQuiz(null);
+                                setSelectedResource(null);
+                              }}
+                              className={`w-full text-left p-3 rounded-lg border transition-colors ${isSelected
+                                  ? "border-teal-500 bg-teal-50"
+                                  : "border-slate-200 hover:border-slate-300"
                                 }`}
                             >
-                              {videoTitle}
-                            </p>
-                            {progress && (
-                              <div className="mt-1">
-                                <div className="h-1 bg-slate-200 rounded-full overflow-hidden">
-                                  <div
-                                    className="h-full bg-teal-500"
-                                    style={{
-                                      width: `${(() => {
-                                        // Use real-time progress if available (video is currently being watched)
-                                        const realTimeProgress = currentVideoProgress.get(video.id);
-                                        if (realTimeProgress !== undefined) {
-                                          return realTimeProgress;
-                                        }
-                                        // If video was previously completed (100%) but not played in this session,
-                                        // reset to 0% to indicate it needs to be watched again
-                                        if (progress.completion_percentage >= 100 && !playedVideos.has(video.id)) {
-                                          return 0;
-                                        }
-                                        return progress.completion_percentage;
-                                      })()}%`
-                                    }}
-                                  />
+                              <div className="flex items-start gap-2">
+                                <PlayIcon className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <p
+                                    className={`text-sm ${isSelected ? "font-semibold text-teal-900" : "text-slate-700"
+                                      }`}
+                                  >
+                                    {videoTitle}
+                                  </p>
+                                  {progress && (
+                                    <div className="mt-1">
+                                      <div className="h-1 bg-slate-200 rounded-full overflow-hidden">
+                                        <div
+                                          className="h-full bg-teal-500"
+                                          style={{
+                                            width: `${(() => {
+                                              const realTimeProgress = currentVideoProgress.get(video.id);
+                                              if (realTimeProgress !== undefined) {
+                                                return realTimeProgress;
+                                              }
+                                              if (
+                                                progress.completion_percentage >= 100 &&
+                                                !playedVideos.has(video.id)
+                                              ) {
+                                                return 0;
+                                              }
+                                              return progress.completion_percentage;
+                                            })()}%`,
+                                          }}
+                                        />
+                                      </div>
+                                      <p className="text-xs text-slate-500 mt-1">
+                                        {(() => {
+                                          const realTimeProgress = currentVideoProgress.get(video.id);
+                                          if (realTimeProgress !== undefined) {
+                                            return `${realTimeProgress.toFixed(0)}%`;
+                                          }
+                                          if (
+                                            progress.completion_percentage >= 100 &&
+                                            !playedVideos.has(video.id)
+                                          ) {
+                                            return "0%";
+                                          }
+                                          return `${progress.completion_percentage.toFixed(0)}%`;
+                                        })()}{" "}
+                                        {language === "ar" ? "مكتمل" : "complete"}
+                                      </p>
+                                    </div>
+                                  )}
                                 </div>
-                                <p className="text-xs text-slate-500 mt-1">
-                                  {(() => {
-                                    // Use real-time progress if available
-                                    const realTimeProgress = currentVideoProgress.get(video.id);
-                                    if (realTimeProgress !== undefined) {
-                                      return `${realTimeProgress.toFixed(0)}%`;
-                                    }
-                                    // If video was previously completed but not played in this session, show 0%
-                                    if (progress.completion_percentage >= 100 && !playedVideos.has(video.id)) {
-                                      return "0%";
-                                    }
-                                    return `${progress.completion_percentage.toFixed(0)}%`;
-                                  })()}{" "}
-                                  {language === "ar" ? "مكتمل" : "complete"}
-                                </p>
                               </div>
-                            )}
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <div className="text-center py-6">

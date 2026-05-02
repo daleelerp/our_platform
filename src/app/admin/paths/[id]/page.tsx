@@ -20,6 +20,9 @@ import MilestoneModal from "./components/MilestoneModal";
 
 function sortVideosForMilestone(raw: VideoContent[]): VideoContent[] {
   return [...raw].sort((a, b) => {
+    const as = typeof a.playlist_slot === "number" ? a.playlist_slot : 0;
+    const bs = typeof b.playlist_slot === "number" ? b.playlist_slot : 0;
+    if (as !== bs) return as - bs;
     const ao =
       typeof a.video_order === "number"
         ? a.video_order

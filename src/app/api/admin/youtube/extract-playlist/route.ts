@@ -179,23 +179,23 @@ export async function POST(request: NextRequest) {
     );
     console.log(`${existingVideoIds.size} videos already exist`);
 
-    // Append after existing milestone videos so a second playlist does not reuse 0,1,2… (which sorts interleaved with the first playlist).
-    const { data: orderRows } = await supabase
+    // Each playlist is its own block (playlist_slot); video_order is only within that playlist.
+    const { data: maxSlotRow } = await supabase
       .from("video_content")
-      .select("video_order")
-      .eq("milestone_id", milestone_id);
+      .select("playlist_slot")
+      .eq("milestone_id", milestone_id)
+      .order("playlist_slot", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-    const baseOrder =
-      orderRows && orderRows.length > 0
-        ? Math.max(
-            ...orderRows.map((r) =>
-              typeof r.video_order === "number" ? r.video_order : -1
-            ),
-            -1
-          ) + 1
+    const nextPlaylistSlot =
+      typeof maxSlotRow?.playlist_slot === "number"
+        ? maxSlotRow.playlist_slot + 1
         : 0;
 
-    console.log(`Next video_order starts at ${baseOrder} for milestone ${milestone_id}`);
+    console.log(
+      `Playlist slot ${nextPlaylistSlot}, YouTube playlist ${playlistId} for milestone ${milestone_id}`
+    );
 
     // Prepare videos for insertion
     const videosToInsert = playlistItems
@@ -246,7 +246,9 @@ export async function POST(request: NextRequest) {
         like_count: likeCount,
         published_at: publishedAt,
         milestone_id: milestone_id,
-        video_order: baseOrder + (item.position ?? index),
+        playlist_slot: nextPlaylistSlot,
+        source_youtube_playlist_id: playlistId,
+        video_order: item.position ?? index,
         primary_language: language,  // This controls display preference
         is_embedded_allowed: isEmbeddable,
         is_active: true,

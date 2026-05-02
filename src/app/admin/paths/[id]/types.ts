@@ -74,6 +74,9 @@ export interface VideoContent {
   like_count?: number | null;
   published_at?: string | null;
   milestone_id?: string | null;
+  /** Multiple playlists in one milestone: 0, 1, 2… */
+  playlist_slot?: number | null;
+  source_youtube_playlist_id?: string | null;
   video_order?: number | null;
   content_tier?: string | null;
   title: string;

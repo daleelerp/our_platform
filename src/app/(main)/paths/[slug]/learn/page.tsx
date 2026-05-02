@@ -113,7 +113,8 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
         .select("*")
         .eq("milestone_id", currentMilestone.id)
         .eq("is_active", true)
-        .order("video_order")
+        .order("playlist_slot", { ascending: true })
+        .order("video_order", { ascending: true })
     : { data: null, error: null };
 
   // Removed debug logging

@@ -93,19 +93,17 @@ export async function POST(request: NextRequest) {
       existingVideos?.map((v) => v.youtube_video_id) || []
     );
 
-    const { data: orderRows } = await supabase
+    const { data: maxSlotRow } = await supabase
       .from("video_content")
-      .select("video_order")
-      .eq("milestone_id", milestone_id);
+      .select("playlist_slot")
+      .eq("milestone_id", milestone_id)
+      .order("playlist_slot", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-    const baseOrder =
-      orderRows && orderRows.length > 0
-        ? Math.max(
-            ...orderRows.map((r) =>
-              typeof r.video_order === "number" ? r.video_order : -1
-            ),
-            -1
-          ) + 1
+    const nextPlaylistSlot =
+      typeof maxSlotRow?.playlist_slot === "number"
+        ? maxSlotRow.playlist_slot + 1
         : 0;
 
     // Prepare videos for insertion
@@ -148,7 +146,9 @@ export async function POST(request: NextRequest) {
           like_count: likeCount,
           published_at: publishedAt,
           milestone_id: milestone_id,
-          video_order: baseOrder + (item.position ?? index),
+          playlist_slot: nextPlaylistSlot,
+          source_youtube_playlist_id: playlistId,
+          video_order: item.position ?? index,
           primary_language: language,
           is_embedded_allowed: isEmbeddable,
           is_active: true,

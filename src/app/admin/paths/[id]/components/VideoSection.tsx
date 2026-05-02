@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import PlaylistExtractor from "@/components/admin/PlaylistExtractor";
 import { VideoContent } from "../types";
 
@@ -17,6 +18,14 @@ interface VideoSectionProps {
   };
   setNewVideo: (data: any) => void;
   onAddVideo: () => void;
+}
+
+function adminPlaylistHeading(first: VideoContent): string {
+  const t = first.title || "";
+  const rest = t.replace(/^\s*\d+\s*-\s*/, "");
+  const series = rest.split(/\s-\s/)[0]?.trim();
+  if (series && series.length > 0 && series.length < 120) return series;
+  return `Playlist slot ${(first.playlist_slot ?? 0) + 1}`;
 }
 
 function formatDuration(seconds: number): string {
@@ -42,7 +51,22 @@ export default function VideoSection({
   setNewVideo,
   onAddVideo,
 }: VideoSectionProps) {
-  
+  const videoGroups = useMemo(() => {
+    const slots = new Map<number, VideoContent[]>();
+    const sorted = [...videos].sort((a, b) => {
+      const as = a.playlist_slot ?? 0;
+      const bs = b.playlist_slot ?? 0;
+      if (as !== bs) return as - bs;
+      return (a.video_order ?? 0) - (b.video_order ?? 0);
+    });
+    for (const v of sorted) {
+      const s = v.playlist_slot ?? 0;
+      if (!slots.has(s)) slots.set(s, []);
+      slots.get(s)!.push(v);
+    }
+    return Array.from(slots.entries()).sort((a, b) => a[0] - b[0]);
+  }, [videos]);
+
   // Handle extraction complete
   const handleExtractComplete = (extractedVideos: VideoContent[]) => {
     console.log("Videos extracted:", extractedVideos.length);
@@ -74,8 +98,21 @@ export default function VideoSection({
           <div className="text-xs font-medium text-slate-500 mb-1">
             Existing videos ({videos.length})
           </div>
-          <div className="space-y-2 max-h-64 overflow-y-auto">
-            {videos.map((v, index) => (
+          <div className="space-y-3 max-h-64 overflow-y-auto">
+            {videoGroups.map(([slot, groupVideos]) => (
+              <div key={slot} className="space-y-2">
+                {videoGroups.length > 1 && (
+                  <div className="text-[11px] font-semibold text-teal-800 bg-teal-50 border border-teal-100 rounded px-2 py-1">
+                    {adminPlaylistHeading(groupVideos[0])}
+                    {groupVideos[0]?.source_youtube_playlist_id ? (
+                      <span className="font-normal text-teal-600 ml-1">
+                        · {groupVideos[0].source_youtube_playlist_id}
+                      </span>
+                    ) : null}
+                  </div>
+                )}
+                <div className="space-y-2">
+                  {groupVideos.map((v, index) => (
               <div
                 key={v.id}
                 className="flex items-center justify-between text-sm bg-slate-50 p-2 rounded-lg"
@@ -133,6 +170,9 @@ export default function VideoSection({
                 >
                   Delete
                 </button>
+              </div>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
