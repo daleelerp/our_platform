@@ -54,8 +54,11 @@ async function validateDiscount({
   const validFrom = discount.valid_from ? new Date(discount.valid_from) : null;
   const validUntil = discount.valid_until ? new Date(discount.valid_until) : null;
 
-  if ((validFrom && now < validFrom) || (validUntil && now > validUntil)) {
-    return { ok: false as const, error: "code_not_in_valid_time_window" };
+  if (validFrom && now < validFrom) {
+    return { ok: false as const, error: "code_not_yet_valid" };
+  }
+  if (validUntil && now > validUntil) {
+    return { ok: false as const, error: "code_expired" };
   }
 
   if (Array.isArray(discount.applicable_plans) && discount.applicable_plans.length > 0) {

@@ -111,6 +111,9 @@ export default function CheckoutPage({
     applying: isArabic ? "جاري التحقق..." : "Applying...",
     promoApplied: isArabic ? "تم تطبيق الخصم!" : "Discount applied!",
     promoInvalid: isArabic ? "كود غير صالح أو منتهي الصلاحية" : "Invalid or expired code",
+    promoNotYetValid: isArabic
+      ? "هذا الكود غير نشط بعد — تحقق من تاريخ البدء أو حاول لاحقًا"
+      : "This code is not active yet — check the start date or try again later",
     promoExpired: isArabic ? "هذا الكود منتهي الصلاحية" : "This code has expired",
     promoUsageLimitReached: isArabic ? "تم استنفاد استخدامات هذا الكود" : "This code has reached its usage limit",
     removePromo: isArabic ? "إزالة" : "Remove",
@@ -126,6 +129,9 @@ export default function CheckoutPage({
   const getPromoErrorMessage = (reason?: string, minAmount?: number) => {
     if (!reason) return t.promoInvalid;
     switch (reason) {
+      case "code_not_yet_valid":
+        return t.promoNotYetValid;
+      case "code_expired":
       case "code_not_in_valid_time_window":
         return t.promoExpired;
       case "max_usage_reached":

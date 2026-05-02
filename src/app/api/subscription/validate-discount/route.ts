@@ -59,8 +59,11 @@ export async function POST(request: NextRequest) {
     const now = new Date();
     const validFrom = discount.valid_from ? new Date(discount.valid_from) : null;
     const validUntil = discount.valid_until ? new Date(discount.valid_until) : null;
-    if ((validFrom && now < validFrom) || (validUntil && now > validUntil)) {
-      return NextResponse.json({ error: "code_not_in_valid_time_window" }, { status: 400 });
+    if (validFrom && now < validFrom) {
+      return NextResponse.json({ error: "code_not_yet_valid" }, { status: 400 });
+    }
+    if (validUntil && now > validUntil) {
+      return NextResponse.json({ error: "code_expired" }, { status: 400 });
     }
 
     if (Array.isArray(discount.applicable_plans) && discount.applicable_plans.length > 0) {
