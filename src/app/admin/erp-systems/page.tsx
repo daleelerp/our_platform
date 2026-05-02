@@ -27,7 +27,7 @@ export default function AdminErpSystemsPage() {
           description_ar: "",
           market_share_mena: null,
           is_active: false,
-          launch_date: "",
+          launch_date: null,
           priority_order: 999,
           avg_salary_range: "",
           job_demand_level: "",

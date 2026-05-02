@@ -41,45 +41,6 @@ export function ErpSystemsGrid({
     return labels[level] || level;
   };
 
-  // Parse salary range string into structured data
-  /** Prefer numeric columns from DB when set (same card layout as Oracle string format). */
-  const salaryLevelsFromColumns = (system: ErpSystem) => {
-    const fmt = (min: number | null | undefined, max: number | null | undefined) => {
-      if (min == null || max == null) return null;
-      return `${min.toLocaleString()}-${max.toLocaleString()} EGP`;
-    };
-    const beginner = fmt(system.salary_beginner_min, system.salary_beginner_max);
-    const intermediate = fmt(system.salary_intermediate_min, system.salary_intermediate_max);
-    const senior = fmt(system.salary_senior_min, system.salary_senior_max);
-    const expert = fmt(system.salary_expert_min, system.salary_expert_max);
-    if (!beginner || !intermediate || !senior || !expert) return null;
-    return {
-      beginner: { label: "Beginner", range: beginner },
-      intermediate: { label: "Intermediate", range: intermediate },
-      senior: { label: "Senior", range: senior },
-      expert: { label: "Expert", range: expert },
-    };
-  };
-
-  const parseSalaryRange = (salaryString: string | null) => {
-    if (!salaryString) return null;
-    
-    const levels: Record<string, { label: string; range: string }> = {};
-    
-    const regex = /(Beginner|Intermediate|Senior|Expert):\s*([\d,]+)-([\d,]+)\s*EGP/g;
-    let match;
-    
-    while ((match = regex.exec(salaryString)) !== null) {
-      const [, level, min, max] = match;
-      levels[level.toLowerCase()] = {
-        label: level,
-        range: `${min}-${max} EGP`,
-      };
-    }
-    
-    return Object.keys(levels).length > 0 ? levels : null;
-  };
-
   // Sort: active first, then by priority
   const sortedSystems = [...systems].sort((a, b) => {
     if (a.is_active && !b.is_active) return -1;
@@ -185,53 +146,6 @@ export function ErpSystemsGrid({
                   </div>
                 )}
 
-                {/* Salary range */}
-                {(system.avg_salary_range || salaryLevelsFromColumns(system)) && (() => {
-                  const salaryLevels =
-                    salaryLevelsFromColumns(system) ||
-                    parseSalaryRange(system.avg_salary_range);
-                  
-                  if (salaryLevels) {
-                    const levelColors: Record<string, { bg: string; border: string; text: string; labelText: string }> = {
-                      beginner: { bg: "bg-green-50", border: "border-green-200", text: "text-green-900", labelText: "text-green-700" },
-                      intermediate: { bg: "bg-blue-50", border: "border-blue-200", text: "text-blue-900", labelText: "text-blue-700" },
-                      senior: { bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-900", labelText: "text-amber-700" },
-                      expert: { bg: "bg-purple-50", border: "border-purple-200", text: "text-purple-900", labelText: "text-purple-700" },
-                    };
-                    
-                    return (
-                      <div className="space-y-2">
-                        <div className="text-xs font-medium text-slate-600 mb-2">{t("erpGrid.avgSalary")} (per month)</div>
-                        <div className="grid grid-cols-2 gap-2">
-                          {Object.entries(salaryLevels).map(([key, { label, range }]) => {
-                            const colors = levelColors[key] || { bg: "bg-slate-50", border: "border-slate-200", text: "text-slate-900", labelText: "text-slate-700" };
-                            return (
-                              <div
-                                key={key}
-                                className={`${colors.bg} ${colors.border} border rounded-lg px-2.5 py-2`}
-                              >
-                                <div className={`text-[10px] font-semibold ${colors.labelText} uppercase tracking-wide mb-1`}>
-                                  {label}
-                                </div>
-                                <div className={`text-xs font-bold ${colors.text}`}>
-                                  {range}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  }
-                  
-                  return (
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-slate-500">{t("erpGrid.avgSalary")}</span>
-                      <span className="text-sm font-semibold text-amber-600">{system.avg_salary_range}</span>
-                    </div>
-                  );
-                })()}
-
                 {/* Market share */}
                 {system.market_share_mena && (
                   <div className="flex items-center justify-between">
@@ -268,7 +182,7 @@ export function ErpSystemsGrid({
                   href="/paths"
                   className="block w-full text-center py-3 rounded-xl bg-[#429874] text-white font-semibold hover:bg-[#357a5d] transition"
                 >
-                  {t("erpGrid.explorePaths")}
+                  {t("erpGrid.startNow")}
                 </a>
               ) : (
                 <button
@@ -280,7 +194,7 @@ export function ErpSystemsGrid({
                   }}
                   className="w-full text-center py-3 rounded-xl bg-slate-100 text-slate-600 font-medium hover:bg-slate-200 transition"
                 >
-                  {t("waitlist.submitButton")}
+                  {t("erpGrid.startNow")}
                 </button>
               )}
             </div>

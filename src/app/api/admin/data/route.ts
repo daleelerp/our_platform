@@ -2,6 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminSession } from "@/utils/admin-auth";
 import { getAdminSupabaseClient } from "@/utils/admin-supabase";
 
+/** Empty strings break Postgres date/timestamptz columns — treat as SQL NULL. */
+function sanitizeAdminPayload(row: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...row };
+  for (const key of Object.keys(out)) {
+    if (out[key] !== "") continue;
+    const lower = key.toLowerCase();
+    if (
+      lower === "launch_date" ||
+      lower.endsWith("_date") ||
+      lower.endsWith("_at")
+    ) {
+      out[key] = null;
+    }
+  }
+  return out;
+}
+
 /**
  * Secure Admin Data API
  * Provides CRUD operations for all database tables
@@ -114,7 +131,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
+    const raw = await request.json();
+    const body = sanitizeAdminPayload(raw as Record<string, unknown>);
     const supabase = getAdminSupabaseClient();
 
     const { data, error } = await supabase
@@ -163,7 +181,8 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
+    const raw = await request.json();
+    const body = sanitizeAdminPayload(raw as Record<string, unknown>);
     const supabase = getAdminSupabaseClient();
 
     const { data, error } = await supabase

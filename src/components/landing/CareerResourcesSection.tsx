@@ -23,7 +23,7 @@ export function CareerResourcesSection() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+        <div className="grid md:grid-cols-1 gap-6 max-w-2xl mx-auto">
           {/* Job Roles Card */}
           <Link
             href="/job-roles"
@@ -62,43 +62,9 @@ export function CareerResourcesSection() {
             </div>
           </Link>
 
-          {/* Salary Ranges Card */}
-          <Link
-            href="/salary-ranges"
-            className="group bg-white rounded-xl border-2 border-slate-200 p-8 hover:border-[#429874] hover:shadow-lg transition-all"
-          >
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-lg bg-[#f0f9f6] flex items-center justify-center text-2xl group-hover:bg-[#d4ede3] transition-colors">
-                💰
-              </div>
-              <div className="flex-1">
-                <h3 className="text-xl font-bold text-slate-900 mb-2 group-hover:text-[#429874] transition-colors">
-                  {isArabic ? "نطاقات الرواتب" : "Salary Ranges"}
-                </h3>
-                <p className="text-slate-600 text-sm mb-4">
-                  {isArabic
-                    ? "تعرف على نطاقات الرواتب المتوقعة حسب الدور والخبرة والمنطقة"
-                    : "Learn about expected salary ranges by role, experience, and region"}
-                </p>
-                <div className="flex items-center text-[#429874] text-sm font-medium">
-                  <span>{isArabic ? "استكشف الآن" : "Explore Now"}</span>
-                  <svg
-                    className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 5l7 7-7 7"
-                    />
-                  </svg>
-                </div>
-              </div>
-            </div>
-          </Link>
+          {/* Salary Ranges Card — hidden per product request; re-enable by uncommenting.
+          <Link href="/salary-ranges" ...>...</Link>
+          */}
         </div>
       </div>
     </section>
