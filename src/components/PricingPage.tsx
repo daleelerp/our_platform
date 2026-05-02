@@ -852,14 +852,6 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
             </div>
           </div>
 
-          {/* Row 2.5: Guidance */}
-          <div className="pb-4">
-            <div className="rounded-lg border border-teal-100 bg-teal-50/60 px-4 py-3">
-              <p className="text-sm font-semibold text-slate-800">{t.choosingHelpTitle}</p>
-              <p className="text-sm text-slate-600 mt-1">{t.choosingHelpBody}</p>
-            </div>
-          </div>
-
           {/* Row 3: Active Filters Tags (only when filters are active) */}
           {hasActiveFilters && (
             <div className="pb-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
@@ -917,8 +909,19 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
         </div>
       </div>
 
+      {/* Guidance: outside sticky header so it scrolls away and stays compact on desktop */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-2 pb-3 md:pt-1 md:pb-2">
+        <div className="rounded-lg border border-teal-100 bg-teal-50/60 px-3 py-2.5 md:py-2 md:px-3">
+          <p className="text-sm text-slate-800 leading-snug md:text-xs md:leading-relaxed">
+            <span className="font-semibold block md:inline">{t.choosingHelpTitle}</span>
+            <span className="hidden md:inline">&nbsp;</span>
+            <span className="text-slate-600 block mt-1 md:mt-0 md:inline md:font-normal">{t.choosingHelpBody}</span>
+          </p>
+        </div>
+      </div>
+
       {/* Main Content */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-4 pb-10 md:pt-5 md:pb-12">
         {/* Pricing Cards */}
         {filteredPlans.length === 0 ? (
           <div className="text-center py-16">
