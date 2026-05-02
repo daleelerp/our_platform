@@ -106,7 +106,7 @@ export function AdminCrudTable({
     setIsCreating(false);
     const initialData: Record<string, any> = {};
     columns.forEach((col) => {
-      if (col.hidden) return;
+      if (col.hidden || col.readOnly) return;
       const value = item[col.key];
       // Convert JSONB arrays to newline-separated text for editing
       if (col.type === "array" && Array.isArray(value)) {
@@ -214,10 +214,17 @@ export function AdminCrudTable({
         }
       });
 
+      const persistKeys = new Set(
+        columns.filter((c) => !c.readOnly && !c.hidden).map((c) => c.key)
+      );
+      const payload = Object.fromEntries(
+        Object.entries(cleanedData).filter(([k]) => persistKeys.has(k))
+      );
+
       const res = await fetch(`/api/admin/data?${params.toString()}`, {
         method: isEdit ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(cleanedData),
+        body: JSON.stringify(payload),
       });
 
       const json = await res.json();

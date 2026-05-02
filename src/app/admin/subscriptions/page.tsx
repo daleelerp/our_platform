@@ -32,8 +32,10 @@ export default function AdminSubscriptionsPage() {
         }}
         columns={[
           { key: "id", label: "ID", hidden: true, readOnly: true },
-          { key: "user_id", label: "User ID", type: "text" },
-          { key: "plan_id", label: "Plan ID", type: "text" },
+          { key: "user_email", label: "User", type: "text", readOnly: true },
+          { key: "user_id", label: "User ID", type: "text", hideInTable: true },
+          { key: "plan_display_name", label: "Plan", type: "text", readOnly: true },
+          { key: "plan_id", label: "Plan ID", type: "text", hideInTable: true },
           { key: "status", label: "Status", type: "text" },
           // { key: "billing_cycle", label: "Billing Cycle", type: "text" },
           { key: "price_locked_egp", label: "Price (EGP)", type: "number" },
