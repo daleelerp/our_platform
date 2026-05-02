@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { useAppStore } from "@/store/useAppStore";
@@ -8,9 +8,12 @@ import { fetchOnboardingOptions } from "@/utils/fetchOnboardingOptions";
 import type { OnboardingOptions } from "@/types/onboarding";
 import { AvatarPicker } from "@/components/AvatarPicker";
 import {
-  isValidMiddleEastMobileNumber,
-  normalizeMiddleEastMobileToE164,
-} from "@/utils/middleEastPhone";
+  DEFAULT_ONBOARDING_COUNTRY,
+  EGYPT_DIAL_DISPLAY,
+  isValidEgyptianMobile,
+  nationalDigitsFromStored,
+  normalizeEgyptianMobileToE164,
+} from "@/utils/egyptPhone";
 
 type OnboardingData = {
   full_name: string;
@@ -74,6 +77,8 @@ export function OnboardingForm({
   
   const [step, setStep] = useState(getInitialStep());
   const [options, setOptions] = useState<OnboardingOptions | null>(null);
+  const [phoneBlurred, setPhoneBlurred] = useState(false);
+  const phoneNormalizedRef = useRef(false);
 
 
   // Load saved form data from localStorage
@@ -108,7 +113,7 @@ export function OnboardingForm({
     experience_level: mergedInitialData.experience_level || "",
     company_name: mergedInitialData.company_name || "",
     industry: mergedInitialData.industry || "",
-    country: mergedInitialData.country || "",
+    country: DEFAULT_ONBOARDING_COUNTRY,
     city: mergedInitialData.city || "",
     phone_number: mergedInitialData.phone_number || "",
     linkedin_url: mergedInitialData.linkedin_url || "",
@@ -170,6 +175,16 @@ export function OnboardingForm({
     loadOptions();
   }, []);
 
+  // Stored profile may have +20 E.164; show national digits in the field
+  useEffect(() => {
+    if (phoneNormalizedRef.current) return;
+    phoneNormalizedRef.current = true;
+    setFormData((prev) => {
+      const p = prev.phone_number?.trim();
+      if (!p?.startsWith("+")) return prev;
+      return { ...prev, phone_number: nationalDigitsFromStored(p) };
+    });
+  }, []);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -194,11 +209,10 @@ export function OnboardingForm({
       case 1:
         return (
           !!formData.full_name &&
-          !!formData.country &&
           !!formData.experience_level &&
           !!formData.student_status &&
           !!formData.gender &&
-          isValidMiddleEastMobileNumber(formData.phone_number, formData.country)
+          isValidEgyptianMobile(formData.phone_number)
         );
       case 2:
         return formData.erp_provider && formData.erp_tool && formData.career_focus && formData.learning_goals.length > 0;
@@ -222,12 +236,12 @@ export function OnboardingForm({
         throw new Error("Not authenticated");
       }
 
-      const phoneE164 = normalizeMiddleEastMobileToE164(formData.phone_number, formData.country);
+      const phoneE164 = normalizeEgyptianMobileToE164(formData.phone_number);
       if (!phoneE164) {
         setError(
           language === "ar"
-            ? "رقم الجوال غير صالح لهذا الإقليم. استخدم صيغة دولية (+966…) أو الرقم المحلي بعد اختيار الدولة."
-            : "Invalid mobile number for this region. Use international format (+966…) or your local number after selecting your country."
+            ? "أدخل رقم جوال مصري صحيح (الأرقام المحلية بعد +20)."
+            : "Enter a valid Egyptian mobile number (national digits after +20)."
         );
         setIsSubmitting(false);
         return;
@@ -243,7 +257,7 @@ export function OnboardingForm({
           experience_level: formData.experience_level,
           company_name: formData.company_name,
           industry: formData.industry,
-          country: formData.country,
+          country: DEFAULT_ONBOARDING_COUNTRY,
           city: formData.city,
           phone_number: phoneE164,
           linkedin_url: formData.linkedin_url || null,
@@ -295,10 +309,6 @@ export function OnboardingForm({
     return language === "ar" && item.description_ar ? item.description_ar : item.description || "";
   };
 
-  const getName = (item: { name: string; name_ar?: string | null }) => {
-    return language === "ar" && item.name_ar ? item.name_ar : item.name;
-  };
-
   // Convert USD to EGP (approximate rate: 1 USD ≈ 50 EGP)
   const USD_TO_EGP_RATE = 50;
   const convertToEGP = (usdAmount: number | null): number | null => {
@@ -330,6 +340,19 @@ export function OnboardingForm({
     
     return baseLabel;
   };
+
+  let phoneFieldError: string | null = null;
+  if (step === 1 && (phoneBlurred || formData.phone_number.trim().length > 0)) {
+    if (!formData.phone_number.trim()) {
+      phoneFieldError =
+        language === "ar" ? "أدخل رقم الجوال." : "Enter your mobile number.";
+    } else if (!isValidEgyptianMobile(formData.phone_number)) {
+      phoneFieldError =
+        language === "ar"
+          ? "رقم جوال مصري غير صحيح (مثال: 1001234567)."
+          : "Invalid Egyptian mobile (e.g. 1001234567).";
+    }
+  }
 
   // Loading state
   if (isLoading) {
@@ -462,49 +485,54 @@ export function OnboardingForm({
               gender={formData.gender}
             />
 
-            {/* Country */}
+            {/* Egyptian mobile only — country saved as EG */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2" htmlFor="onboarding-country">
-                {language === "ar" ? "أين تقيم؟ *" : "Where are you based? *"}
+              <label className="block text-sm font-medium text-slate-700 mb-1" htmlFor="onboarding-phone-national">
+                {language === "ar" ? "رقم الجوال (مصر) *" : "Mobile number (Egypt) *"}
               </label>
-              <select
-                id="onboarding-country"
-                name="country"
-                value={formData.country}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm"
+              <div
+                className={`flex rounded-lg border bg-white overflow-hidden transition shadow-sm focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 ${
+                  phoneFieldError
+                    ? "border-red-400 ring-1 ring-red-200"
+                    : "border-slate-300"
+                }`}
               >
-                <option value="">{language === "ar" ? "اختر الدولة..." : "Select country..."}</option>
-                {options.countries.map((c) => (
-                  <option key={c.code} value={c.code}>
-                    {c.flag} {getName(c)}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Mobile — validated for Middle East numbering plans */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                {language === "ar" ? "رقم الجوال *" : "Mobile number *"}
-              </label>
-              <input
-                type="tel"
-                name="phone_number"
-                inputMode="tel"
-                autoComplete="tel"
-                value={formData.phone_number}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition text-sm"
-                placeholder={language === "ar" ? "+966501234567 أو المحلي بعد اختيار الدولة" : "+966501234567 or local number"}
-              />
-              <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                <span
+                  className="shrink-0 px-3 py-2.5 border-slate-200 border-e tabular-nums text-sm font-semibold text-slate-700 bg-slate-50 min-w-[3.5rem] flex items-center justify-center"
+                  aria-label={language === "ar" ? "مفتاح مصر +20" : "Egypt country code +20"}
+                >
+                  {EGYPT_DIAL_DISPLAY}
+                </span>
+                <input
+                  id="onboarding-phone-national"
+                  type="tel"
+                  name="phone_number"
+                  inputMode="numeric"
+                  autoComplete="tel-national"
+                  value={formData.phone_number}
+                  onChange={(e) => {
+                    const digits = e.target.value.replace(/\D/g, "");
+                    setFormData({ ...formData, phone_number: digits });
+                  }}
+                  onBlur={() => setPhoneBlurred(true)}
+                  placeholder={
+                    language === "ar" ? "مثال: 1001234567" : "e.g. 1001234567"
+                  }
+                  className="flex-1 min-w-0 px-3 py-2.5 border-0 text-sm focus:outline-none focus:ring-0 placeholder:text-slate-400"
+                  aria-invalid={!!phoneFieldError}
+                  aria-describedby="onboarding-phone-hint"
+                />
+              </div>
+              <p id="onboarding-phone-hint" className="text-xs text-slate-500 mt-1.5 leading-relaxed">
                 {language === "ar"
-                  ? "أدخل الرقم بصيغة دولية أو المحلي بعد اختيار بلدك أعلاه (الخليج، مصر، الشام، العراق، تركيا، إيران، والدول المعتادة في الشرق الأوسط)."
-                  : "Use international format (+country code) or your national mobile after selecting your country above. Accepted: GCC, Egypt, Levant, Iraq, Iran, Turkey, and other Middle East countries we support."}
+                  ? "الدولة تُحفظ كمصر (EG). أدخل رقمك المحلي فقط بدون +20."
+                  : "Country is saved as Egypt (EG). Enter your national mobile only (without +20)."}
               </p>
+              {phoneFieldError && (
+                <p className="text-xs text-red-600 mt-1.5 font-medium" role="alert">
+                  {phoneFieldError}
+                </p>
+              )}
             </div>
 
             {/* Experience level */}

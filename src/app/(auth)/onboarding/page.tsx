@@ -56,7 +56,7 @@ export default async function OnboardingPage() {
             experience_level: profile?.experience_level || "",
             company_name: profile?.company_name || "",
             industry: profile?.industry || "",
-            country: profile?.country || "",
+            country: "EG",
             city: profile?.city || "",
             phone_number: profile?.phone_number || "",
             student_status: profile?.student_status || "",
