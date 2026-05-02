@@ -42,6 +42,9 @@
     "socialProof": "professionals on the waitlist",
     "startingWith": "Starting with",
     "comingSoonSystems": "SAP, Microsoft Dynamics, Salesforce & more coming soon",
+    "stillRollingOut": "rolling out next on Daleel",
+    "noPendingPlatforms": "More ERP ecosystems on our roadmap — we add coverage as we go.",
+    "roadmapAllCaughtUp": "You’re on our current launch set. We keep expanding to more stacks.",
     "mockPath": {
       "title": "Your Learning Path",
       "path1": {
@@ -58,8 +61,38 @@
         "details": "Coming soon"
       }
     },
+    "mockPathSap": {
+      "path1": {
+        "name": "SAP S/4HANA — ABAP & technical foundation",
+        "details": "12 focused units • ~30 hours",
+        "status": "In Progress"
+      },
+      "path2": {
+        "name": "Extensibility, OData, and Fiori integration",
+        "details": "8 units • ~16 hours"
+      },
+      "path3": {
+        "name": "Advanced SAP certification prep",
+        "details": "Coming soon"
+      }
+    },
+    "mockPathBoth": {
+      "path1": {
+        "name": "Oracle Cloud — technical configuration & setup",
+        "details": "15 curated resources • 25 hours",
+        "status": "In Progress"
+      },
+      "path2": {
+        "name": "SAP S/4HANA — ABAP technical foundation",
+        "details": "12 units • ~22 hours"
+      },
+      "path3": {
+        "name": "Cross-stack integration & certification prep",
+        "details": "Coming soon"
+      }
+    },
     "floatingBadge": "🎯 Starting with Oracle ERP",
-    "expandingTo": "Expanding to more systems soon"
+    "expandingTo": "Next on the roadmap"
   },
   "status": {
     "currentlyActive": "Currently Active:",

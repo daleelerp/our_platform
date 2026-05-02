@@ -1,20 +1,53 @@
 "use client";
 
+import { useMemo } from "react";
 import { useTranslation } from "@/hooks/useTranslation";
 import { LoginButton } from "../auth/LoginButton";
 
 type Props = {
-  /** ERP systems that currently have learning paths or subscription plans on Daleel */
+  /** Active `erp_systems` names (homepage marketing) */
   liveErpNames?: string[];
+  /** Inactive `erp_systems` names — shown as “rolling out next” */
+  pendingErpNames?: string[];
 };
 
-export function HeroSection({ liveErpNames }: Props) {
+type MockVariant = "oracle" | "sap" | "both";
+
+function detectMockVariant(live?: string[]): MockVariant {
+  const blob = (live || []).join(" ").toLowerCase();
+  const hasOracle = blob.includes("oracle");
+  const hasSap = blob.includes("sap");
+  if (hasOracle && hasSap) return "both";
+  if (hasSap && !hasOracle) return "sap";
+  return "oracle";
+}
+
+export function HeroSection({ liveErpNames, pendingErpNames }: Props) {
   const { t, language } = useTranslation();
 
   const liveLabel =
     liveErpNames && liveErpNames.length > 0
       ? [...new Set(liveErpNames)].slice(0, 3).join(" · ")
       : null;
+
+  const mockVariant = useMemo(() => detectMockVariant(liveErpNames), [liveErpNames]);
+
+  const pendingLine = useMemo(() => {
+    const pending = pendingErpNames?.filter(Boolean) ?? [];
+    if (pending.length === 0) {
+      return t("hero.noPendingPlatforms");
+    }
+    const head = pending.slice(0, 4).join(language === "ar" ? "، " : ", ");
+    const rest = pending.length > 4 ? ` (+${pending.length - 4})` : "";
+    return `${head}${rest} — ${t("hero.stillRollingOut")}`;
+  }, [pendingErpNames, language, t]);
+
+  const floatingBadgeText =
+    liveLabel != null && liveLabel.length > 0
+      ? language === "ar"
+        ? `🎯 نبدأ بـ ${liveLabel}`
+        : `🎯 Starting with ${liveLabel}`
+      : t("hero.floatingBadge");
 
   return (
     <section className="relative overflow-hidden bg-white">
@@ -67,7 +100,7 @@ export function HeroSection({ liveErpNames }: Props) {
                 </span>
               </div>
               <span className="text-slate-400">•</span>
-              <span className="text-slate-500 text-xs sm:text-sm">{t("hero.comingSoonSystems")}</span>
+              <span className="text-slate-500 text-xs sm:text-sm max-w-md">{pendingLine}</span>
             </div>
 
             {/* Points Grid */}
@@ -162,7 +195,7 @@ export function HeroSection({ liveErpNames }: Props) {
                 <div className="flex-1 text-center text-xs text-slate-400">daleel.site</div>
               </div>
 
-              {/* Mock learning path */}
+              {/* Mock learning path — copy follows active ERP systems from CMS */}
               <div className="space-y-4">
                 <div className="text-sm text-slate-500 mb-2">{t("hero.mockPath.title")}</div>
                 <div className="bg-gradient-to-r from-[#f0f9f6] to-white rounded-lg p-4 border border-[#a9dbc7]">
@@ -171,11 +204,29 @@ export function HeroSection({ liveErpNames }: Props) {
                       1
                     </div>
                     <div>
-                      <div className="font-medium text-slate-900">{t("hero.mockPath.path1.name")}</div>
-                      <div className="text-xs text-slate-500">{t("hero.mockPath.path1.details")}</div>
+                      <div className="font-medium text-slate-900">
+                        {mockVariant === "sap"
+                          ? t("hero.mockPathSap.path1.name")
+                          : mockVariant === "both"
+                            ? t("hero.mockPathBoth.path1.name")
+                            : t("hero.mockPath.path1.name")}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        {mockVariant === "sap"
+                          ? t("hero.mockPathSap.path1.details")
+                          : mockVariant === "both"
+                            ? t("hero.mockPathBoth.path1.details")
+                            : t("hero.mockPath.path1.details")}
+                      </div>
                     </div>
                     <div className="ml-auto">
-                      <div className="px-2 py-1 rounded-full bg-[#d4ede3] text-[#285c46] text-xs font-medium">{t("hero.mockPath.path1.status")}</div>
+                      <div className="px-2 py-1 rounded-full bg-[#d4ede3] text-[#285c46] text-xs font-medium">
+                        {mockVariant === "sap"
+                          ? t("hero.mockPathSap.path1.status")
+                          : mockVariant === "both"
+                            ? t("hero.mockPathBoth.path1.status")
+                            : t("hero.mockPath.path1.status")}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -186,8 +237,20 @@ export function HeroSection({ liveErpNames }: Props) {
                       2
                     </div>
                     <div>
-                      <div className="font-medium text-slate-700">{t("hero.mockPath.path2.name")}</div>
-                      <div className="text-xs text-slate-400">{t("hero.mockPath.path2.details")}</div>
+                      <div className="font-medium text-slate-700">
+                        {mockVariant === "sap"
+                          ? t("hero.mockPathSap.path2.name")
+                          : mockVariant === "both"
+                            ? t("hero.mockPathBoth.path2.name")
+                            : t("hero.mockPath.path2.name")}
+                      </div>
+                      <div className="text-xs text-slate-400">
+                        {mockVariant === "sap"
+                          ? t("hero.mockPathSap.path2.details")
+                          : mockVariant === "both"
+                            ? t("hero.mockPathBoth.path2.details")
+                            : t("hero.mockPath.path2.details")}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -198,39 +261,55 @@ export function HeroSection({ liveErpNames }: Props) {
                       3
                     </div>
                     <div>
-                      <div className="font-medium text-slate-500">{t("hero.mockPath.path3.name")}</div>
-                      <div className="text-xs text-slate-400">{t("hero.mockPath.path3.details")}</div>
+                      <div className="font-medium text-slate-500">
+                        {mockVariant === "sap"
+                          ? t("hero.mockPathSap.path3.name")
+                          : mockVariant === "both"
+                            ? t("hero.mockPathBoth.path3.name")
+                            : t("hero.mockPath.path3.name")}
+                      </div>
+                      <div className="text-xs text-slate-400">
+                        {mockVariant === "sap"
+                          ? t("hero.mockPathSap.path3.details")
+                          : mockVariant === "both"
+                            ? t("hero.mockPathBoth.path3.details")
+                            : t("hero.mockPath.path3.details")}
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Coming Soon Systems - NEW */}
+              {/* Next on the roadmap — driven by inactive erp_systems */}
               <div className="mt-6 pt-4 border-t border-slate-100">
                 <div className="text-xs text-slate-400 mb-3">{t("hero.expandingTo")}</div>
-                <div className="flex flex-wrap gap-2">
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200">
-                    <span className="w-4 h-4 rounded bg-blue-600 flex items-center justify-center text-[8px] text-white font-bold">SAP</span>
-                    <span className="text-xs text-slate-500">SAP</span>
+                {(pendingErpNames?.length ?? 0) > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {(pendingErpNames ?? []).slice(0, 6).map((name) => (
+                      <div
+                        key={name}
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200"
+                      >
+                        <span className="text-xs text-slate-600 font-medium truncate max-w-[140px]">
+                          {name}
+                        </span>
+                      </div>
+                    ))}
+                    {(pendingErpNames ?? []).length > 6 && (
+                      <div className="flex items-center px-2.5 py-1 rounded-full bg-slate-50 border border-slate-200">
+                        <span className="text-xs text-slate-400">+more</span>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200">
-                    <span className="w-4 h-4 rounded bg-[#00A4EF] flex items-center justify-center text-[8px] text-white font-bold">D</span>
-                    <span className="text-xs text-slate-500">Dynamics</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200">
-                    <span className="w-4 h-4 rounded bg-[#00A1E0] flex items-center justify-center text-[8px] text-white font-bold">SF</span>
-                    <span className="text-xs text-slate-500">Salesforce</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200">
-                    <span className="text-xs text-slate-400">+more</span>
-                  </div>
-                </div>
+                ) : (
+                  <p className="text-xs text-slate-500">{t("hero.roadmapAllCaughtUp")}</p>
+                )}
               </div>
             </div>
 
             {/* Floating elements */}
-            <div className="absolute -top-4 -right-4 bg-amber-500 text-white px-4 py-2 rounded-lg font-semibold text-sm shadow-lg animate-bounce">
-              {t("hero.floatingBadge")}
+            <div className="absolute -top-4 -right-4 bg-amber-500 text-white px-4 py-2 rounded-lg font-semibold text-sm shadow-lg animate-bounce max-w-[min(90vw,280px)] text-center leading-snug">
+              {floatingBadgeText}
             </div>
           </div>
         </div>

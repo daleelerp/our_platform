@@ -42,6 +42,9 @@
     "socialProof": "محترف في قائمة الانتظار",
     "startingWith": "نبدأ بـ",
     "comingSoonSystems": "SAP، مايكروسوفت داينمكس، سيلزفورس والمزيد قريباً",
+    "stillRollingOut": "قريباً على Daleel",
+    "noPendingPlatforms": "منصات ERP إضافية في خارطة الطريق — نضيفها تدريجياً.",
+    "roadmapAllCaughtUp": "أنت على مجموعة الإطلاق الحالية — ولسه منوسع لأنظمة أكتر.",
     "mockPath": {
       "title": "مسارك التعليمي",
       "path1": {
@@ -58,8 +61,38 @@
         "details": "قريباً"
       }
     },
+    "mockPathSap": {
+      "path1": {
+        "name": "SAP S/4HANA — أساسيات ABAP والتقني",
+        "details": "12 وحدة • حوالي 30 ساعة",
+        "status": "قيد التنفيذ"
+      },
+      "path2": {
+        "name": "التوسّع: OData وFiori والتكامل",
+        "details": "8 وحدات • حوالي 16 ساعة"
+      },
+      "path3": {
+        "name": "التحضير لشهادات SAP المتقدمة",
+        "details": "قريباً"
+      }
+    },
+    "mockPathBoth": {
+      "path1": {
+        "name": "Oracle Cloud — التكوين والإعداد التقني",
+        "details": "15 مورداً • 25 ساعة",
+        "status": "قيد التنفيذ"
+      },
+      "path2": {
+        "name": "SAP S/4HANA — أساسيات ABAP التقنية",
+        "details": "12 وحدة • حوالي 22 ساعة"
+      },
+      "path3": {
+        "name": "تكامل بين الأنظمة والتحضير للشهادات",
+        "details": "قريباً"
+      }
+    },
     "floatingBadge": "🎯 نبدأ بـ Oracle ERP",
-    "expandingTo": "نتوسع لأنظمة أكثر قريباً"
+    "expandingTo": "التالي على خارطة الطريق"
   },
   "status": {
     "currentlyActive": "متاح حالياً:",

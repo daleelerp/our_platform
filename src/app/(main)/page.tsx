@@ -106,7 +106,7 @@ export default async function HomePage() {
 
   return (
     <main className="min-h-screen">
-      <HeroSection liveErpNames={liveErpNames} />
+      <HeroSection liveErpNames={liveErpNames} pendingErpNames={pendingErpNames} />
       <CurrentStatusBanner liveSystemNames={liveErpNames} pendingSystemNames={pendingErpNames} />
       <HowItWorks />
       <ErpSystemsGrid
