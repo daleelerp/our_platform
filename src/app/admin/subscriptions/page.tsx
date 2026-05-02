@@ -35,7 +35,7 @@ export default function AdminSubscriptionsPage() {
           { key: "user_id", label: "User ID", type: "text" },
           { key: "plan_id", label: "Plan ID", type: "text" },
           { key: "status", label: "Status", type: "text" },
-          { key: "billing_cycle", label: "Billing Cycle", type: "text" },
+          // { key: "billing_cycle", label: "Billing Cycle", type: "text" },
           { key: "price_locked_egp", label: "Price (EGP)", type: "number" },
           { key: "payment_method", label: "Payment Method", type: "text" },
           { key: "payment_provider", label: "Payment Provider", type: "text" },
