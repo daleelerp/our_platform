@@ -135,17 +135,24 @@ export function buildProviderIdsWithOfferings(
 }
 
 /**
- * `true` when the system has published paths, an active plan targeting its provider, or the row is flagged active in admin.
+ * `true` only when there is real Daleel content for this stack:
+ * a published path on this system, and/or an **active** subscription plan whose
+ * `erp_provider_ids` includes a provider matched to this system.
+ *
+ * The old `erp_systems.is_active` flag alone is NOT enough (that made every
+ * "coming soon" row look live). Use `is_active: false` to force-hide a system
+ * even when paths/plans exist.
  */
 export function erpSystemHasPublicOffering(
   system: ErpSystem,
   providers: ErpProviderRow[],
   ctx: ErpOfferingContext
 ): boolean {
+  if (system.is_active === false) return false;
   if (ctx.systemIdsWithPaths.has(system.id)) return true;
   const matched = findMatchingProviderIds(system, providers);
   for (const pid of matched) {
     if (ctx.providerIdsFromPlans.has(pid)) return true;
   }
-  return Boolean(system.is_active);
+  return false;
 }
