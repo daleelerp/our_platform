@@ -17,7 +17,7 @@ export default function AdminErpSystemsPage() {
       <AdminCrudTable
         table="erp_systems"
         title="ERP Systems"
-        description="Manage ERP systems (e.g. Oracle Cloud ERP, SAP, etc.)."
+        description="Homepage ERP cards: turn Active on to show “Active now” + Explore paths; off = Coming soon. Marketing tiles read only this flag (not subscription plans)."
         orderBy="priority_order"
         defaultValues={{
           name: "",

@@ -1,11 +1,6 @@
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
-import {
-  fetchErpOfferingContext,
-  erpSystemHasPublicOffering,
-} from "@/utils/erpOfferings";
-import type { ErpProviderRow } from "@/utils/erpOfferings";
 import { HeroSection } from "@/components/landing/HeroSection";
 import { CurrentStatusBanner } from "@/components/landing/CurrentStatusBanner";
 import { ErpSystemsGrid } from "@/components/landing/ErpSystemsGrid";
@@ -36,22 +31,12 @@ export default async function HomePage() {
     } = await supabase.auth.getUser();
     user = authUser;
 
-    // If user is already logged in, redirect to dashboard
     if (user) {
-      // redirect() throws a NEXT_REDIRECT error which is expected behavior
-      // This is caught by Next.js to perform the redirect
       redirect("/dashboard");
     }
 
-    const offeringCtx = await fetchErpOfferingContext(supabase);
-
-    const [
-      { data: erpSystemsData },
-      { data: erpProvidersData },
-      { data: learningPathsData },
-    ] = await Promise.all([
+    const [{ data: erpSystemsData }, { data: learningPathsData }] = await Promise.all([
       supabase.from("erp_systems").select("*").order("priority_order"),
-      supabase.from("erp_providers").select("id, slug, name").eq("is_active", true),
       supabase
         .from("learning_paths")
         .select(
@@ -71,20 +56,14 @@ export default async function HomePage() {
         .eq("is_published", true),
     ]);
 
-    const providers = (erpProvidersData || []) as ErpProviderRow[];
-    const rawSystems = erpSystemsData || [];
+    const systems = erpSystemsData || [];
+    erpSystems = systems;
 
-    erpSystems = rawSystems.map((sys) => ({
-      ...sys,
-      is_active: erpSystemHasPublicOffering(sys, providers, offeringCtx),
-    }));
-
-    liveErpNames = [...new Set(erpSystems.filter((s) => s.is_active).map((s) => s.name))];
-    pendingErpNames = [...new Set(erpSystems.filter((s) => !s.is_active).map((s) => s.name))];
+    liveErpNames = [...new Set(systems.filter((s) => s.is_active).map((s) => s.name))];
+    pendingErpNames = [...new Set(systems.filter((s) => !s.is_active).map((s) => s.name))];
 
     learningPaths = learningPathsData;
   } catch (error: any) {
-    // Let Next.js handle control-flow errors (redirect, dynamic rendering, etc.)
     if (
       error?.digest === "NEXT_REDIRECT" ||
       error?.digest === "DYNAMIC_SERVER_USAGE"
@@ -92,27 +71,24 @@ export default async function HomePage() {
       throw error;
     }
 
-    // If Supabase is unavailable, continue with empty data
     const errorMessage = error?.message || String(error);
-    const isNetworkError = 
-      errorMessage.includes('ENOTFOUND') ||
-      errorMessage.includes('getaddrinfo') ||
-      errorMessage.includes('fetch failed') ||
-      error?.code === 'ENOTFOUND';
-    
+    const isNetworkError =
+      errorMessage.includes("ENOTFOUND") ||
+      errorMessage.includes("getaddrinfo") ||
+      errorMessage.includes("fetch failed") ||
+      error?.code === "ENOTFOUND";
+
     if (isNetworkError) {
       console.error("Network error connecting to Supabase. Please check:", {
         url: process.env.NEXT_PUBLIC_SUPABASE_URL,
         error: errorMessage,
-        hint: "Verify your Supabase project is active and the URL is correct"
+        hint: "Verify your Supabase project is active and the URL is correct",
       });
     } else {
       console.error("Error fetching data for homepage:", error);
     }
-    // Don't throw - allow page to render with empty data
   }
 
-  // Sort paths from beginner to advanced
   const difficultyOrder: Record<string, number> = {
     beginner: 1,
     intermediate: 2,

@@ -170,7 +170,5 @@ export type OnboardingOptions = {
   studentStatuses: StudentStatus[];
   erpProviders: ErpProvider[];
   erpProviderTools: ErpProviderTool[];
-  /** ERP providers that have a published path and/or an active subscription plan on Daleel */
-  erpProviderIdsWithOfferings?: string[];
 };
 

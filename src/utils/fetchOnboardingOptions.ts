@@ -1,11 +1,6 @@
 import { createClient } from "@/utils/supabase/client";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { OnboardingOptions } from "@/types/onboarding";
-import {
-  fetchErpOfferingContext,
-  buildProviderIdsWithOfferings,
-} from "@/utils/erpOfferings";
-import type { ErpProviderRow } from "@/utils/erpOfferings";
 
 export async function fetchOnboardingOptions(): Promise<OnboardingOptions> {
   const supabase = createClient();
@@ -91,17 +86,6 @@ export async function fetchOnboardingOptions(): Promise<OnboardingOptions> {
       .order("display_order"),
   ]);
 
-  const offeringCtx = await fetchErpOfferingContext(supabase);
-  const erpSystemsList = erpSystemsRes.data || [];
-  const providersMin = (erpProvidersRes.data || []).map((p) => ({
-    id: p.id,
-    slug: p.slug,
-    name: p.name,
-  })) as ErpProviderRow[];
-  const erpProviderIdsWithOfferings = [
-    ...buildProviderIdsWithOfferings(offeringCtx, erpSystemsList, providersMin),
-  ];
-
   return {
     experienceLevels: experienceLevelsRes.data || [],
     industries: industriesRes.data || [],
@@ -112,11 +96,10 @@ export async function fetchOnboardingOptions(): Promise<OnboardingOptions> {
     careerTimelines: careerTimelinesRes.data || [],
     budgetRanges: budgetRangesRes.data || [],
     referralSources: referralSourcesRes.data || [],
-    erpSystems: erpSystemsList,
+    erpSystems: erpSystemsRes.data || [],
     studentStatuses: studentStatusesRes.data || [],
     erpProviders: erpProvidersRes.data || [],
     erpProviderTools: erpProviderToolsRes.data || [],
-    erpProviderIdsWithOfferings,
   };
 }
 
@@ -205,17 +188,6 @@ export async function fetchOnboardingOptionsServer(
       .order("display_order"),
   ]);
 
-  const offeringCtx = await fetchErpOfferingContext(supabase);
-  const erpSystemsList = erpSystemsRes.data || [];
-  const providersMin = (erpProvidersRes.data || []).map((p) => ({
-    id: p.id,
-    slug: p.slug,
-    name: p.name,
-  })) as ErpProviderRow[];
-  const erpProviderIdsWithOfferings = [
-    ...buildProviderIdsWithOfferings(offeringCtx, erpSystemsList, providersMin),
-  ];
-
   return {
     experienceLevels: experienceLevelsRes.data || [],
     industries: industriesRes.data || [],
@@ -226,10 +198,9 @@ export async function fetchOnboardingOptionsServer(
     careerTimelines: careerTimelinesRes.data || [],
     budgetRanges: budgetRangesRes.data || [],
     referralSources: referralSourcesRes.data || [],
-    erpSystems: erpSystemsList,
+    erpSystems: erpSystemsRes.data || [],
     studentStatuses: studentStatusesRes.data || [],
     erpProviders: erpProvidersRes.data || [],
     erpProviderTools: erpProviderToolsRes.data || [],
-    erpProviderIdsWithOfferings,
   };
 }
