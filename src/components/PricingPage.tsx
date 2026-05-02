@@ -681,7 +681,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
       {/* Compact Sticky Header */}
-      <div className="bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-20">
+      <div className="bg-white/95 backdrop-blur-md border-b border-slate-200 relative z-20 md:sticky md:top-0">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           {subscribeNotice && (
             <div

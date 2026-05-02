@@ -12,7 +12,7 @@ import { getContentTierFromBudget, hasAccessToTier, type ContentTier } from "@/u
 import { createClient } from "@/utils/supabase/client";
 import { checkMilestoneCompletion, updateMilestoneProgress, calculatePathProgress } from "@/utils/milestoneProgress";
 import Link from "next/link";
-import { CheckCircleIcon, PlayIcon } from "@heroicons/react/24/outline";
+import { CheckCircleIcon, DocumentTextIcon, PlayIcon } from "@heroicons/react/24/outline";
 import { LearningResource } from "@/types/learning";
 import { Modal } from "./admin/Modal";
 
@@ -375,7 +375,7 @@ export function LearningInterface({
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
-      <div className="bg-white border-b border-slate-200 sticky top-0 z-10">
+      <div className="bg-white border-b border-slate-200 relative z-10 md:sticky md:top-0">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -396,9 +396,10 @@ export function LearningInterface({
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-6">
+        {/* Main column first on mobile so lesson intro + video appear before nav lists (desktop unchanged). */}
         <div className="grid lg:grid-cols-4 gap-6">
           {/* Sidebar - Milestones & Content List */}
-          <div className="lg:col-span-1 space-y-4">
+          <div className="order-2 space-y-4 lg:order-none lg:col-span-1">
             {/* Milestones List */}
             <div className="bg-white rounded-xl border border-slate-200 p-4">
               <h3 className="font-semibold text-slate-900 mb-3">
@@ -577,7 +578,11 @@ export function LearningInterface({
                           }`}
                       >
                         <div className="flex items-start gap-2">
-                          <PlayIcon className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                          {resource.resource_type === "article" ? (
+                            <DocumentTextIcon className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" aria-hidden />
+                          ) : (
+                            <PlayIcon className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" aria-hidden />
+                          )}
                           <div className="flex-1 min-w-0">
                             <p
                               className={`text-sm ${isSelected ? "font-semibold text-teal-900" : "text-slate-700"
@@ -660,7 +665,7 @@ export function LearningInterface({
           </div>
 
           {/* Main Content Area */}
-          <div className="lg:col-span-3 space-y-6">
+          <div className="order-1 space-y-6 lg:order-none lg:col-span-3">
             {/* Milestone Header */}
             <div className="bg-white rounded-xl border border-slate-200 p-6">
               <h2 className="text-2xl font-bold text-slate-900 mb-2">{milestoneTitle}</h2>
@@ -801,8 +806,8 @@ export function LearningInterface({
                 </h3>
                 <p className="text-slate-600">
                   {language === "ar"
-                    ? "اختر فيديو من القائمة الجانبية لبدء التعلم"
-                    : "Select a video from the sidebar to start learning"}
+                    ? "اختر فيديو من القائمة أدناه لبدء التعلم"
+                    : "Select a video from the list below to start learning"}
                 </p>
               </div>
             )}
@@ -857,8 +862,8 @@ export function LearningInterface({
                 </h3>
                 <p className="text-slate-600">
                   {language === "ar"
-                    ? "اختر مورد من القائمة الجانبية لبدء التعلم"
-                    : "Select a resource from the sidebar to start learning"}
+                    ? "اختر موردا من القائمة أدناه لبدء التعلم"
+                    : "Select a resource from the list below to start learning"}
                 </p>
               </div>
             )}
@@ -913,8 +918,8 @@ export function LearningInterface({
                     </h3>
                     <p className="text-slate-600">
                       {language === "ar"
-                        ? "اختر اختبار من القائمة الجانبية لبدء الاختبار"
-                        : "Select a quiz from the sidebar to start"}
+                        ? "اختر اختبارا من القائمة أدناه لبدء الاختبار"
+                        : "Select a quiz from the list below to start"}
                     </p>
                   </>
                 )}
