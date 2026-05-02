@@ -58,6 +58,7 @@ export default async function OnboardingPage() {
             industry: profile?.industry || "",
             country: profile?.country || "",
             city: profile?.city || "",
+            phone_number: profile?.phone_number || "",
             student_status: profile?.student_status || "",
           }}
           isNameFromGoogle={!!(user.user_metadata?.full_name || user.user_metadata?.name)}

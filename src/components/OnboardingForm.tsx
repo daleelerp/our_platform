@@ -7,8 +7,10 @@ import { useAppStore } from "@/store/useAppStore";
 import { fetchOnboardingOptions } from "@/utils/fetchOnboardingOptions";
 import type { OnboardingOptions } from "@/types/onboarding";
 import { AvatarPicker } from "@/components/AvatarPicker";
-import { JobRolesExplanation } from "@/components/JobRolesExplanation";
-import { SalaryRangesSelection } from "@/components/SalaryRangesSelection";
+import {
+  isValidMiddleEastMobileNumber,
+  normalizeMiddleEastMobileToE164,
+} from "@/utils/middleEastPhone";
 
 type OnboardingData = {
   full_name: string;
@@ -35,14 +37,9 @@ type OnboardingData = {
   budget_range: string;
   referral_source: string;
   student_status: string;
-  preferred_job_role_id: string | null;
-  salary_preference_region: string | null;
-  salary_expectation_min: number | null;
-  salary_expectation_max: number | null;
-  salary_expectation_currency: string | null;
 };
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 3;
 
 export function OnboardingForm({ 
   initialData,
@@ -128,11 +125,6 @@ export function OnboardingForm({
     budget_range: mergedInitialData.budget_range || "",
     referral_source: mergedInitialData.referral_source || "",
     student_status: mergedInitialData.student_status || initialData.student_status || "",
-    preferred_job_role_id: mergedInitialData.preferred_job_role_id || null,
-    salary_preference_region: mergedInitialData.salary_preference_region || null,
-    salary_expectation_min: mergedInitialData.salary_expectation_min || null,
-    salary_expectation_max: mergedInitialData.salary_expectation_max || null,
-    salary_expectation_currency: mergedInitialData.salary_expectation_currency || null,
   });
 
   // Save form data to localStorage whenever it changes
@@ -200,7 +192,14 @@ export function OnboardingForm({
   const canProceed = () => {
     switch (step) {
       case 1:
-        return formData.full_name && formData.country && formData.experience_level && formData.student_status && formData.gender;
+        return (
+          !!formData.full_name &&
+          !!formData.country &&
+          !!formData.experience_level &&
+          !!formData.student_status &&
+          !!formData.gender &&
+          isValidMiddleEastMobileNumber(formData.phone_number, formData.country)
+        );
       case 2:
         return formData.erp_provider && formData.erp_tool && formData.career_focus && formData.learning_goals.length > 0;
       case 3:
@@ -212,6 +211,7 @@ export function OnboardingForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (step !== TOTAL_STEPS) return;
     setIsSubmitting(true);
     setError(null);
 
@@ -220,6 +220,17 @@ export function OnboardingForm({
       
       if (!user) {
         throw new Error("Not authenticated");
+      }
+
+      const phoneE164 = normalizeMiddleEastMobileToE164(formData.phone_number, formData.country);
+      if (!phoneE164) {
+        setError(
+          language === "ar"
+            ? "رقم الجوال غير صالح لهذا الإقليم. استخدم صيغة دولية (+966…) أو الرقم المحلي بعد اختيار الدولة."
+            : "Invalid mobile number for this region. Use international format (+966…) or your local number after selecting your country."
+        );
+        setIsSubmitting(false);
+        return;
       }
 
       const { data, error: updateError } = await supabase
@@ -234,7 +245,7 @@ export function OnboardingForm({
           industry: formData.industry,
           country: formData.country,
           city: formData.city,
-          phone_number: formData.phone_number || null,
+          phone_number: phoneE164,
           linkedin_url: formData.linkedin_url || null,
           bio: formData.bio || null,
           student_status: formData.student_status,
@@ -242,11 +253,11 @@ export function OnboardingForm({
           erp_tool_id: formData.erp_tool && formData.erp_tool !== "explore" ? formData.erp_tool : null,
           erp_explore: formData.erp_tool === "explore",
           career_focus: formData.career_focus,
-          preferred_job_role_id: formData.preferred_job_role_id || null,
-          salary_preference_region: formData.salary_preference_region || null,
-          salary_expectation_min: formData.salary_expectation_min || null,
-          salary_expectation_max: formData.salary_expectation_max || null,
-          salary_expectation_currency: formData.salary_expectation_currency || null,
+          preferred_job_role_id: null,
+          salary_preference_region: null,
+          salary_expectation_min: null,
+          salary_expectation_max: null,
+          salary_expectation_currency: null,
           onboarding_completed: true,
           updated_at: new Date().toISOString(),
         })
@@ -367,8 +378,8 @@ export function OnboardingForm({
         {/* Step indicators */}
         <div className="flex justify-between mt-3">
           {(language === "ar" 
-            ? ["عنك", "الأهداف", "التفضيلات", "الدور الوظيفي", "الراتب"] 
-            : ["About You", "Goals", "Preferences", "Job Role", "Salary"]
+            ? ["عنك", "الأهداف", "التفضيلات"] 
+            : ["About You", "Goals", "Preferences"]
           ).map((label, i) => (
             <div key={i} className="flex flex-col items-center">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all ${
@@ -451,39 +462,49 @@ export function OnboardingForm({
               gender={formData.gender}
             />
 
-            {/* Country grid */}
+            {/* Country */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className="block text-sm font-medium text-slate-700 mb-2" htmlFor="onboarding-country">
                 {language === "ar" ? "أين تقيم؟ *" : "Where are you based? *"}
               </label>
-              <div className="grid grid-cols-4 gap-1.5">
-                {options.countries.slice(0, 8).map((c) => (
-                  <button
-                    key={c.code}
-                    type="button"
-                    onClick={() => setFormData({ ...formData, country: c.code })}
-                    className={`p-2 rounded-lg border text-center transition-all ${
-                      formData.country === c.code
-                        ? "border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500/30"
-                        : "border-slate-200 hover:border-slate-300"
-                    }`}
-                  >
-                    <span className="text-xl block">{c.flag}</span>
-                    <span className="text-[10px] text-slate-500 line-clamp-1">{getName(c)}</span>
-                  </button>
-                ))}
-              </div>
               <select
+                id="onboarding-country"
                 name="country"
                 value={formData.country}
                 onChange={handleChange}
-                className="mt-2 w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+                required
+                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm"
               >
-                <option value="">{language === "ar" ? "دول أخرى..." : "Other countries..."}</option>
+                <option value="">{language === "ar" ? "اختر الدولة..." : "Select country..."}</option>
                 {options.countries.map((c) => (
-                  <option key={c.code} value={c.code}>{c.flag} {getName(c)}</option>
+                  <option key={c.code} value={c.code}>
+                    {c.flag} {getName(c)}
+                  </option>
                 ))}
               </select>
+            </div>
+
+            {/* Mobile — validated for Middle East numbering plans */}
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                {language === "ar" ? "رقم الجوال *" : "Mobile number *"}
+              </label>
+              <input
+                type="tel"
+                name="phone_number"
+                inputMode="tel"
+                autoComplete="tel"
+                value={formData.phone_number}
+                onChange={handleChange}
+                required
+                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition text-sm"
+                placeholder={language === "ar" ? "+966501234567 أو المحلي بعد اختيار الدولة" : "+966501234567 or local number"}
+              />
+              <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                {language === "ar"
+                  ? "أدخل الرقم بصيغة دولية أو المحلي بعد اختيار بلدك أعلاه (الخليج، مصر، الشام، العراق، تركيا، إيران، والدول المعتادة في الشرق الأوسط)."
+                  : "Use international format (+country code) or your national mobile after selecting your country above. Accepted: GCC, Egypt, Levant, Iraq, Iran, Turkey, and other Middle East countries we support."}
+              </p>
             </div>
 
             {/* Experience level */}
@@ -906,67 +927,6 @@ export function OnboardingForm({
           </div>
         )}
 
-        {/* Step 4: Job Role Selection */}
-        {step === 4 && (
-          <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
-            <JobRolesExplanation
-              onSelect={(jobRoleId) => {
-                setFormData({ ...formData, preferred_job_role_id: jobRoleId });
-              }}
-              selectedJobRoleId={formData.preferred_job_role_id}
-              onNext={() => {
-                setStep(5);
-                setTimeout(() => {
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }, 100);
-              }}
-              onSkip={() => {
-                // Allow skipping, but mark as optional
-                setFormData({ ...formData, preferred_job_role_id: null });
-                setStep(5);
-                setTimeout(() => {
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }, 100);
-              }}
-            />
-          </div>
-        )}
-
-        {/* Step 5: Salary Range Selection */}
-        {step === 5 && (
-          <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
-            <SalaryRangesSelection
-              jobRoleId={formData.preferred_job_role_id}
-              onSelect={(data) => {
-                setFormData({
-                  ...formData,
-                  salary_preference_region: data.region,
-                  salary_expectation_min: data.salaryMin,
-                  salary_expectation_max: data.salaryMax,
-                  salary_expectation_currency: data.currency,
-                });
-              }}
-              onNext={async () => {
-                // Trigger form submission
-                const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
-                await handleSubmit(submitEvent as any);
-              }}
-              onBack={() => {
-                setStep(4);
-                setTimeout(() => {
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }, 100);
-              }}
-              initialData={{
-                region: formData.salary_preference_region || undefined,
-                salaryMin: formData.salary_expectation_min || undefined,
-                salaryMax: formData.salary_expectation_max || undefined,
-                currency: formData.salary_expectation_currency || undefined,
-              }}
-            />
-          </div>
-        )}
-
         {/* Navigation buttons */}
         <div className="flex gap-3 mt-8">
           {step > 1 && (
@@ -988,19 +948,16 @@ export function OnboardingForm({
               {language === "ar" ? "رجوع" : "Back"}
             </button>
           )}
-          {/* Only show Continue button for steps 1-3, steps 4-5 have their own navigation */}
-          {step < 4 && step < TOTAL_STEPS ? (
+          {step < TOTAL_STEPS ? (
             <button
               type="button"
               onClick={() => {
                 setStep(step + 1);
-                // Scroll to top when moving to next step
                 setTimeout(() => {
                   window.scrollTo({ top: 0, behavior: 'smooth' });
-                  // Also scroll the form container if it exists
-                  const formElement = document.querySelector('form');
+                  const formElement = document.querySelector("form");
                   if (formElement) {
-                    formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    formElement.scrollIntoView({ behavior: "smooth", block: "start" });
                   }
                 }, 100);
               }}
@@ -1009,25 +966,19 @@ export function OnboardingForm({
             >
               {language === "ar" ? "متابعة" : "Continue"}
             </button>
-          ) : step === 5 ? (
-            <button
-              type="submit"
-              disabled={isSubmitting || !canProceed()}
-              className="flex-1 py-3 px-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-medium hover:from-emerald-600 hover:to-teal-600 transition disabled:opacity-50"
-            >
-              {isSubmitting 
-                ? (language === "ar" ? "جاري الإعداد..." : "Setting up...") 
-                : (language === "ar" ? "ابدأ التعلم 🚀" : "Start Learning 🚀")}
-            </button>
           ) : (
             <button
               type="submit"
               disabled={isSubmitting || !canProceed()}
               className="flex-1 py-3 px-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-medium hover:from-emerald-600 hover:to-teal-600 transition disabled:opacity-50"
             >
-              {isSubmitting 
-                ? (language === "ar" ? "جاري الإعداد..." : "Setting up...") 
-                : (language === "ar" ? "ابدأ التعلم 🚀" : "Start Learning 🚀")}
+              {isSubmitting
+                ? language === "ar"
+                  ? "جاري الإعداد..."
+                  : "Setting up..."
+                : language === "ar"
+                  ? "ابدأ التعلم 🚀"
+                  : "Start Learning 🚀"}
             </button>
           )}
         </div>

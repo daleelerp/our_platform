@@ -355,35 +355,13 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
           </div>
 
           {/* Footer with Link Button and Mark as Read */}
-          <div className="border-t border-slate-200 px-8 py-6 bg-slate-50 rounded-b-xl">
-            <div className="flex items-center justify-between gap-4">
-              {hasValidUrl && (
-                <a
-                  href={resource.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-teal-600 hover:bg-teal-700 text-white font-medium rounded-lg transition-colors duration-200 shadow-sm hover:shadow-md"
-                >
-                  <svg 
-                    className="w-5 h-5" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    viewBox="0 0 24 24"
-                  >
-                    <path 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round" 
-                      strokeWidth={2} 
-                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" 
-                    />
-                  </svg>
-                  {language === "ar" ? "فتح المقال في نافذة جديدة" : "Open Article in New Window"}
-                </a>
-              )}
+          <div className="border-t border-slate-200 px-4 py-5 sm:px-8 sm:py-6 bg-slate-50 rounded-b-xl max-sm:pb-[max(5rem,env(safe-area-inset-bottom,1.25rem))]">
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:flex-nowrap sm:items-center sm:justify-between sm:gap-4">
               <button
+                type="button"
                 onClick={handleMarkAsRead}
                 disabled={isMarkedAsRead}
-                className={`inline-flex items-center gap-2 px-6 py-3 font-medium rounded-lg transition-colors duration-200 shadow-sm ${
+                className={`inline-flex min-h-[48px] w-full shrink-0 items-center justify-center gap-2 px-5 py-3 text-sm font-medium rounded-lg transition-colors duration-200 shadow-sm sm:w-auto sm:min-w-[10.5rem] ${
                   isMarkedAsRead
                     ? "bg-green-100 text-green-700 cursor-not-allowed"
                     : "bg-white text-slate-700 hover:bg-green-50 border border-slate-300 hover:border-green-300"
@@ -391,16 +369,47 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
               >
                 {isMarkedAsRead ? (
                   <>
-                    <CheckCircleIconSolid className="w-5 h-5" />
+                    <CheckCircleIconSolid className="h-5 w-5 shrink-0" />
                     {language === "ar" ? "تمت القراءة" : "Marked as Read"}
                   </>
                 ) : (
                   <>
-                    <CheckCircleIcon className="w-5 h-5" />
-                    {language === "ar" ? "تمت القراءة" : "Mark as Read"}
+                    <CheckCircleIcon className="h-5 w-5 shrink-0" />
+                    {language === "ar" ? "تعيين كمقروء" : "Mark as Read"}
                   </>
                 )}
               </button>
+              {hasValidUrl && (
+                <a
+                  href={resource.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-lg bg-teal-600 px-5 py-3 text-center text-sm font-medium text-white shadow-sm transition-colors duration-200 hover:bg-teal-700 hover:shadow-md sm:w-auto sm:max-w-md sm:px-6"
+                >
+                  <svg
+                    className="h-5 w-5 shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    aria-hidden
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                    />
+                  </svg>
+                  <span className="min-w-0 sm:whitespace-nowrap">
+                    <span className="sm:hidden">
+                      {language === "ar" ? "فتح المقال" : "Open article"}
+                    </span>
+                    <span className="hidden sm:inline">
+                      {language === "ar" ? "فتح المقال في نافذة جديدة" : "Open Article in New Window"}
+                    </span>
+                  </span>
+                </a>
+              )}
             </div>
           </div>
         </div>
