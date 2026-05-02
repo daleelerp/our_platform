@@ -106,19 +106,35 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
     milestones?.find((m) => m.milestone_number === currentMilestoneNumber) ||
     milestones?.[0];
 
-  // Fetch videos for current milestone.
-  // Order by video_order only at DB level so the query still works if playlist_slot
-  // migration has not been applied yet. LearningInterface sorts by playlist_slot + video_order client-side.
-  const { data: videos, error: videosError } = currentMilestone
-    ? await supabase
+  // Fetch videos: prefer ordered query; on any failure retry without ORDER BY (avoids broken migrations / schema drift).
+  let videos: any[] = [];
+  if (currentMilestone) {
+    const primary = await supabase
+      .from("video_content")
+      .select("*")
+      .eq("milestone_id", currentMilestone.id)
+      .eq("is_active", true)
+      .order("video_order", { ascending: true });
+
+    if (primary.error) {
+      console.error("[path learn] video_content ordered query failed:", primary.error.message);
+      const fallback = await supabase
         .from("video_content")
         .select("*")
         .eq("milestone_id", currentMilestone.id)
-        .eq("is_active", true)
-        .order("video_order", { ascending: true })
-    : { data: null, error: null };
+        .eq("is_active", true);
+      videos = fallback.data ?? [];
+    } else {
+      videos = primary.data ?? [];
+    }
 
-  // Removed debug logging
+    videos = [...videos].sort((a: any, b: any) => {
+      const as = a.playlist_slot ?? 0;
+      const bs = b.playlist_slot ?? 0;
+      if (as !== bs) return as - bs;
+      return (a.video_order ?? 0) - (b.video_order ?? 0);
+    });
+  }
 
   // Fetch quizzes for current milestone
   const { data: quizzes } = currentMilestone
@@ -183,16 +199,17 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
   }
 
   // Fetch user's video progress
-  const { data: videoProgress } = videos
-    ? await supabase
-        .from("user_video_progress")
-        .select("*")
-        .eq("user_id", user.id)
-        .in(
-          "video_id",
-          videos.map((v) => v.id)
-        )
-    : { data: null };
+  const { data: videoProgress } =
+    videos.length > 0
+      ? await supabase
+          .from("user_video_progress")
+          .select("*")
+          .eq("user_id", user.id)
+          .in(
+            "video_id",
+            videos.map((v) => v.id)
+          )
+      : { data: null };
 
   // Fetch user's milestone progress
   const { data: milestoneProgress } = currentMilestone
@@ -209,7 +226,7 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
       path={path}
       milestones={milestones || []}
       currentMilestone={currentMilestone}
-      videos={videos || []}
+      videos={videos}
       quizzes={quizzes || []}
       resources={resources}
       enrollment={enrollment}
