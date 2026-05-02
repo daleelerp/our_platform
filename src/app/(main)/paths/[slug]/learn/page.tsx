@@ -106,14 +106,15 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
     milestones?.find((m) => m.milestone_number === currentMilestoneNumber) ||
     milestones?.[0];
 
-  // Fetch videos for current milestone
+  // Fetch videos for current milestone.
+  // Order by video_order only at DB level so the query still works if playlist_slot
+  // migration has not been applied yet. LearningInterface sorts by playlist_slot + video_order client-side.
   const { data: videos, error: videosError } = currentMilestone
     ? await supabase
         .from("video_content")
         .select("*")
         .eq("milestone_id", currentMilestone.id)
         .eq("is_active", true)
-        .order("playlist_slot", { ascending: true })
         .order("video_order", { ascending: true })
     : { data: null, error: null };
 
