@@ -2,6 +2,11 @@ import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import { LearningInterface } from "@/components/LearningInterface";
+import { orderVideosForLearning } from "@/lib/learningPlaylistOrder";
+
+/** Always fresh data — avoids CDN/browser serving an empty cached lesson page */
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -109,12 +114,16 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
   // Fetch videos: prefer ordered query; on any failure retry without ORDER BY (avoids broken migrations / schema drift).
   let videos: any[] = [];
   if (currentMilestone) {
+    // Include rows where is_active is true OR null (legacy imports sometimes omit the flag)
+    const activeClause = "is_active.eq.true,is_active.is.null";
+
     const primary = await supabase
       .from("video_content")
       .select("*")
       .eq("milestone_id", currentMilestone.id)
-      .eq("is_active", true)
-      .order("video_order", { ascending: true });
+      .or(activeClause)
+      .order("video_order", { ascending: true })
+      .limit(500);
 
     if (primary.error) {
       console.error("[path learn] video_content ordered query failed:", primary.error.message);
@@ -122,18 +131,14 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
         .from("video_content")
         .select("*")
         .eq("milestone_id", currentMilestone.id)
-        .eq("is_active", true);
+        .or(activeClause)
+        .limit(500);
       videos = fallback.data ?? [];
     } else {
       videos = primary.data ?? [];
     }
 
-    videos = [...videos].sort((a: any, b: any) => {
-      const as = a.playlist_slot ?? 0;
-      const bs = b.playlist_slot ?? 0;
-      if (as !== bs) return as - bs;
-      return (a.video_order ?? 0) - (b.video_order ?? 0);
-    });
+    videos = orderVideosForLearning(videos);
   }
 
   // Fetch quizzes for current milestone

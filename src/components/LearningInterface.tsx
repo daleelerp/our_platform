@@ -15,6 +15,10 @@ import Link from "next/link";
 import { CheckCircleIcon, DocumentTextIcon, PlayIcon } from "@heroicons/react/24/outline";
 import { LearningResource } from "@/types/learning";
 import { Modal } from "./admin/Modal";
+import {
+  orderVideosForLearning,
+  groupOrderedVideosForSidebar,
+} from "@/lib/learningPlaylistOrder";
 
 type Path = {
   id: string;
@@ -47,19 +51,8 @@ type Video = {
   source_youtube_playlist_id?: string | null;
   duration_seconds: number | null;
   primary_language?: string | null;
+  created_at?: string | null;
 };
-
-function playlistSectionLabel(
-  firstVideo: Video,
-  slot: number,
-  language: string
-): string {
-  const t = firstVideo.title || "";
-  const rest = t.replace(/^\s*\d+\s*-\s*/, "");
-  const series = rest.split(/\s-\s/)[0]?.trim();
-  if (series && series.length > 0 && series.length < 120) return series;
-  return language === "ar" ? `قائمة ${slot + 1}` : `Playlist ${slot + 1}`;
-}
 
 type Quiz = {
   id: string;
@@ -121,26 +114,23 @@ export function LearningInterface({
   const hasReloadedRef = useRef(false);
 
   const filteredVideos = useMemo(() => {
-    const sorted = [...videos].sort((a: Video, b: Video) => {
-      const as = a.playlist_slot ?? 0;
-      const bs = b.playlist_slot ?? 0;
-      if (as !== bs) return as - bs;
-      return (a.video_order ?? 0) - (b.video_order ?? 0);
-    });
-    return sorted.filter((video: any) => {
+    const sorted = orderVideosForLearning(videos);
+
+    const matchesLanguage = (video: any) => {
+      const pl = String(video.primary_language ?? "").trim().toLowerCase();
+      if (!pl) return true;
       if (language === "ar") {
-        return (
-          !video.primary_language ||
-          video.primary_language === "ar" ||
-          video.primary_language === "mixed"
-        );
+        return pl === "ar" || pl === "mixed";
       }
-      return (
-        !video.primary_language ||
-        video.primary_language === "en" ||
-        video.primary_language === "mixed"
-      );
-    });
+      return pl === "en" || pl === "mixed";
+    };
+
+    const filtered = sorted.filter(matchesLanguage);
+    // If language rules hid everything (wrong casing / unexpected values), still show videos
+    if (filtered.length === 0 && sorted.length > 0) {
+      return sorted;
+    }
+    return filtered;
   }, [videos, language]);
 
   // Filter resources by language preference
@@ -262,13 +252,8 @@ export function LearningInterface({
   }, [filteredVideos, userTier]);
 
   const accessibleVideoGroups = useMemo(() => {
-    const slots = new Map<number, Video[]>();
-    for (const v of accessibleVideos) {
-      const s = v.playlist_slot ?? 0;
-      if (!slots.has(s)) slots.set(s, []);
-      slots.get(s)!.push(v);
-    }
-    return Array.from(slots.entries()).sort((a, b) => a[0] - b[0]);
+    const ordered = orderVideosForLearning(accessibleVideos);
+    return groupOrderedVideosForSidebar(ordered);
   }, [accessibleVideos]);
 
   // Get video progress map
@@ -478,15 +463,15 @@ export function LearningInterface({
               </h3>
               {videos.length > 0 ? (
                 <div className="space-y-3">
-                  {accessibleVideoGroups.map(([slot, groupVideos]) => (
-                    <div key={slot} className="space-y-2">
+                  {accessibleVideoGroups.map((group, groupIdx) => (
+                    <div key={`${group.label}-${groupIdx}`} className="space-y-2">
                       {accessibleVideoGroups.length > 1 && (
                         <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 px-1 pt-1 border-t border-slate-100 first:border-t-0 first:pt-0">
-                          {playlistSectionLabel(groupVideos[0], slot, language)}
+                          {group.label}
                         </div>
                       )}
                       <div className="space-y-2">
-                        {groupVideos.map((video) => {
+                        {group.videos.map((video) => {
                           const progress = videoProgressMap.get(video.id);
                           const isSelected = selectedVideo?.id === video.id;
                           const videoTitle = getText(video.title, video.title_ar);
