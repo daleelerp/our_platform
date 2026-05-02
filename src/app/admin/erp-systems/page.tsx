@@ -58,6 +58,7 @@ export default function AdminErpSystemsPage() {
               searchField: "name",
             },
           },
+          /* Salary Range — commented out per product request (tooltip + field). Re-enable by uncommenting.
           { 
             key: "avg_salary_range", 
             label: "Salary Range", 
@@ -65,9 +66,10 @@ export default function AdminErpSystemsPage() {
             scraper: {
               enabled: true,
               type: "salary",
-              searchField: "name", // Use ERP system name as search query
+              searchField: "name",
             },
           },
+          */
           { 
             key: "job_demand_level", 
             label: "Demand Level", 

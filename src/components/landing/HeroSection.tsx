@@ -42,12 +42,7 @@ export function HeroSection({ liveErpNames, pendingErpNames }: Props) {
     return `${head}${rest} — ${t("hero.stillRollingOut")}`;
   }, [pendingErpNames, language, t]);
 
-  const floatingBadgeText =
-    liveLabel != null && liveLabel.length > 0
-      ? language === "ar"
-        ? `🎯 نبدأ بـ ${liveLabel}`
-        : `🎯 Starting with ${liveLabel}`
-      : t("hero.floatingBadge");
+  const floatingCtaText = t("hero.floatingCta");
 
   return (
     <section className="relative overflow-hidden bg-white">
@@ -308,8 +303,8 @@ export function HeroSection({ liveErpNames, pendingErpNames }: Props) {
             </div>
 
             {/* Floating elements */}
-            <div className="absolute -top-4 -right-4 bg-amber-500 text-white px-4 py-2 rounded-lg font-semibold text-sm shadow-lg animate-bounce max-w-[min(90vw,280px)] text-center leading-snug">
-              {floatingBadgeText}
+            <div className="absolute -top-4 -right-4 bg-amber-500 text-white px-4 py-2.5 rounded-lg font-semibold text-sm shadow-lg animate-bounce text-center leading-snug whitespace-nowrap">
+              {floatingCtaText}
             </div>
           </div>
         </div>
