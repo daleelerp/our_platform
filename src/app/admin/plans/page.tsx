@@ -799,8 +799,16 @@ export default function PlansPage() {
           <div className="border-t border-slate-200 pt-4">
             <h3 className="text-sm font-semibold text-slate-700 mb-3">ERP Provider Association</h3>
             <p className="text-xs text-slate-500 mb-3">
-              Select which ERP provider(s) this plan is associated with. This helps filter plans on
-              the pricing page. Leave empty to show for all providers.
+              Select which ERP provider(s) this plan is associated with. This filters plans on the
+              pricing page. Leave empty for plans shown for every provider.
+              <span className="block mt-2 text-slate-600 font-medium">
+                للصفحة الرئيسية وبطاقات ERP: يجب أن تكون الخطة <strong>نشطة (Active)</strong> حتى يقرأها
+                الموقع العام — سياسة الأمان في قاعدة البيانات لا تنشر الخطط المعطلة.
+              </span>
+              <span className="block mt-1">
+                Homepage / ERP cards: the plan must be <strong>Active</strong> — inactive plans are not
+                visible to anonymous visitors (Supabase RLS), so ERP tiles stay “Coming soon”.
+              </span>
             </p>
             <div className="space-y-2">
               {erpProviders.map((provider) => (
@@ -838,6 +846,20 @@ export default function PlansPage() {
                 </p>
               )}
             </div>
+
+            {(formData.erp_provider_ids?.length ?? 0) > 0 &&
+              formData.is_active === false && (
+                <div className="mt-4 rounded-lg border border-amber-400 bg-amber-50 px-3 py-2.5 text-xs text-amber-950">
+                  <strong className="block mb-1">⚠️ لم يُفعّل زوار الموقع هذه الخطة بعد</strong>
+                  لديك مزوّد ERP محدد لكن خانة «Active» غير مفعّلة. الصفحة الرئيسية وصفحة الأسعار تقرأ
+                  فقط الخطط <strong>النشطة</strong> — فعّل Active ثم احفظ ليظهر الـ ERP كـ «متاح» على الموقع.
+                  <span className="block mt-2 text-amber-900/90">
+                    You picked ERP provider(s) but left <strong>Active</strong> off. Public pages only
+                    load active plans (database rule). Turn <strong>Active</strong> on and save — then SAP /
+                    Oracle tiles update automatically.
+                  </span>
+                </div>
+              )}
           </div>
 
           {/* Other Settings */}
@@ -862,14 +884,23 @@ export default function PlansPage() {
                 </p>
               </div>
 
-              <div className="flex items-center gap-2 pt-6">
-                <input
-                  type="checkbox"
-                  checked={formData.is_active ?? true}
-                  onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                  className="h-4 w-4 text-teal-600 border-slate-300 rounded"
-                />
-                <label className="text-xs font-medium text-slate-600">Active</label>
+              <div className="flex flex-col gap-1 pt-4 md:col-span-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="plan-active"
+                    checked={formData.is_active ?? true}
+                    onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                    className="h-4 w-4 text-teal-600 border-slate-300 rounded"
+                  />
+                  <label htmlFor="plan-active" className="text-xs font-medium text-slate-600">
+                    Active (مطلوب للنشر العام)
+                  </label>
+                </div>
+                <p className="text-[11px] text-slate-500 pl-6 max-w-md">
+                  Off = plan hidden from guests; homepage ERP cards ignore it. On = visible on site + can
+                  unlock ERP provider tiles.
+                </p>
               </div>
 
               <div className="flex items-center gap-2 pt-6">
