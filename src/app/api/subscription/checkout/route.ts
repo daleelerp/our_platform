@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { getKashierApiBaseUrl } from "@/lib/kashier";
+import { recordDiscountUsageAfterSuccessfulPayment } from "@/lib/discountUsage";
 import { createClient as createServiceRoleClient } from "@supabase/supabase-js";
 
 // Kashier Payment Sessions API configuration
@@ -321,6 +322,7 @@ export async function POST(request: NextRequest) {
             discountApplied && discountApplied.type === "percentage"
               ? discountApplied.value
               : null,
+          applied_discount_id: discountApplied?.id ?? null,
         })
         .select()
         .single();
@@ -333,17 +335,8 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      if (discountApplied) {
-        await adminSupabase.from("user_discount_usage").insert({
-          user_id: user.id,
-          discount_id: discountApplied.id,
-          subscription_id: subscription.id,
-        });
-
-        await adminSupabase
-          .from("subscription_discounts")
-          .update({ current_uses: discountApplied.current_uses + 1 })
-          .eq("id", discountApplied.id);
+      if (discountApplied && subscription) {
+        await recordDiscountUsageAfterSuccessfulPayment(adminSupabase, subscription);
       }
 
       return NextResponse.json({
@@ -461,6 +454,7 @@ export async function POST(request: NextRequest) {
           discountApplied && discountApplied.type === "percentage"
             ? discountApplied.value
             : null,
+        applied_discount_id: discountApplied?.id ?? null,
       })
       .select()
       .single();
@@ -473,8 +467,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // NOTE: Don't record discount usage on pending checkout.
-    // Usage should only count after a successful payment activation.
+    // Discount usage is recorded in webhook / verify after payment succeeds (see record_discount_usage_after_payment).
 
     return NextResponse.json({
       success: true,

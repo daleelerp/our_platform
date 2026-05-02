@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { extractKashierPaymentStatus, getKashierApiBaseUrl } from "@/lib/kashier";
+import { recordDiscountUsageAfterSuccessfulPayment } from "@/lib/discountUsage";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -231,6 +232,8 @@ async function finalizePaidSubscriptionInDb(params: {
       provider_transaction_id: sessionId,
       provider_response: txPayload,
     });
+
+    await recordDiscountUsageAfterSuccessfulPayment(supabase, subscription);
 
     console.log(`✅ Subscription(s) for session ${sessionId} finalized as paid`);
   }
