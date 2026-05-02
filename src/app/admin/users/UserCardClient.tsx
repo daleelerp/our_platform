@@ -237,7 +237,7 @@ export function UserCardClient({ userId, userProfile }: Props) {
         {activityLogs && activityLogs.length > 0 && (
           <div>
             <h4 className="font-semibold text-slate-900 mb-3">
-              Recent Activity ({activityLogs.length})
+              Recent platform events ({activityLogs.length})
             </h4>
             <div className="bg-slate-50 rounded-lg p-4 max-h-64 overflow-y-auto">
               <div className="space-y-2 text-sm">
@@ -262,6 +262,95 @@ export function UserCardClient({ userId, userProfile }: Props) {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        )}
+
+        {payments && payments.length > 0 && (
+          <div>
+            <h4 className="font-semibold text-slate-900 mb-3">
+              Payments ({payments.length})
+            </h4>
+            <div className="space-y-2">
+              {payments.map((p: any) => (
+                <div key={p.id} className="bg-slate-50 rounded-lg p-3 text-sm flex flex-wrap justify-between gap-2">
+                  <span className="font-medium text-slate-900">{p.status || "—"}</span>
+                  <span className="text-slate-600">
+                    {p.amount_egp != null
+                      ? `${p.amount_egp} ${p.currency || "EGP"}`
+                      : "—"}
+                  </span>
+                  <span className="text-slate-500 text-xs">
+                    {p.created_at ? new Date(p.created_at).toLocaleString() : ""}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {sessions && sessions.length > 0 && (
+          <div>
+            <h4 className="font-semibold text-slate-900 mb-3">
+              Recent sessions ({sessions.length})
+            </h4>
+            <div className="bg-slate-50 rounded-lg p-4 text-sm space-y-2 max-h-48 overflow-y-auto">
+              {sessions.map((sess: any) => (
+                <div key={sess.id} className="flex justify-between gap-4 border-b border-slate-200 pb-2 last:border-0">
+                  <span className="text-slate-700">{sess.device_type || sess.user_agent || "Session"}</span>
+                  <span className="text-slate-500 text-xs whitespace-nowrap">
+                    {sess.last_active_at
+                      ? new Date(sess.last_active_at).toLocaleString()
+                      : "—"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {quizAttempts && quizAttempts.length > 0 && (
+          <div>
+            <h4 className="font-semibold text-slate-900 mb-3">
+              Recent quiz attempts ({quizAttempts.length})
+            </h4>
+            <div className="bg-slate-50 rounded-lg p-4 text-sm space-y-2 max-h-48 overflow-y-auto">
+              {quizAttempts.map((q: any) => (
+                <div key={q.id} className="flex justify-between gap-2">
+                  <span>
+                    Score {q.score != null ? `${q.score}%` : "—"}
+                    {q.passed != null && (
+                      <span className={q.passed ? " text-green-700" : " text-red-700"}>
+                        {" "}
+                        ({q.passed ? "passed" : "not passed"})
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-slate-500 text-xs">
+                    {q.completed_at ? new Date(q.completed_at).toLocaleString() : "—"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {videoProgress && videoProgress.length > 0 && (
+          <div>
+            <h4 className="font-semibold text-slate-900 mb-3">
+              Recent video activity ({videoProgress.length})
+            </h4>
+            <div className="bg-slate-50 rounded-lg p-4 text-sm space-y-2 max-h-48 overflow-y-auto">
+              {videoProgress.map((v: any) => (
+                <div key={v.id} className="flex justify-between gap-2">
+                  <span className="text-slate-700 truncate">
+                    Progress {v.progress_percentage != null ? `${Math.round(v.progress_percentage)}%` : "—"}
+                  </span>
+                  <span className="text-slate-500 text-xs whitespace-nowrap">
+                    {v.last_watched_at ? new Date(v.last_watched_at).toLocaleString() : "—"}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
         )}

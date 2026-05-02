@@ -636,30 +636,40 @@ export function OnboardingForm({
               <label className="block text-sm font-medium text-slate-700 mb-2">
                 {language === "ar" ? "مزود ERP *" : "ERP Provider *"}
               </label>
-              <div className="mb-3 p-2 bg-amber-50 border border-amber-200 rounded-lg">
-                <p className="text-xs text-amber-800">
-                  {language === "ar" 
-                    ? "⚠️ حالياً، أدوات Oracle فقط متاحة" 
-                    : "⚠️ Currently, only Oracle tools are available"}
-                </p>
-              </div>
+              {(options.erpProviderIdsWithOfferings?.length ?? 0) > 0 && (
+                <div className="mb-3 p-2 bg-emerald-50 border border-emerald-200 rounded-lg">
+                  <p className="text-xs text-emerald-900">
+                    {language === "ar"
+                      ? "المسارات أو خطط اشتراك نشطة على Daleel للمزودين الذين يظهر لهم شعار «على المنصة»."
+                      : 'Learning paths and/or subscription plans are live on Daleel for providers tagged “On Daleel”. Others may appear without paths yet—use “I explore” if needed.'}
+                  </p>
+                </div>
+              )}
               <div className="grid grid-cols-3 gap-2">
-                {(options.erpProviders || []).map((provider) => (
+                {(options.erpProviders || []).map((provider) => {
+                  const hasOffering = options.erpProviderIdsWithOfferings?.includes(provider.id);
+                  return (
                   <button
                     key={provider.id}
                     type="button"
                     onClick={() => setFormData({ ...formData, erp_provider: provider.id, erp_tool: "" })}
-                    className={`p-3 rounded-xl border text-center transition-all ${
+                    className={`p-3 rounded-xl border text-center transition-all relative ${
                       formData.erp_provider === provider.id
                         ? "border-emerald-500 bg-emerald-50 ring-1 ring-emerald-500/30"
                         : "border-slate-200 hover:border-slate-300"
                     }`}
                   >
+                    {hasOffering && (
+                      <span className="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 rounded-full bg-emerald-600 text-[9px] font-bold text-white uppercase tracking-wide">
+                        {language === "ar" ? "على المنصة" : "On Daleel"}
+                      </span>
+                    )}
                     <span className="text-xs text-slate-700 font-medium line-clamp-2">
                       {language === "ar" && provider.name_ar ? provider.name_ar : provider.name}
                     </span>
                   </button>
-                ))}
+                  );
+                })}
               </div>
             </div>
 

@@ -2,6 +2,7 @@ import { getAdminSupabaseClient } from "@/utils/admin-supabase";
 import { getAdminSession } from "@/utils/admin-auth";
 import { redirect } from "next/navigation";
 import UsersProgressClient from "./UsersProgressClient";
+import { buildAdminUserSummaries } from "@/utils/admin-user-summary";
 
 export default async function UsersPage() {
   const adminSession = await getAdminSession();
@@ -16,6 +17,9 @@ export default async function UsersPage() {
     .from("user_profiles")
     .select("*")
     .order("created_at", { ascending: false });
+
+  const userSummaries =
+    users && users.length > 0 ? await buildAdminUserSummaries(supabase, users) : [];
 
   // Fetch user counts for stats
   const [
@@ -64,7 +68,7 @@ export default async function UsersPage() {
       )}
 
       {/* Users Progress Dashboard and List */}
-      <UsersProgressClient users={users || []} />
+      <UsersProgressClient users={users || []} summaries={userSummaries} />
     </div>
   );
 }

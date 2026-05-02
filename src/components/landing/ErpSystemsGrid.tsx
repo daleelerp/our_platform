@@ -5,9 +5,23 @@ import type { ErpSystem } from "@/types/onboarding";
 
 type ErpSystemsGridProps = {
   systems: ErpSystem[];
+  /** Shown in “Current Focus” pill — derived from DB when omitted */
+  liveSystemNames?: string[];
+  pendingSystemNames?: string[];
 };
 
-export function ErpSystemsGrid({ systems }: ErpSystemsGridProps) {
+function joinFocus(names: string[], max: number) {
+  const u = [...new Set(names.filter(Boolean))];
+  if (u.length === 0) return "";
+  if (u.length <= max) return u.join(", ");
+  return `${u.slice(0, max).join(", ")}…`;
+}
+
+export function ErpSystemsGrid({
+  systems,
+  liveSystemNames,
+  pendingSystemNames,
+}: ErpSystemsGridProps) {
   const { t, language } = useTranslation();
 
   const demandColors: Record<string, string> = {
@@ -28,6 +42,25 @@ export function ErpSystemsGrid({ systems }: ErpSystemsGridProps) {
   };
 
   // Parse salary range string into structured data
+  /** Prefer numeric columns from DB when set (same card layout as Oracle string format). */
+  const salaryLevelsFromColumns = (system: ErpSystem) => {
+    const fmt = (min: number | null | undefined, max: number | null | undefined) => {
+      if (min == null || max == null) return null;
+      return `${min.toLocaleString()}-${max.toLocaleString()} EGP`;
+    };
+    const beginner = fmt(system.salary_beginner_min, system.salary_beginner_max);
+    const intermediate = fmt(system.salary_intermediate_min, system.salary_intermediate_max);
+    const senior = fmt(system.salary_senior_min, system.salary_senior_max);
+    const expert = fmt(system.salary_expert_min, system.salary_expert_max);
+    if (!beginner || !intermediate || !senior || !expert) return null;
+    return {
+      beginner: { label: "Beginner", range: beginner },
+      intermediate: { label: "Intermediate", range: intermediate },
+      senior: { label: "Senior", range: senior },
+      expert: { label: "Expert", range: expert },
+    };
+  };
+
   const parseSalaryRange = (salaryString: string | null) => {
     if (!salaryString) return null;
     
@@ -77,13 +110,19 @@ export function ErpSystemsGrid({ systems }: ErpSystemsGridProps) {
           <div className="flex flex-wrap items-center justify-center gap-4 max-w-2xl mx-auto">
             <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-green-50 border border-green-200">
               <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-              <span className="text-sm font-medium text-green-700">
-                {t("erpGrid.currentFocus")}: Oracle ERP
+              <span className="text-sm font-medium text-green-700 text-center">
+                {t("erpGrid.currentFocus")}:{" "}
+                {liveSystemNames?.length
+                  ? joinFocus(liveSystemNames, 4)
+                  : "Oracle ERP"}
               </span>
             </div>
             <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-100 border border-slate-200">
-              <span className="text-sm text-slate-500">
-                {t("erpGrid.expandingTo")}: SAP, Dynamics, Salesforce...
+              <span className="text-sm text-slate-500 text-center">
+                {t("erpGrid.expandingTo")}
+                {pendingSystemNames?.length
+                  ? `: ${joinFocus(pendingSystemNames, 6)}`
+                  : ": SAP, Dynamics, Salesforce..."}
               </span>
             </div>
           </div>
@@ -147,8 +186,10 @@ export function ErpSystemsGrid({ systems }: ErpSystemsGridProps) {
                 )}
 
                 {/* Salary range */}
-                {system.avg_salary_range && (() => {
-                  const salaryLevels = parseSalaryRange(system.avg_salary_range);
+                {(system.avg_salary_range || salaryLevelsFromColumns(system)) && (() => {
+                  const salaryLevels =
+                    salaryLevelsFromColumns(system) ||
+                    parseSalaryRange(system.avg_salary_range);
                   
                   if (salaryLevels) {
                     const levelColors: Record<string, { bg: string; border: string; text: string; labelText: string }> = {

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { UsersProgressDashboard } from "./UsersProgressDashboard";
 import UsersListClient from "./UsersListClient";
+import type { AdminUserSummary } from "@/utils/admin-user-summary";
 
 type UserProfile = {
   id: string;
@@ -13,13 +14,14 @@ type UserProfile = {
 
 type Props = {
   users: UserProfile[];
+  summaries: AdminUserSummary[];
 };
 
-export default function UsersProgressClient({ users }: Props) {
+export default function UsersProgressClient({ users, summaries }: Props) {
   const [progressData, setProgressData] = useState<any[]>([]);
   const [teamStats, setTeamStats] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"progress" | "list">("progress");
+  const [activeTab, setActiveTab] = useState<"progress" | "list">("list");
 
   useEffect(() => {
     loadProgressData();
@@ -73,7 +75,7 @@ export default function UsersProgressClient({ users }: Props) {
               : "text-slate-600 hover:bg-slate-100"
           }`}
         >
-          User List
+          Directory &amp; details
         </button>
       </div>
 
@@ -81,7 +83,7 @@ export default function UsersProgressClient({ users }: Props) {
       {activeTab === "progress" ? (
         <UsersProgressDashboard users={progressData} teams={teamStats} />
       ) : (
-        <UsersListClient users={users} />
+        <UsersListClient users={users} summaries={summaries} />
       )}
     </div>
   );

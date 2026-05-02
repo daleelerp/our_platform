@@ -3,8 +3,18 @@
 import { useTranslation } from "@/hooks/useTranslation";
 import { LoginButton } from "../auth/LoginButton";
 
-export function HeroSection() {
+type Props = {
+  /** ERP systems that currently have learning paths or subscription plans on Daleel */
+  liveErpNames?: string[];
+};
+
+export function HeroSection({ liveErpNames }: Props) {
   const { t, language } = useTranslation();
+
+  const liveLabel =
+    liveErpNames && liveErpNames.length > 0
+      ? [...new Set(liveErpNames)].slice(0, 3).join(" · ")
+      : null;
 
   return (
     <section className="relative overflow-hidden bg-white">
@@ -52,7 +62,9 @@ export function HeroSection() {
               <span className="text-slate-500">{t("hero.startingWith")}</span>
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-red-50 to-orange-50 border border-red-200">
                 <span className="text-lg">🔴</span>
-                <span className="font-semibold text-red-700">Oracle ERP</span>
+                <span className="font-semibold text-red-700">
+                  {liveLabel ?? "Oracle ERP"}
+                </span>
               </div>
               <span className="text-slate-400">•</span>
               <span className="text-slate-500 text-xs sm:text-sm">{t("hero.comingSoonSystems")}</span>

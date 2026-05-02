@@ -110,6 +110,15 @@ export type ErpSystem = {
   learning_difficulty: string | null;
   certification_available: boolean;
   primary_industries: string[] | null;
+  /** Optional MENA salary bands (EGP / month) — see docs/sql/add_salary_fields_to_erp_systems.sql */
+  salary_beginner_min?: number | null;
+  salary_beginner_max?: number | null;
+  salary_intermediate_min?: number | null;
+  salary_intermediate_max?: number | null;
+  salary_senior_min?: number | null;
+  salary_senior_max?: number | null;
+  salary_expert_min?: number | null;
+  salary_expert_max?: number | null;
 };
 
 export type StudentStatus = {
@@ -161,5 +170,7 @@ export type OnboardingOptions = {
   studentStatuses: StudentStatus[];
   erpProviders: ErpProvider[];
   erpProviderTools: ErpProviderTool[];
+  /** ERP providers that have a published path and/or an active subscription plan on Daleel */
+  erpProviderIdsWithOfferings?: string[];
 };
 

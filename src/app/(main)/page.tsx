@@ -1,6 +1,11 @@
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
+import {
+  fetchErpOfferingContext,
+  erpSystemHasPublicOffering,
+} from "@/utils/erpOfferings";
+import type { ErpProviderRow } from "@/utils/erpOfferings";
 import { HeroSection } from "@/components/landing/HeroSection";
 import { CurrentStatusBanner } from "@/components/landing/CurrentStatusBanner";
 import { ErpSystemsGrid } from "@/components/landing/ErpSystemsGrid";
@@ -17,8 +22,10 @@ export const revalidate = 0;
 
 export default async function HomePage() {
   let user = null;
-  let erpSystems = null;
+  let erpSystems: import("@/types/onboarding").ErpSystem[] | null = null;
   let learningPaths = null;
+  let liveErpNames: string[] = [];
+  let pendingErpNames: string[] = [];
 
   try {
     const cookieStore = await cookies();
@@ -36,17 +43,19 @@ export default async function HomePage() {
       redirect("/dashboard");
     }
 
-    // Fetch ERP systems for the grid
-    const { data: erpSystemsData } = await supabase
-      .from("erp_systems")
-      .select("*")
-      .order("priority_order");
-    erpSystems = erpSystemsData;
+    const offeringCtx = await fetchErpOfferingContext(supabase);
 
-    // Fetch published learning paths
-    const { data: learningPathsData } = await supabase
-      .from("learning_paths")
-      .select(`
+    const [
+      { data: erpSystemsData },
+      { data: erpProvidersData },
+      { data: learningPathsData },
+    ] = await Promise.all([
+      supabase.from("erp_systems").select("*").order("priority_order"),
+      supabase.from("erp_providers").select("id, slug, name").eq("is_active", true),
+      supabase
+        .from("learning_paths")
+        .select(
+          `
         id,
         title,
         title_ar,
@@ -57,8 +66,22 @@ export default async function HomePage() {
         estimated_duration_hours,
         difficulty_level,
         career_outcomes
-      `)
-      .eq("is_published", true);
+      `
+        )
+        .eq("is_published", true),
+    ]);
+
+    const providers = (erpProvidersData || []) as ErpProviderRow[];
+    const rawSystems = erpSystemsData || [];
+
+    erpSystems = rawSystems.map((sys) => ({
+      ...sys,
+      is_active: erpSystemHasPublicOffering(sys, providers, offeringCtx),
+    }));
+
+    liveErpNames = [...new Set(erpSystems.filter((s) => s.is_active).map((s) => s.name))];
+    pendingErpNames = [...new Set(erpSystems.filter((s) => !s.is_active).map((s) => s.name))];
+
     learningPaths = learningPathsData;
   } catch (error: any) {
     // Let Next.js handle control-flow errors (redirect, dynamic rendering, etc.)
@@ -107,10 +130,14 @@ export default async function HomePage() {
 
   return (
     <main className="min-h-screen">
-      <HeroSection />
-      <CurrentStatusBanner />
+      <HeroSection liveErpNames={liveErpNames} />
+      <CurrentStatusBanner liveSystemNames={liveErpNames} pendingSystemNames={pendingErpNames} />
       <HowItWorks />
-      <ErpSystemsGrid systems={erpSystems || []} />
+      <ErpSystemsGrid
+        systems={erpSystems || []}
+        liveSystemNames={liveErpNames}
+        pendingSystemNames={pendingErpNames}
+      />
       <OraclePathsPreview paths={sortedPaths} />
       <CareerResourcesSection />
       <PricingSection />

@@ -36,12 +36,23 @@ type Props = {
 export function UsersProgressDashboard({ users, teams }: Props) {
   const overallStats = useMemo(() => {
     const totalUsers = users.length;
+    if (totalUsers === 0) {
+      return {
+        totalUsers: 0,
+        activeUsers: 0,
+        avgProgress: 0,
+        totalWatchTime: 0,
+        totalVideos: 0,
+        totalQuizzes: 0,
+        avgEngagement: 0,
+      };
+    }
     const activeUsers = users.filter((u) => u.enrollments > 0).length;
-    const avgProgress = users.reduce((sum, u) => sum + u.avgProgress, 0) / totalUsers || 0;
+    const avgProgress = users.reduce((sum, u) => sum + u.avgProgress, 0) / totalUsers;
     const totalWatchTime = users.reduce((sum, u) => sum + u.totalWatchTime, 0);
     const totalVideos = users.reduce((sum, u) => sum + u.videosCompleted, 0);
     const totalQuizzes = users.reduce((sum, u) => sum + u.quizzesPassed, 0);
-    const avgEngagement = users.reduce((sum, u) => sum + u.engagementScore, 0) / totalUsers || 0;
+    const avgEngagement = users.reduce((sum, u) => sum + u.engagementScore, 0) / totalUsers;
 
     return {
       totalUsers,
@@ -58,6 +69,12 @@ export function UsersProgressDashboard({ users, teams }: Props) {
 
   return (
     <div className="space-y-6">
+      {users.length === 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-600 text-sm">
+          No learner progress data yet. When users enroll in paths and learning analytics are
+          recorded, rankings and team stats will appear here.
+        </div>
+      )}
       {/* Overall Statistics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl p-6 shadow-sm">
