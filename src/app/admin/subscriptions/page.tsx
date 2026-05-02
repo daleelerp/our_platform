@@ -40,17 +40,17 @@ export default function AdminSubscriptionsPage() {
           // { key: "billing_cycle", label: "Billing Cycle", type: "text" },
           { key: "price_locked_egp", label: "Price (EGP)", type: "number" },
           { key: "payment_method", label: "Payment Method", type: "text" },
-          { key: "payment_provider", label: "Payment Provider", type: "text" },
+          // { key: "payment_provider", label: "Payment Provider", type: "text" },
           {
             key: "discount_applied",
             label: "Discount (%)",
             type: "number",
             readOnly: true,
           },
-          { key: "started_at", label: "Started At", type: "text" },
-          { key: "current_period_start", label: "Period Start", type: "text" },
-          { key: "current_period_end", label: "Period End", type: "text" },
-          { key: "is_founders_club", label: "Founders Club", type: "checkbox" },
+          { key: "started_at", label: "Started At", type: "datetime" },
+          // { key: "current_period_start", label: "Period Start", type: "datetime" },
+          { key: "current_period_end", label: "Period End", type: "datetime" },
+          // { key: "is_founders_club", label: "Founders Club", type: "checkbox" },
         ]}
       />
     </div>

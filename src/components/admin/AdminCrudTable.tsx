@@ -5,10 +5,38 @@ import toast from "react-hot-toast";
 import { ScraperIcon } from "./ScraperIcon";
 import { Modal } from "./Modal";
 
+/** Readable table cell for ISO / Postgres timestamps. */
+function formatAdminDatetime(iso: string | null | undefined): string {
+  if (iso == null || iso === "") return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return String(iso);
+  return d.toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+/** Value for `<input type="datetime-local" />` in the browser local timezone. */
+function isoToDatetimeLocalInput(iso: string | null | undefined): string {
+  if (iso == null || iso === "") return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function datetimeLocalInputToIso(localVal: string): string | null {
+  const t = localVal?.trim();
+  if (!t) return null;
+  const d = new Date(t);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
+
 type Column = {
   key: string;
   label: string;
-  type?: "text" | "select" | "checkbox" | "number" | "textarea" | "array";
+  type?: "text" | "select" | "checkbox" | "number" | "textarea" | "array" | "datetime";
   options?: { value: string; label: string }[];
   readOnly?: boolean;
   hidden?: boolean;
@@ -212,6 +240,15 @@ export function AdminCrudTable({
         if (col.type === "number" && cleanedData[col.key] === "") {
           cleanedData[col.key] = null;
         }
+        if (col.type === "datetime") {
+          const v = cleanedData[col.key];
+          if (v === "" || v == null) {
+            cleanedData[col.key] = null;
+          } else if (typeof v === "string") {
+            const iso = datetimeLocalInputToIso(v);
+            cleanedData[col.key] = iso;
+          }
+        }
       });
 
       const persistKeys = new Set(
@@ -334,7 +371,11 @@ export function AdminCrudTable({
                 return visibleColumns.some((col) => {
                   const v = item[col.key];
                   if (v == null) return false;
-                  return String(v).toLowerCase().includes(lower);
+                  const searchable =
+                    col.type === "datetime"
+                      ? `${String(v)} ${formatAdminDatetime(String(v))}`
+                      : String(v);
+                  return searchable.toLowerCase().includes(lower);
                 });
               })
               .map((item) => (
@@ -357,6 +398,10 @@ export function AdminCrudTable({
                             ? `${Number(item[col.key]).toLocaleString('en-US')}%`
                             : Number(item[col.key]).toLocaleString('en-US')
                           : ""}
+                      </span>
+                    ) : col.type === "datetime" ? (
+                      <span className="text-slate-800 whitespace-nowrap" title={item[col.key] != null ? String(item[col.key]) : ""}>
+                        {item[col.key] != null ? formatAdminDatetime(String(item[col.key])) : ""}
                       </span>
                     ) : (
                       <span className="text-slate-800">
@@ -521,6 +566,15 @@ export function AdminCrudTable({
                         </div>
                       )}
                     </div>
+                  ) : col.type === "datetime" ? (
+                    <input
+                      type="datetime-local"
+                      value={isoToDatetimeLocalInput(String(formData[col.key] ?? ""))}
+                      onChange={(e) =>
+                        handleChange(col.key, e.target.value, "datetime")
+                      }
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                    />
                   ) : (
                     <div className="flex items-center gap-1">
                       <input
