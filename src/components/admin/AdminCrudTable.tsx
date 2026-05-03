@@ -78,6 +78,13 @@ type AdminCrudTableProps = {
   }>;
   /** When `token` increments, merges `patch` into the modal form (create flow only). */
   autoFillApply?: { token: number; patch: Record<string, unknown> } | null;
+  /**
+   * When opening the create modal, merges this partial object over `defaultValues`
+   * (e.g. next `priority_order` from loaded rows).
+   */
+  createDefaultsFromItems?: (
+    items: Record<string, unknown>[]
+  ) => Partial<Record<string, unknown>>;
 };
 
 export function AdminCrudTable({
@@ -93,6 +100,7 @@ export function AdminCrudTable({
   formHeaderSlot,
   afterColumnSlots,
   autoFillApply,
+  createDefaultsFromItems,
 }: AdminCrudTableProps) {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -153,10 +161,13 @@ export function AdminCrudTable({
 
   const startCreate = () => {
     setEditingItem(null);
-    setFormData(defaultValues);
+    const fromItems =
+      createDefaultsFromItems?.(items as Record<string, unknown>[]) ?? {};
+    const initial = { ...defaultValues, ...fromItems };
+    setFormData(initial);
     setIsCreating(true);
     if (onFormDataChange) {
-      Object.entries(defaultValues).forEach(([k, v]) => onFormDataChange(k, v));
+      Object.entries(initial).forEach(([k, v]) => onFormDataChange(k, v));
     }
   };
 

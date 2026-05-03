@@ -19,6 +19,14 @@ export default function AdminErpSystemsPage() {
         title="ERP Systems"
         description="Homepage ERP cards: turn Active on to show “Active now” + Explore paths; off = Coming soon. Marketing tiles read only this flag (not subscription plans)."
         orderBy="priority_order"
+        createDefaultsFromItems={(rows: Record<string, unknown>[]) => {
+          let max = 0;
+          for (const r of rows) {
+            const n = Number(r.priority_order);
+            if (Number.isFinite(n) && n > max) max = n;
+          }
+          return { priority_order: max + 1 };
+        }}
         defaultValues={{
           name: "",
           vendor: "",
@@ -28,7 +36,7 @@ export default function AdminErpSystemsPage() {
           market_share_mena: null,
           is_active: false,
           launch_date: null,
-          priority_order: 999,
+          priority_order: 1,
           avg_salary_range: "",
           job_demand_level: "",
           learning_difficulty: "",
