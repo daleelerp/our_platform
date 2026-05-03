@@ -42,7 +42,13 @@ export function ScraperIcon({
 
       if (res.ok && json.value !== undefined) {
         onScrapeComplete(json.value);
-        toast.success(`Found: ${json.value}`, { id: `scrape-${fieldKey}` });
+        const preview =
+          typeof json.value === "string"
+            ? json.value.replace(/\s+/g, " ").trim().slice(0, 120)
+            : String(json.value);
+        const suffix =
+          typeof json.value === "string" && json.value.length > 120 ? "…" : "";
+        toast.success(`Filled field: ${preview}${suffix}`, { id: `scrape-${fieldKey}` });
       } else {
         toast.error(json.error || "No data found", { id: `scrape-${fieldKey}` });
       }

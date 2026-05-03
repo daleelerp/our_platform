@@ -240,6 +240,11 @@ async function scrapeJobCount(searchQuery: string): Promise<number | null> {
   return null;
 }
 
+/** Bilingual form fields in admin use the `_ar` suffix for Arabic copies (e.g. description_ar). */
+function isArabicLocaleField(fieldKey: string): boolean {
+  return fieldKey.toLowerCase().endsWith("_ar");
+}
+
 /**
  * Scrape text content (descriptions, daily activities, etc.)
  * Returns text content based on the search query and field context
@@ -248,34 +253,53 @@ async function scrapeTextContent(searchQuery: string, fieldKey: string): Promise
   try {
     // This would integrate with AI APIs (OpenAI, Anthropic, etc.) or web scraping
     // For now, we'll use a mock implementation that can be replaced with real APIs
-    
-    // Determine what type of content to scrape based on field key
+
     const normalizedKey = fieldKey.toLowerCase();
-    const normalizedQuery = searchQuery.toLowerCase();
-    
+    const trimmedQuery = searchQuery.trim();
+    const displayQuery = trimmedQuery || "this topic";
+    const wantAr = isArabicLocaleField(fieldKey);
+
     if (normalizedKey.includes("description")) {
-      // Scrape job description or role description
-      // Mock implementation - replace with actual AI/web scraping
-      return `This role focuses on ${normalizedQuery} in ERP systems. Key responsibilities include implementation, configuration, and support of ERP modules.`;
+      // Applies to job roles, ERP systems, paths, etc. — keep wording product/skill neutral
+      if (wantAr) {
+        return (
+          `«${displayQuery}» في سياق أنظمة تخطيط موارد المؤسسات (ERP): التركيز على التنفيذ والإعداد والاختبار، ` +
+          `والدعم المستمر للوحدات والتكاملات ذات الصلة وفق احتياجات العمل.`
+        );
+      }
+      return (
+        `${displayQuery} in ERP contexts: typical focus areas include implementation, configuration, testing, ` +
+        `and ongoing support for related modules and integrations aligned with business needs.`
+      );
     }
-    
+
     if (normalizedKey.includes("daily_activities") || normalizedKey.includes("activities")) {
-      // Scrape daily activities as a list
-      // Mock implementation - replace with actual AI/web scraping
+      if (wantAr) {
+        const activitiesAr = [
+          `تحليل وإعداد متطلبات ووحدات ${displayQuery}`,
+          "التنسيق مع أصحاب المصلحة وفرق الاختبار",
+          "التحقق من إعدادات النظام وسيناريوهات الاختبار",
+          "تقديم الدعم الفني ومعالجة العيوب",
+          "توثيق العمليات ومواد التسليم",
+          "تدريب المستخدمين عند الحاجة",
+        ];
+        return activitiesAr.join("\n");
+      }
       const activities = [
-        `Analyze and configure ${normalizedQuery} modules`,
-        `Collaborate with stakeholders on requirements`,
-        `Test and validate system configurations`,
-        `Provide technical support and troubleshooting`,
-        `Document processes and procedures`,
-        `Train end users on system functionality`
+        `Analyze and configure requirements and ${displayQuery}-related modules`,
+        "Collaborate with stakeholders and testers",
+        "Test and validate system configurations",
+        "Provide technical support and troubleshooting",
+        "Document processes and handover materials",
+        "Train end users when needed",
       ];
       return activities.join("\n");
     }
-    
-    // Generic text scraping
-    // Mock implementation - replace with actual AI/web scraping
-    return `Content related to ${searchQuery}. This is a placeholder that should be replaced with actual scraping results.`;
+
+    if (wantAr) {
+      return `محتوى بالعربية متعلق بـ «${displayQuery}». يُستبدل هذا النص لاحقًا بنتائج جمع أو توليد فعلية.`;
+    }
+    return `Content related to ${displayQuery}. This placeholder should be replaced with actual scraping or generation results.`;
   } catch (error) {
     console.error("Error scraping text content:", error);
     return null;
