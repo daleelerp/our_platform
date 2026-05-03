@@ -43,6 +43,7 @@ export default function JobRolesPage() {
   const [templateRoles, setTemplateRoles] = useState<JobRoleRow[]>([]);
   const [templatesLoading, setTemplatesLoading] = useState(false);
   const [templateSelection, setTemplateSelection] = useState<string>("");
+  const [erpModulesLoading, setErpModulesLoading] = useState(false);
 
   useEffect(() => {
     const fetchErpSystems = async () => {
@@ -68,50 +69,30 @@ export default function JobRolesPage() {
     async (systemId: string) => {
       if (!systemId) {
         setErpModuleOptions([]);
+        setErpModulesLoading(false);
         return;
       }
 
+      setErpModulesLoading(true);
       try {
         const res = await fetch(
-          `/api/admin/data?table=erp_modules&filterColumn=erp_system_id&filterValue=${systemId}`
+          `/api/admin/data?table=erp_modules&filterColumn=erp_system_id&filterValue=${encodeURIComponent(
+            systemId
+          )}`
         );
         const json = await res.json();
 
         if (res.ok && json.data) {
-          if (json.data.length === 0) {
-            const allModulesRes = await fetch("/api/admin/data?table=erp_modules");
-            const allModulesJson = await allModulesRes.json();
-
-            if (allModulesJson.data && allModulesJson.data.length > 0) {
-              const options = allModulesJson.data.map(
-                (module: {
-                  id: string;
-                  name?: string;
-                  code?: string;
-                  erp_system_id?: string;
-                }) => {
-                  const systemName =
-                    erpSystemOptions.find((s) => s.value === module.erp_system_id)
-                      ?.label || "Unknown System";
-                  return {
-                    value: module.id,
-                    label: `${module.name || module.code || module.id} (${systemName})`,
-                  };
-                }
-              );
-              setErpModuleOptions(options);
-            } else {
-              setErpModuleOptions([]);
-            }
-          } else {
-            const options = json.data.map(
-              (module: { id: string; name?: string; code?: string }) => ({
-                value: module.id,
-                label: module.name || module.code || module.id,
-              })
-            );
-            setErpModuleOptions(options);
-          }
+          const rows = json.data as {
+            id: string;
+            name?: string;
+            code?: string;
+          }[];
+          const options = rows.map((module) => ({
+            value: module.id,
+            label: module.name || module.code || module.id,
+          }));
+          setErpModuleOptions(options);
         } else {
           setErpModuleOptions([]);
           if (json.error) {
@@ -121,9 +102,11 @@ export default function JobRolesPage() {
       } catch {
         setErpModuleOptions([]);
         toast.error("Failed to load ERP modules. Please try again.");
+      } finally {
+        setErpModulesLoading(false);
       }
     },
-    [erpSystemOptions]
+    []
   );
 
   useEffect(() => {
@@ -188,8 +171,34 @@ export default function JobRolesPage() {
       <AdminCrudTable
         table="job_roles"
         title="Job Roles"
-        description="Manage job roles that learning paths prepare learners for. Pick ERP system and role type, then optionally load an existing position to auto-fill details."
+        description="The ERP Module list comes from Admin → ERP Modules (database table erp_modules). It does not change when you switch Technical vs Functional — role type only describes the job. If SAP modules are empty, run the SQL seed docs/sql/migrations/seed_sap_s4hana_erp_modules.sql or add modules manually."
         orderBy="title"
+        formHeaderSlot={() => (
+          <div className="rounded-lg border border-sky-200 bg-sky-50/90 px-3 py-2.5 text-xs text-slate-700 space-y-1.5 mb-1">
+            <p>
+              <span className="font-semibold text-slate-800">How this form works:</span>{" "}
+              Choose an ERP system first; then pick{" "}
+              <strong className="font-medium">Technical</strong> or{" "}
+              <strong className="font-medium">Functional</strong> for the{" "}
+              <em>job role</em>. The module dropdown loads rows linked to that ERP in{" "}
+              <Link
+                href="/admin/modules"
+                className="text-teal-700 underline font-medium hover:text-teal-800"
+              >
+                ERP Modules
+              </Link>
+              — not from role type.
+            </p>
+            <p className="text-slate-600">
+              “Copy from existing position” only lists job roles already saved for this ERP +
+              role type. SAP defaults for FI/MM/ABAP/Basis are provided via the SQL migration{" "}
+              <code className="rounded bg-white/80 px-1 py-0.5 text-[11px]">
+                docs/sql/migrations/seed_sap_s4hana_erp_modules.sql
+              </code>
+              .
+            </p>
+          </div>
+        )}
         defaultValues={{
           title: "",
           title_ar: "",
@@ -293,91 +302,122 @@ export default function JobRolesPage() {
         dynamicColumnOptions={{
           erp_module_id: erpModuleOptions,
         }}
-        afterColumnSlot={{
-          afterKey: "role_category",
-          render: ({ formData, setFormData, onFormDataChange, editingItemId }) => {
-            const options = templateRoles.filter((r) => r.id !== editingItemId);
-            return (
-              <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3 space-y-2">
-                <label className="block text-xs font-medium text-slate-700">
-                  Copy from existing position
-                  <span className="font-normal text-slate-500 ml-1">
-                    (optional — fills titles, descriptions, activities, module, experience)
-                  </span>
-                </label>
-                <select
-                  value={templateSelection}
-                  onChange={(e) => {
-                    const id = e.target.value;
-                    setTemplateSelection(id);
-                    if (!id) return;
-                    const role = options.find((r) => r.id === id);
-                    if (!role) return;
+        afterColumnSlots={[
+          {
+            afterKey: "role_category",
+            render: ({ formData, setFormData, onFormDataChange, editingItemId }) => {
+              const options = templateRoles.filter((r) => r.id !== editingItemId);
+              return (
+                <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3 space-y-2">
+                  <label className="block text-xs font-medium text-slate-700">
+                    Copy from existing position
+                    <span className="font-normal text-slate-500 ml-1">
+                      (optional — fills titles, descriptions, activities, module, experience)
+                    </span>
+                  </label>
+                  <select
+                    value={templateSelection}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      setTemplateSelection(id);
+                      if (!id) return;
+                      const role = options.find((r) => r.id === id);
+                      if (!role) return;
 
-                    setFormData((prev) => ({
-                      ...prev,
-                      title: role.title ?? "",
-                      title_ar: role.title_ar ?? "",
-                      description: role.description ?? "",
-                      description_ar: role.description_ar ?? "",
-                      role_category:
-                        (role.role_category as string) || prev.role_category || "",
-                      erp_system_id:
-                        (role.erp_system_id as string) || prev.erp_system_id || "",
-                      erp_module_id: role.erp_module_id
-                        ? String(role.erp_module_id)
-                        : "",
-                      min_years_experience:
-                        role.min_years_experience ?? prev.min_years_experience ?? 0,
-                      typical_years_to_role:
-                        role.typical_years_to_role ??
-                        prev.typical_years_to_role ??
-                        null,
-                      daily_activities: jsonbActivitiesToLines(role.daily_activities),
-                      daily_activities_ar: jsonbActivitiesToLines(
-                        role.daily_activities_ar
-                      ),
-                      is_active: role.is_active !== false,
-                    }));
+                      setFormData((prev) => ({
+                        ...prev,
+                        title: role.title ?? "",
+                        title_ar: role.title_ar ?? "",
+                        description: role.description ?? "",
+                        description_ar: role.description_ar ?? "",
+                        role_category:
+                          (role.role_category as string) || prev.role_category || "",
+                        erp_system_id:
+                          (role.erp_system_id as string) || prev.erp_system_id || "",
+                        erp_module_id: role.erp_module_id
+                          ? String(role.erp_module_id)
+                          : "",
+                        min_years_experience:
+                          role.min_years_experience ?? prev.min_years_experience ?? 0,
+                        typical_years_to_role:
+                          role.typical_years_to_role ??
+                          prev.typical_years_to_role ??
+                          null,
+                        daily_activities: jsonbActivitiesToLines(role.daily_activities),
+                        daily_activities_ar: jsonbActivitiesToLines(
+                          role.daily_activities_ar
+                        ),
+                        is_active: role.is_active !== false,
+                      }));
 
-                    if (role.erp_system_id && onFormDataChange) {
-                      onFormDataChange("erp_system_id", role.erp_system_id);
+                      if (role.erp_system_id && onFormDataChange) {
+                        onFormDataChange("erp_system_id", role.erp_system_id);
+                      }
+                      if (onFormDataChange) {
+                        onFormDataChange(
+                          "erp_module_id",
+                          role.erp_module_id ? String(role.erp_module_id) : ""
+                        );
+                      }
+
+                      toast.success("Form filled from selected position.");
+                    }}
+                    disabled={
+                      !formData.erp_system_id ||
+                      !formData.role_category ||
+                      templatesLoading
                     }
-                    if (onFormDataChange) {
-                      onFormDataChange(
-                        "erp_module_id",
-                        role.erp_module_id ? String(role.erp_module_id) : ""
-                      );
-                    }
-
-                    toast.success("Form filled from selected position.");
-                  }}
-                  disabled={
-                    !formData.erp_system_id ||
-                    !formData.role_category ||
-                    templatesLoading
-                  }
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 disabled:bg-slate-100 disabled:cursor-not-allowed"
-                >
-                  <option value="">
-                    {!formData.erp_system_id || !formData.role_category
-                      ? "Select ERP system and role type first..."
-                      : templatesLoading
-                        ? "Loading positions..."
-                        : options.length === 0
-                          ? "No saved positions for this ERP + role type"
-                          : "Choose a position to copy..."}
-                  </option>
-                  {options.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.title || r.id}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                  >
+                    <option value="">
+                      {!formData.erp_system_id || !formData.role_category
+                        ? "Select ERP system and role type first..."
+                        : templatesLoading
+                          ? "Loading positions..."
+                          : options.length === 0
+                            ? "No saved positions for this ERP + role type"
+                            : "Choose a position to copy..."}
                     </option>
-                  ))}
-                </select>
-              </div>
-            );
+                    {options.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.title || r.id}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              );
+            },
           },
-        }}
+          {
+            afterKey: "erp_module_id",
+            render: ({ formData }) => {
+              if (!formData.erp_system_id || erpModulesLoading) return null;
+              if (erpModuleOptions.length > 0) return null;
+              const label =
+                erpSystemOptions.find((s) => s.value === formData.erp_system_id)
+                  ?.label || "this ERP";
+              return (
+                <div className="rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-2 text-xs text-amber-950">
+                  <p className="font-medium">No modules in the database for {label}</p>
+                  <p className="mt-1 text-amber-900/90">
+                    This is not controlled by Technical vs Functional — add rows in{" "}
+                    <Link
+                      href="/admin/modules"
+                      className="underline font-medium text-teal-800 hover:text-teal-900"
+                    >
+                      ERP Modules
+                    </Link>{" "}
+                    or run{" "}
+                    <code className="rounded bg-white/70 px-1 py-0.5 text-[11px]">
+                      seed_sap_s4hana_erp_modules.sql
+                    </code>{" "}
+                    for SAP FI/MM/SD/ABAP/Basis/BTP defaults.
+                  </p>
+                </div>
+              );
+            },
+          },
+        ]}
       />
     </div>
   );

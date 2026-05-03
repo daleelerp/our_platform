@@ -71,11 +71,11 @@ type AdminCrudTableProps = {
   dynamicColumnOptions?: Record<string, { value: string; label: string }[]>;
   /** Renders inside the create/edit modal above the main field grid (e.g. template picker). */
   formHeaderSlot?: (ctx: FormHeaderSlotContext) => React.ReactNode;
-  /** Renders once immediately after the column with this key (full width in the grid). */
-  afterColumnSlot?: {
+  /** Renders after matching keys (full width). Order follows column order. */
+  afterColumnSlots?: Array<{
     afterKey: string;
     render: (ctx: FormHeaderSlotContext) => React.ReactNode;
-  };
+  }>;
 };
 
 export function AdminCrudTable({
@@ -89,7 +89,7 @@ export function AdminCrudTable({
   onFormDataChange,
   dynamicColumnOptions = {},
   formHeaderSlot,
-  afterColumnSlot,
+  afterColumnSlots,
 }: AdminCrudTableProps) {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -710,18 +710,18 @@ export function AdminCrudTable({
                   )}
                 </div>
                 );
-                const inserted =
-                  afterColumnSlot?.afterKey === col.key
-                    ? afterColumnSlot.render(slotCtx)
-                    : null;
-                return inserted
-                  ? [
-                      field,
-                      <div key={`after-slot-${col.key}`} className="md:col-span-2">
-                        {inserted}
-                      </div>,
-                    ]
-                  : [field];
+                const inserts = (afterColumnSlots ?? []).filter(
+                  (s) => s.afterKey === col.key
+                );
+                const slotNodes = inserts.map((s, i) => (
+                  <div
+                    key={`after-slot-${col.key}-${i}`}
+                    className="md:col-span-2"
+                  >
+                    {s.render(slotCtx)}
+                  </div>
+                ));
+                return [field, ...slotNodes];
               })}
           </div>
 
