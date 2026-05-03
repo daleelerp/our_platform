@@ -265,8 +265,8 @@ async function scrapeTextContent(searchQuery: string, fieldKey: string): Promise
       if (fromWeb) return fromWeb;
       if (wantAr) {
         return (
-          `«${displayQuery}» في سياق أنظمة تخطيط موارد المؤسسات (ERP): التركيز على التنفيذ والإعداد والاختبار، ` +
-          `والدعم المستمر للوحدات والتكاملات ذات الصلة وفق احتياجات العمل.`
+          `لم يُعثر على ملخص عربي أو إنجليزي موسوعي لـ «${displayQuery}». ` +
+          `جرّب الاسم كما في ويكيبيديا (مثل ERPNext أو SAP S/4HANA) أو اكتب الوصف يدويًا.`
         );
       }
       return (

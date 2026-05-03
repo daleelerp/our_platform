@@ -59,10 +59,12 @@ async function wikipediaOpenSearchFirstTitle(
   return titles[0].trim() || null;
 }
 
-async function wikipediaRestExtract(
+type WikiSummary = { extract: string; normalizedTitle: string };
+
+async function wikipediaRestSummary(
   wikiHost: string,
   title: string
-): Promise<string | null> {
+): Promise<WikiSummary | null> {
   const pathTitle = encodeURIComponent(title.replace(/ /g, "_"));
   const url = `https://${wikiHost}/api/rest_v1/page/summary/${pathTitle}`;
   const res = await fetch(url, {
@@ -70,10 +72,34 @@ async function wikipediaRestExtract(
     signal: timeoutSignal(),
   });
   if (!res.ok) return null;
-  const data = (await res.json()) as { extract?: string };
+  const data = (await res.json()) as {
+    extract?: string;
+    titles?: { normalized?: string; canonical?: string };
+  };
   const ex = data.extract;
   if (typeof ex !== "string" || !ex.trim()) return null;
-  return cleanWikiText(ex);
+  const norm =
+    data.titles?.normalized ||
+    data.titles?.canonical ||
+    title.replace(/_/g, " ");
+  return { extract: cleanWikiText(ex), normalizedTitle: norm };
+}
+
+async function wikipediaBestPage(
+  wikiHost: string,
+  query: string
+): Promise<WikiSummary | null> {
+  for (const q of queryVariants(query)) {
+    const direct = await wikipediaRestSummary(wikiHost, q);
+    if (direct) return direct;
+  }
+  for (const q of queryVariants(query)) {
+    const title = await wikipediaOpenSearchFirstTitle(wikiHost, q);
+    if (!title) continue;
+    const page = await wikipediaRestSummary(wikiHost, title);
+    if (page) return page;
+  }
+  return null;
 }
 
 async function wikipediaBestExtract(
@@ -81,17 +107,40 @@ async function wikipediaBestExtract(
   query: string
 ): Promise<string | null> {
   const wikiHost = locale === "ar" ? "ar.wikipedia.org" : "en.wikipedia.org";
-  for (const q of queryVariants(query)) {
-    const direct = await wikipediaRestExtract(wikiHost, q);
-    if (direct) return direct;
-  }
-  for (const q of queryVariants(query)) {
-    const title = await wikipediaOpenSearchFirstTitle(wikiHost, q);
-    if (!title) continue;
-    const ex = await wikipediaRestExtract(wikiHost, title);
-    if (ex) return ex;
-  }
-  return null;
+  const page = await wikipediaBestPage(wikiHost, query);
+  return page?.extract ?? null;
+}
+
+/** Arabic title linked from English article (MediaWiki langlinks). */
+async function wikipediaLanglinkTitle(
+  sourceHost: string,
+  sourceTitle: string,
+  targetLangCode: string
+): Promise<string | null> {
+  const t = encodeURIComponent(sourceTitle.replace(/ /g, "_"));
+  const url = `https://${sourceHost}/w/api.php?action=query&titles=${t}&prop=langlinks&lllang=${encodeURIComponent(
+    targetLangCode
+  )}&lllimit=1&redirects=1&format=json`;
+  const res = await fetch(url, {
+    headers: { "User-Agent": UA, Accept: "application/json" },
+    signal: timeoutSignal(),
+  });
+  if (!res.ok) return null;
+  const data = (await res.json()) as {
+    query?: {
+      pages?: Record<
+        string,
+        { langlinks?: { lang: string; "*": string }[]; missing?: true }
+      >;
+    };
+  };
+  const pages = data.query?.pages;
+  if (!pages) return null;
+  const page = Object.values(pages)[0];
+  if (!page || page.missing) return null;
+  const first = page.langlinks?.[0];
+  const name = first?.["*"];
+  return typeof name === "string" && name.trim() ? name.trim() : null;
 }
 
 async function wikidataBestDescription(
@@ -137,9 +186,13 @@ async function wikidataBestDescription(
   return null;
 }
 
+const AR_FROM_EN_PREFIX =
+  "ملخص من ويكيبيديا الإنجليزية (لم يُعثر على مقال عربي مناسب؛ راجع الصياغة أو أضف ترجمة):\n\n";
+
 /**
- * Best-effort public intro: Wikipedia (locale) then Wikidata (same locale).
- * Returns null if nothing is found (caller may show 404 toast).
+ * Best-effort public intro: Wikipedia (locale), Wikidata, then for Arabic:
+ * follow en→ar Wikipedia langlinks, else English extract with an Arabic framing line
+ * so each product keeps a distinct body (not one repeated Arabic boilerplate).
  */
 export async function fetchPublicKnowledgeIntro(
   query: string,
@@ -148,11 +201,33 @@ export async function fetchPublicKnowledgeIntro(
   const q = query.trim();
   if (!q) return null;
 
-  const wiki = await wikipediaBestExtract(locale, q);
-  if (wiki) return capLength(wiki, 2000);
+  if (locale === "en") {
+    const wiki = await wikipediaBestExtract("en", q);
+    if (wiki) return capLength(wiki, 2000);
+    const wd = await wikidataBestDescription(q, "en");
+    if (wd) return capLength(wd, 1200);
+    return null;
+  }
 
-  const wd = await wikidataBestDescription(q, locale);
+  const arWiki = await wikipediaBestExtract("ar", q);
+  if (arWiki) return capLength(arWiki, 2000);
+
+  const wd = await wikidataBestDescription(q, "ar");
   if (wd) return capLength(wd, 1200);
+
+  const enPage = await wikipediaBestPage("en.wikipedia.org", q);
+  if (enPage) {
+    const arLinkedTitle = await wikipediaLanglinkTitle(
+      "en.wikipedia.org",
+      enPage.normalizedTitle,
+      "ar"
+    );
+    if (arLinkedTitle) {
+      const arEx = await wikipediaRestSummary("ar.wikipedia.org", arLinkedTitle);
+      if (arEx?.extract) return capLength(arEx.extract, 2000);
+    }
+    return capLength(`${AR_FROM_EN_PREFIX}${enPage.extract}`, 2000);
+  }
 
   return null;
 }
