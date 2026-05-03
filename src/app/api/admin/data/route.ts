@@ -42,13 +42,14 @@ async function enrichUserSubscriptionsRows(
   });
 }
 
-/** Empty strings break Postgres date/timestamptz columns — treat as SQL NULL. */
+/** Empty strings break Postgres UUID, date, and timestamptz columns — treat as SQL NULL. */
 function sanitizeAdminPayload(row: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = { ...row };
   for (const key of Object.keys(out)) {
     if (out[key] !== "") continue;
     const lower = key.toLowerCase();
     if (
+      lower.endsWith("_id") ||
       lower === "launch_date" ||
       lower.endsWith("_date") ||
       lower.endsWith("_at")

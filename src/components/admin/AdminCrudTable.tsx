@@ -49,6 +49,16 @@ type Column = {
   };
 };
 
+type FormHeaderSlotContext = {
+  formData: Record<string, any>;
+  setFormData: React.Dispatch<React.SetStateAction<Record<string, any>>>;
+  defaultValues: Record<string, any>;
+  columns: Column[];
+  onFormDataChange?: (key: string, value: any) => void;
+  isEditing: boolean;
+  editingItemId: string | null;
+};
+
 type AdminCrudTableProps = {
   table: string;
   title: string;
@@ -59,6 +69,13 @@ type AdminCrudTableProps = {
   allowCreate?: boolean;
   onFormDataChange?: (key: string, value: any) => void;
   dynamicColumnOptions?: Record<string, { value: string; label: string }[]>;
+  /** Renders inside the create/edit modal above the main field grid (e.g. template picker). */
+  formHeaderSlot?: (ctx: FormHeaderSlotContext) => React.ReactNode;
+  /** Renders once immediately after the column with this key (full width in the grid). */
+  afterColumnSlot?: {
+    afterKey: string;
+    render: (ctx: FormHeaderSlotContext) => React.ReactNode;
+  };
 };
 
 export function AdminCrudTable({
@@ -71,6 +88,8 @@ export function AdminCrudTable({
   allowCreate = true,
   onFormDataChange,
   dynamicColumnOptions = {},
+  formHeaderSlot,
+  afterColumnSlot,
 }: AdminCrudTableProps) {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -127,6 +146,9 @@ export function AdminCrudTable({
     setEditingItem(null);
     setFormData(defaultValues);
     setIsCreating(true);
+    if (onFormDataChange) {
+      Object.entries(defaultValues).forEach(([k, v]) => onFormDataChange(k, v));
+    }
   };
 
   const startEdit = (item: any) => {
@@ -234,10 +256,13 @@ export function AdminCrudTable({
         params.set("id", editingItem.id);
       }
 
-      // Clean formData: convert empty strings to null for number fields
+      // Clean formData: convert empty strings to null for number fields, UUID selects, etc.
       const cleanedData = { ...formData };
       columns.forEach((col) => {
         if (col.type === "number" && cleanedData[col.key] === "") {
+          cleanedData[col.key] = null;
+        }
+        if (col.type === "select" && cleanedData[col.key] === "") {
           cleanedData[col.key] = null;
         }
         if (col.type === "datetime") {
@@ -247,6 +272,24 @@ export function AdminCrudTable({
           } else if (typeof v === "string") {
             const iso = datetimeLocalInputToIso(v);
             cleanedData[col.key] = iso;
+          }
+        }
+        if (col.type === "array") {
+          const raw = cleanedData[col.key];
+          if (typeof raw === "string") {
+            const t = raw.trim();
+            if (!t) {
+              cleanedData[col.key] = null;
+            } else {
+              const parts = t.includes("\n")
+                ? t.split(/\r?\n/).map((s) => s.trim()).filter(Boolean)
+                : t.includes(",")
+                  ? t.split(",").map((s) => s.trim()).filter(Boolean)
+                  : [t];
+              cleanedData[col.key] = parts.length ? parts : null;
+            }
+          } else if (Array.isArray(raw)) {
+            cleanedData[col.key] = raw.length ? raw : null;
           }
         }
       });
@@ -450,15 +493,38 @@ export function AdminCrudTable({
           setEditingItem(null);
           setFormData(defaultValues);
           setIsCreating(false);
+          if (onFormDataChange) {
+            Object.entries(defaultValues).forEach(([k, v]) => onFormDataChange(k, v));
+          }
         }}
         title={editingItem ? "Edit Item" : "Add New Item"}
         size="lg"
       >
         <form onSubmit={handleSubmit} className="space-y-4">
+          {formHeaderSlot &&
+            formHeaderSlot({
+              formData,
+              setFormData,
+              defaultValues,
+              columns,
+              onFormDataChange,
+              isEditing: !!editingItem,
+              editingItemId: editingItem?.id ?? null,
+            })}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {columns
               .filter((col) => !col.readOnly && !col.hidden)
-              .map((col) => (
+              .flatMap((col) => {
+                const slotCtx: FormHeaderSlotContext = {
+                  formData,
+                  setFormData,
+                  defaultValues,
+                  columns,
+                  onFormDataChange,
+                  isEditing: !!editingItem,
+                  editingItemId: editingItem?.id ?? null,
+                };
+                const field = (
                 <div key={col.key}>
                   <label className="block text-xs font-medium text-slate-600 mb-1.5 flex items-center gap-2">
                     <span>{col.label}</span>
@@ -643,7 +709,20 @@ export function AdminCrudTable({
                     </div>
                   )}
                 </div>
-              ))}
+                );
+                const inserted =
+                  afterColumnSlot?.afterKey === col.key
+                    ? afterColumnSlot.render(slotCtx)
+                    : null;
+                return inserted
+                  ? [
+                      field,
+                      <div key={`after-slot-${col.key}`} className="md:col-span-2">
+                        {inserted}
+                      </div>,
+                    ]
+                  : [field];
+              })}
           </div>
 
           <div className="flex gap-3 pt-2 border-t border-slate-200">
@@ -660,6 +739,11 @@ export function AdminCrudTable({
                 setEditingItem(null);
                 setFormData(defaultValues);
                 setIsCreating(false);
+                if (onFormDataChange) {
+                  Object.entries(defaultValues).forEach(([k, v]) =>
+                    onFormDataChange(k, v)
+                  );
+                }
               }}
               className="px-5 py-2 bg-slate-100 text-slate-700 text-sm rounded-lg hover:bg-slate-200"
             >
