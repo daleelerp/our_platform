@@ -1,6 +1,8 @@
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { AllPathsWithPlans } from "@/components/AllPathsWithPlans";
+import { ErpSystemsGrid } from "@/components/landing/ErpSystemsGrid";
+import type { ErpSystem } from "@/types/onboarding";
 
 type Props = {
   searchParams?: Promise<{ error?: string; planId?: string }>;
@@ -39,10 +41,11 @@ export default async function PathsPage({ searchParams }: Props) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Fetch all published paths with their associated plans
-  const { data: pathsWithPlans, error: err } = await supabase
-    .from("learning_paths")
-    .select(`
+  const [{ data: pathsWithPlans }, { data: erpSystemsData }] = await Promise.all([
+    supabase
+      .from("learning_paths")
+      .select(
+        `
       id,
       title,
       title_ar,
@@ -67,9 +70,16 @@ export default async function PathsPage({ searchParams }: Props) {
           payment_type
         )
       )
-    `)
-    .eq("is_published", true)
-    .order("difficulty_level");
+    `
+      )
+      .eq("is_published", true)
+      .order("difficulty_level"),
+    supabase.from("erp_systems").select("*").order("priority_order"),
+  ]);
+
+  const erpSystems = (erpSystemsData || []) as ErpSystem[];
+  const liveErpNames = [...new Set(erpSystems.filter((s) => s.is_active).map((s) => s.name))];
+  const pendingErpNames = [...new Set(erpSystems.filter((s) => !s.is_active).map((s) => s.name))];
 
   // Transform the data to match PathWithPlanWithMetadata type
   // Each path-plan combination becomes a separate row
@@ -149,11 +159,18 @@ export default async function PathsPage({ searchParams }: Props) {
   }
 
   return (
-    <AllPathsWithPlans 
-      pathsWithPlans={transformedData}
-      isLoggedIn={!!user}
-      userSubscribedPlans={userSubscribedPlans}
-      selectedPlanId={selectedPlanId}
-    />
+    <>
+      <AllPathsWithPlans
+        pathsWithPlans={transformedData}
+        isLoggedIn={!!user}
+        userSubscribedPlans={userSubscribedPlans}
+        selectedPlanId={selectedPlanId}
+      />
+      <ErpSystemsGrid
+        systems={erpSystems}
+        liveSystemNames={liveErpNames}
+        pendingSystemNames={pendingErpNames}
+      />
+    </>
   );
 }

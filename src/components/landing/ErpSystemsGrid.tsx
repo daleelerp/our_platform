@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useTranslation } from "@/hooks/useTranslation";
 import type { ErpSystem } from "@/types/onboarding";
+import { erpSystemToPlansProviderSlug } from "@/lib/erpSystemToPlansProviderSlug";
 
 type ErpSystemsGridProps = {
   systems: ErpSystem[];
@@ -91,7 +93,12 @@ export function ErpSystemsGrid({
 
         {/* Systems Grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {sortedSystems.map((system) => (
+          {sortedSystems.map((system) => {
+            const providerSlug = erpSystemToPlansProviderSlug(system);
+            const plansHref = providerSlug
+              ? `/plans?erp=${encodeURIComponent(providerSlug)}`
+              : "/plans";
+            return (
             <div
               key={system.id}
               className={`relative rounded-2xl border p-6 transition-all duration-300 ${
@@ -176,14 +183,14 @@ export function ErpSystemsGrid({
                 </div>
               )}
 
-              {/* CTA */}
+              {/* CTA — plans page filtered by ERP provider slug when mappable */}
               {system.is_active ? (
-                <a
-                  href="/paths"
+                <Link
+                  href={plansHref}
                   className="block w-full text-center py-3 rounded-xl bg-[#429874] text-white font-semibold hover:bg-[#357a5d] transition"
                 >
                   {t("erpGrid.startNow")}
-                </a>
+                </Link>
               ) : (
                 <button
                   onClick={() => {
@@ -198,7 +205,8 @@ export function ErpSystemsGrid({
                 </button>
               )}
             </div>
-          ))}
+            );
+          })}
 
           {/* More Coming Soon Card */}
           <div className="relative rounded-2xl border-2 border-dashed border-slate-300 p-6 bg-gradient-to-br from-slate-50 to-white flex flex-col items-center justify-center text-center min-h-[300px]">
