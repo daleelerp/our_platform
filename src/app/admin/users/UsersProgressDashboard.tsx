@@ -33,6 +33,13 @@ type Props = {
   teams: TeamStats[];
 };
 
+/** API sends hours (decimal). Avoid rounding to whole hours — short sessions show as 0h otherwise. */
+function formatWatchHours(hours: number): string {
+  if (!Number.isFinite(hours) || hours <= 0) return "0h";
+  if (hours < 1) return `${Math.max(1, Math.round(hours * 60))}m`;
+  return hours >= 10 ? `${Math.round(hours)}h` : `${Number(hours.toFixed(1))}h`;
+}
+
 export function UsersProgressDashboard({ users, teams }: Props) {
   const overallStats = useMemo(() => {
     const totalUsers = users.length;
@@ -94,7 +101,7 @@ export function UsersProgressDashboard({ users, teams }: Props) {
         <div className="bg-white rounded-xl p-6 shadow-sm">
           <div className="text-sm text-slate-500 mb-1">Total Watch Time</div>
           <div className="text-2xl font-bold text-blue-600">
-            {Math.round(overallStats.totalWatchTime)}h
+            {formatWatchHours(overallStats.totalWatchTime)}
           </div>
           <div className="text-xs text-slate-400 mt-1">
             {overallStats.totalVideos} videos completed
@@ -141,7 +148,7 @@ export function UsersProgressDashboard({ users, teams }: Props) {
             <div>
               <div className="text-xs text-slate-500">Watch Time</div>
               <div className="text-lg font-semibold text-slate-900">
-                {Math.round(bestTeam.totalWatchTime)}h
+                {formatWatchHours(bestTeam.totalWatchTime)}
               </div>
             </div>
             <div>
@@ -233,7 +240,7 @@ export function UsersProgressDashboard({ users, teams }: Props) {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-slate-700">
-                      {Math.round(user.totalWatchTime)}h
+                      {formatWatchHours(user.totalWatchTime)}
                     </td>
                     <td className="px-4 py-3 text-slate-700">{user.videosCompleted}</td>
                     <td className="px-4 py-3 text-slate-700">{user.quizzesPassed}</td>
@@ -311,7 +318,7 @@ export function UsersProgressDashboard({ users, teams }: Props) {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-slate-700">
-                      {Math.round(team.totalWatchTime)}h
+                      {formatWatchHours(team.totalWatchTime)}
                     </td>
                     <td className="px-4 py-3 text-slate-700">{team.totalVideosCompleted}</td>
                     <td className="px-4 py-3 text-slate-700">
