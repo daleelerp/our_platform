@@ -2,9 +2,95 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminSession } from "@/utils/admin-auth";
 import { getAdminSupabaseClient } from "@/utils/admin-supabase";
 
+type MilestoneRow = { id: string; learning_path_id: string };
+
+function aggregateVideoRollups(
+  rows: { user_id: string; total_watch_time_seconds: number | null; is_completed: boolean | null; completion_percentage: number | null }[]
+) {
+  const byUser = new Map<
+    string,
+    { watchSeconds: number; videosCompleted: number }
+  >();
+  for (const r of rows) {
+    const cur = byUser.get(r.user_id) ?? { watchSeconds: 0, videosCompleted: 0 };
+    cur.watchSeconds += Math.max(0, Math.floor(Number(r.total_watch_time_seconds) || 0));
+    const done =
+      Boolean(r.is_completed) || (Number(r.completion_percentage) || 0) >= 90;
+    if (done) cur.videosCompleted += 1;
+    byUser.set(r.user_id, cur);
+  }
+  return byUser;
+}
+
+function aggregateQuizPasses(
+  rows: {
+    user_id: string;
+    quiz_id: string;
+    is_passed: boolean | null;
+    attempt_number: number | null;
+  }[]
+) {
+  const latestByUserQuiz = new Map<
+    string,
+    Map<string, { attempt_number: number; is_passed: boolean }>
+  >();
+  for (const r of rows) {
+    let m = latestByUserQuiz.get(r.user_id);
+    if (!m) {
+      m = new Map();
+      latestByUserQuiz.set(r.user_id, m);
+    }
+    const an = Number(r.attempt_number) || 1;
+    const cur = m.get(r.quiz_id);
+    if (!cur || an > cur.attempt_number) {
+      m.set(r.quiz_id, { attempt_number: an, is_passed: Boolean(r.is_passed) });
+    }
+  }
+  const passedCount = new Map<string, number>();
+  for (const [uid, quizMap] of latestByUserQuiz) {
+    let n = 0;
+    for (const v of quizMap.values()) {
+      if (v.is_passed) n++;
+    }
+    passedCount.set(uid, n);
+  }
+  return passedCount;
+}
+
+function pathProgressFromMilestones(
+  userId: string,
+  pathId: string,
+  milestonesByPath: Map<string, MilestoneRow[]>,
+  milestonesWithContent: Set<string>,
+  userMilestoneByKey: Map<string, { status: string; progress_percentage: number }>
+): number {
+  const milestones = milestonesByPath.get(pathId);
+  if (!milestones?.length) return 0;
+  let sum = 0;
+  let count = 0;
+  for (const { id: mid } of milestones) {
+    if (!milestonesWithContent.has(mid)) {
+      sum += 100;
+      count++;
+      continue;
+    }
+    const mp = userMilestoneByKey.get(`${userId}:${mid}`);
+    if (mp?.status === "completed") sum += 100;
+    else sum += Number(mp?.progress_percentage) || 0;
+    count++;
+  }
+  return count ? Math.round(sum / count) : 0;
+}
+
+function deriveEngagementScore(videos: number, quizzes: number, watchHours: number): number {
+  return Math.min(
+    100,
+    Math.round(videos * 3 + quizzes * 10 + Math.min(24, watchHours * 4))
+  );
+}
+
 export async function GET(request: NextRequest) {
   try {
-    // Verify admin session
     const adminSession = await getAdminSession();
     if (!adminSession) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -12,7 +98,6 @@ export async function GET(request: NextRequest) {
 
     const supabase = getAdminSupabaseClient();
 
-    // Fetch all users with their profiles
     const { data: users } = await supabase
       .from("user_profiles")
       .select("id, full_name")
@@ -29,27 +114,102 @@ export async function GET(request: NextRequest) {
 
     const userIds = users.map((u) => u.id);
 
-    // Fetch enrollments with progress
-    const { data: enrollments } = await supabase
-      .from("path_enrollments")
-      .select("user_id, progress_percentage, learning_paths(id, title)")
-      .in("user_id", userIds);
+    const [
+      { data: enrollments },
+      { data: analytics },
+      { data: teamMembers },
+      { data: videoProgressRows },
+      { data: quizAttemptRows },
+    ] = await Promise.all([
+      supabase
+        .from("path_enrollments")
+        .select("user_id, learning_path_id, progress_percentage, learning_paths(id, title)")
+        .in("user_id", userIds),
+      supabase.from("user_learning_analytics").select("*").in("user_id", userIds),
+      supabase
+        .from("team_members")
+        .select("user_id, team_id, teams(id, name, company_name), status")
+        .in("user_id", userIds)
+        .eq("status", "active"),
+      supabase
+        .from("user_video_progress")
+        .select("user_id, total_watch_time_seconds, is_completed, completion_percentage")
+        .in("user_id", userIds),
+      supabase
+        .from("user_quiz_attempts")
+        .select("user_id, quiz_id, is_passed, attempt_number")
+        .in("user_id", userIds)
+        .eq("is_completed", true),
+    ]);
 
-    // Fetch learning analytics
-    const { data: analytics } = await supabase
-      .from("user_learning_analytics")
-      .select("*")
-      .in("user_id", userIds);
+    const videoRollup = aggregateVideoRollups(videoProgressRows ?? []);
+    const quizPassed = aggregateQuizPasses(quizAttemptRows ?? []);
 
-    // Fetch team memberships
-    const { data: teamMembers } = await supabase
-      .from("team_members")
-      .select("user_id, team_id, teams(id, name, company_name), status")
-      .in("user_id", userIds)
-      .eq("status", "active");
+    const pathIds = [
+      ...new Set(
+        (enrollments ?? [])
+          .map((e: { learning_path_id?: string }) => e.learning_path_id)
+          .filter(Boolean) as string[]
+      ),
+    ];
 
-    // Fetch auth users for emails
-    const authUsersMap = new Map();
+    let milestonesByPath = new Map<string, MilestoneRow[]>();
+    const milestonesWithContent = new Set<string>();
+    const userMilestoneByKey = new Map<
+      string,
+      { status: string; progress_percentage: number }
+    >();
+
+    if (pathIds.length > 0) {
+      const { data: milestoneRows } = await supabase
+        .from("path_milestones")
+        .select("id, learning_path_id")
+        .in("learning_path_id", pathIds)
+        .eq("is_active", true);
+
+      const milestones = (milestoneRows ?? []) as MilestoneRow[];
+      milestonesByPath = new Map<string, MilestoneRow[]>();
+      for (const m of milestones) {
+        const arr = milestonesByPath.get(m.learning_path_id) ?? [];
+        arr.push(m);
+        milestonesByPath.set(m.learning_path_id, arr);
+      }
+
+      const milestoneIds = milestones.map((m) => m.id);
+      if (milestoneIds.length > 0) {
+        const [{ data: vidMs }, { data: quizMs }, { data: resMs }, { data: umpRows }] =
+          await Promise.all([
+            supabase.from("video_content").select("milestone_id").in("milestone_id", milestoneIds).eq("is_active", true),
+            supabase.from("quizzes").select("milestone_id").in("milestone_id", milestoneIds).eq("is_active", true),
+            supabase.from("milestone_resources").select("milestone_id").in("milestone_id", milestoneIds),
+            supabase
+              .from("user_milestone_progress")
+              .select("user_id, milestone_id, status, progress_percentage")
+              .in("user_id", userIds)
+              .in("milestone_id", milestoneIds),
+          ]);
+
+        for (const r of vidMs ?? []) {
+          if (r.milestone_id) milestonesWithContent.add(r.milestone_id);
+        }
+        for (const r of quizMs ?? []) {
+          if (r.milestone_id) milestonesWithContent.add(r.milestone_id);
+        }
+        for (const r of resMs ?? []) {
+          if (r.milestone_id) milestonesWithContent.add(r.milestone_id);
+        }
+        for (const r of umpRows ?? []) {
+          const uid = r.user_id as string;
+          const mid = r.milestone_id as string;
+          userMilestoneByKey.set(`${uid}:${mid}`, {
+            status: String(r.status || "not_started"),
+            progress_percentage: Number(r.progress_percentage) || 0,
+          });
+        }
+      }
+    }
+
+    const authUsersMap = new Map<string, string>();
     for (const userId of userIds) {
       try {
         const { data: authUser } = await supabase.auth.admin.getUserById(userId);
@@ -61,8 +221,23 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Build user progress data
-    const userProgressMap = new Map();
+    const userProgressMap = new Map<
+      string,
+      {
+        userId: string;
+        fullName: string;
+        email: string;
+        enrollments: number;
+        avgProgress: number;
+        totalWatchTime: number;
+        videosCompleted: number;
+        quizzesPassed: number;
+        engagementScore: number;
+        teamId?: string;
+        teamName?: string;
+      }
+    >();
+
     users.forEach((user) => {
       userProgressMap.set(user.id, {
         userId: user.id,
@@ -74,51 +249,98 @@ export async function GET(request: NextRequest) {
         videosCompleted: 0,
         quizzesPassed: 0,
         engagementScore: 0,
-        teamId: undefined,
-        teamName: undefined,
       });
     });
 
-    // Process enrollments
-    enrollments?.forEach((enrollment) => {
-      const userData = userProgressMap.get(enrollment.user_id);
-      if (userData) {
-        userData.enrollments++;
-        userData.avgProgress += enrollment.progress_percentage || 0;
-      }
-    });
-
-    // Process analytics
-    analytics?.forEach((analytic) => {
+    analytics?.forEach((analytic: { user_id: string; total_watch_time_hours?: number; total_videos_completed?: number; total_quizzes_passed?: number; engagement_score?: number }) => {
       const userData = userProgressMap.get(analytic.user_id);
       if (userData) {
-        userData.totalWatchTime = analytic.total_watch_time_hours || 0;
-        userData.videosCompleted = analytic.total_videos_completed || 0;
-        userData.quizzesPassed = analytic.total_quizzes_passed || 0;
-        userData.engagementScore = analytic.engagement_score || 0;
+        userData.totalWatchTime = Number(analytic.total_watch_time_hours) || 0;
+        userData.videosCompleted = Number(analytic.total_videos_completed) || 0;
+        userData.quizzesPassed = Number(analytic.total_quizzes_passed) || 0;
+        userData.engagementScore = Number(analytic.engagement_score) || 0;
       }
     });
 
-    // Process team memberships
-    teamMembers?.forEach((member: any) => {
-      const userData = userProgressMap.get(member.user_id);
-      if (userData && member.teams) {
-        userData.teamId = member.team_id;
-        userData.teamName = member.teams.name || member.teams.company_name || "Unknown Team";
-      }
+    for (const [uid, roll] of videoRollup) {
+      const userData = userProgressMap.get(uid);
+      if (!userData) continue;
+      const hours = roll.watchSeconds / 3600;
+      userData.totalWatchTime = Math.max(userData.totalWatchTime, hours);
+      userData.videosCompleted = Math.max(userData.videosCompleted, roll.videosCompleted);
+    }
+
+    for (const [uid, n] of quizPassed) {
+      const userData = userProgressMap.get(uid);
+      if (!userData) continue;
+      userData.quizzesPassed = Math.max(userData.quizzesPassed, n);
+    }
+
+    userProgressMap.forEach((userData) => {
+      const derived = deriveEngagementScore(
+        userData.videosCompleted,
+        userData.quizzesPassed,
+        userData.totalWatchTime
+      );
+      userData.engagementScore = Math.max(userData.engagementScore, derived);
     });
 
-    // Calculate averages
+    enrollments?.forEach(
+      (enrollment: {
+        user_id: string;
+        learning_path_id?: string;
+        progress_percentage?: number | null;
+      }) => {
+        const userData = userProgressMap.get(enrollment.user_id);
+        if (!userData) return;
+        userData.enrollments++;
+        const stored = Number(enrollment.progress_percentage) || 0;
+        const pathId = enrollment.learning_path_id;
+        const fromMilestones =
+          pathId &&
+          pathProgressFromMilestones(
+            enrollment.user_id,
+            pathId,
+            milestonesByPath,
+            milestonesWithContent,
+            userMilestoneByKey
+          );
+        const effective = Math.max(stored, fromMilestones || 0);
+        userData.avgProgress += effective;
+      }
+    );
+
     userProgressMap.forEach((userData) => {
       if (userData.enrollments > 0) {
         userData.avgProgress = userData.avgProgress / userData.enrollments;
       }
     });
 
+    teamMembers?.forEach((member: any) => {
+      const userData = userProgressMap.get(member.user_id);
+      const t = Array.isArray(member.teams) ? member.teams[0] : member.teams;
+      if (userData && t) {
+        userData.teamId = member.team_id;
+        userData.teamName = t.name || t.company_name || "Unknown Team";
+      }
+    });
+
     const userProgressArray = Array.from(userProgressMap.values());
 
-    // Build team statistics
-    const teamStatsMap = new Map();
+    const teamStatsMap = new Map<
+      string,
+      {
+        teamId: string;
+        teamName: string;
+        memberCount: number;
+        totalProgress: number;
+        totalWatchTime: number;
+        totalVideosCompleted: number;
+        totalQuizzesPassed: number;
+        totalEngagement: number;
+      }
+    >();
+
     userProgressArray.forEach((user) => {
       if (user.teamId && user.teamName) {
         if (!teamStatsMap.has(user.teamId)) {
@@ -133,7 +355,7 @@ export async function GET(request: NextRequest) {
             totalEngagement: 0,
           });
         }
-        const team = teamStatsMap.get(user.teamId);
+        const team = teamStatsMap.get(user.teamId)!;
         team.memberCount++;
         team.totalProgress += user.avgProgress;
         team.totalWatchTime += user.totalWatchTime;
@@ -143,18 +365,16 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // Calculate team averages and scores
     const teamStatsArray = Array.from(teamStatsMap.values()).map((team) => {
       const avgProgress = team.memberCount > 0 ? team.totalProgress / team.memberCount : 0;
       const avgEngagement = team.memberCount > 0 ? team.totalEngagement / team.memberCount : 0;
 
-      // Composite score: weighted combination of metrics
       const score =
-        avgProgress * 0.3 + // 30% weight on progress
-        (team.totalWatchTime / team.memberCount) * 0.2 + // 20% weight on watch time per member
-        (team.totalVideosCompleted / team.memberCount) * 0.2 + // 20% weight on videos per member
-        (team.totalQuizzesPassed / team.memberCount) * 0.15 + // 15% weight on quizzes per member
-        avgEngagement * 0.15; // 15% weight on engagement
+        avgProgress * 0.3 +
+        (team.totalWatchTime / team.memberCount) * 0.2 +
+        (team.totalVideosCompleted / team.memberCount) * 0.2 +
+        (team.totalQuizzesPassed / team.memberCount) * 0.15 +
+        avgEngagement * 0.15;
 
       return {
         ...team,
@@ -164,7 +384,6 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // Sort teams by score (descending)
     teamStatsArray.sort((a, b) => b.score - a.score);
 
     return NextResponse.json({
@@ -173,12 +392,8 @@ export async function GET(request: NextRequest) {
         teams: teamStatsArray,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Admin users progress API error:", error);
-    return NextResponse.json(
-      { error: "An error occurred" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "An error occurred" }, { status: 500 });
   }
 }
-

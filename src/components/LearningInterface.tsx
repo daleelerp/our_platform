@@ -301,7 +301,7 @@ export function LearningInterface({
         .from("path_enrollments")
         .update({
           progress_percentage: overallProgress,
-          last_activity_at: new Date().toISOString(),
+          last_accessed_at: new Date().toISOString(),
         })
         .eq("id", enrollment.id);
 
