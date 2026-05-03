@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminSession } from "@/utils/admin-auth";
+import {
+  fetchPublicKnowledgeIntro,
+  splitIntroToActivityLines,
+} from "@/lib/publicKnowledgeBlurb";
 
 /**
  * Scrape field values from the internet
@@ -22,7 +26,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let value: any = null;
+    let value: string | number | null = null;
 
     switch (scraper_type) {
       case "demand_score":
@@ -35,7 +39,7 @@ export async function POST(request: NextRequest) {
         value = await scrapeDemandLevel(search_query);
         break;
       case "job_count":
-        value = await scrapeJobCount(search_query);
+        value = await scrapeJobCount();
         break;
       case "custom":
       case "description":
@@ -54,12 +58,11 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ value, field_key, scraper_type });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Scrape field API error:", error);
-    return NextResponse.json(
-      { error: error.message || "An error occurred" },
-      { status: 500 }
-    );
+    const message =
+      error instanceof Error ? error.message : "An error occurred";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -235,7 +238,7 @@ async function scrapeDemandLevel(searchQuery: string): Promise<string | null> {
 /**
  * Scrape job count (for future use)
  */
-async function scrapeJobCount(searchQuery: string): Promise<number | null> {
+async function scrapeJobCount(): Promise<number | null> {
   // TODO: Implement job count scraping
   return null;
 }
@@ -251,16 +254,15 @@ function isArabicLocaleField(fieldKey: string): boolean {
  */
 async function scrapeTextContent(searchQuery: string, fieldKey: string): Promise<string | null> {
   try {
-    // This would integrate with AI APIs (OpenAI, Anthropic, etc.) or web scraping
-    // For now, we'll use a mock implementation that can be replaced with real APIs
-
     const normalizedKey = fieldKey.toLowerCase();
     const trimmedQuery = searchQuery.trim();
     const displayQuery = trimmedQuery || "this topic";
     const wantAr = isArabicLocaleField(fieldKey);
+    const locale = wantAr ? "ar" : "en";
 
     if (normalizedKey.includes("description")) {
-      // Applies to job roles, ERP systems, paths, etc. — keep wording product/skill neutral
+      const fromWeb = await fetchPublicKnowledgeIntro(trimmedQuery, locale);
+      if (fromWeb) return fromWeb;
       if (wantAr) {
         return (
           `«${displayQuery}» في سياق أنظمة تخطيط موارد المؤسسات (ERP): التركيز على التنفيذ والإعداد والاختبار، ` +
@@ -274,6 +276,8 @@ async function scrapeTextContent(searchQuery: string, fieldKey: string): Promise
     }
 
     if (normalizedKey.includes("daily_activities") || normalizedKey.includes("activities")) {
+      const fromWeb = await fetchPublicKnowledgeIntro(trimmedQuery, locale);
+      if (fromWeb) return splitIntroToActivityLines(fromWeb, 8);
       if (wantAr) {
         const activitiesAr = [
           `تحليل وإعداد متطلبات ووحدات ${displayQuery}`,

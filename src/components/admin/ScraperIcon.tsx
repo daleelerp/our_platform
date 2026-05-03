@@ -7,7 +7,7 @@ import toast from "react-hot-toast";
 type ScraperIconProps = {
   fieldKey: string;
   searchQuery: string;
-  onScrapeComplete: (value: any) => void;
+  onScrapeComplete: (value: string | number) => void;
   scraperType?: "demand_score" | "salary" | "demand_level" | "job_count" | "custom" | "description" | "text";
   disabled?: boolean;
 };
@@ -25,7 +25,9 @@ export function ScraperIcon({
     if (!searchQuery || disabled || isScraping) return;
 
     setIsScraping(true);
-    toast.loading("Searching the internet...", { id: `scrape-${fieldKey}` });
+    toast.loading("Fetching public sources (Wikipedia / Wikidata)…", {
+      id: `scrape-${fieldKey}`,
+    });
 
     try {
       const res = await fetch("/api/admin/scrape-field", {
@@ -52,7 +54,7 @@ export function ScraperIcon({
       } else {
         toast.error(json.error || "No data found", { id: `scrape-${fieldKey}` });
       }
-    } catch (err: any) {
+    } catch {
       toast.error("Scraping failed. Please try again.", { id: `scrape-${fieldKey}` });
     } finally {
       setIsScraping(false);
