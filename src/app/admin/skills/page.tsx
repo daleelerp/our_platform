@@ -124,9 +124,9 @@ export default function SkillsPage() {
           { key: "name", label: "Name (EN)", type: "text" },
           { key: "name_ar", label: "Name (AR)", type: "text" },
           { key: "skill_category", label: "Category", type: "text" },
-          { 
-            key: "description", 
-            label: "Description (EN)", 
+          {
+            key: "description",
+            label: "Description (EN) — search also fills AR",
             type: "textarea",
             scraper: {
               enabled: true,
@@ -134,15 +134,10 @@ export default function SkillsPage() {
               searchField: "name",
             },
           },
-          { 
-            key: "description_ar", 
-            label: "Description (AR)", 
+          {
+            key: "description_ar",
+            label: "Description (AR)",
             type: "textarea",
-            scraper: {
-              enabled: true,
-              type: "description",
-              searchField: "name_ar",
-            },
           },
           {
             key: "erp_system_id",

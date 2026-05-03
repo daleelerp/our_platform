@@ -286,7 +286,7 @@ export default function JobRolesPage() {
           { key: "typical_years_to_role", label: "Years to Role", type: "number" },
           {
             key: "description",
-            label: "Description (EN)",
+            label: "Description (EN) — search also fills AR",
             type: "textarea",
             scraper: {
               enabled: true,
@@ -299,11 +299,6 @@ export default function JobRolesPage() {
             key: "description_ar",
             label: "Description (AR)",
             type: "textarea",
-            scraper: {
-              enabled: true,
-              type: "description",
-              searchField: "title_ar",
-            },
             hideInTable: true,
           },
           {

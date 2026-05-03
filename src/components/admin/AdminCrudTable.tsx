@@ -115,6 +115,9 @@ export function AdminCrudTable({
   const [isCreating, setIsCreating] = useState(false);
 
   const visibleColumns = columns.filter((c) => !c.hidden && !c.hideInTable);
+  const pairedDescriptionEnAr =
+    columns.some((c) => c.key === "description") &&
+    columns.some((c) => c.key === "description_ar");
 
   useEffect(() => {
     if (!autoFillApply || autoFillApply.token < 1) return;
@@ -631,7 +634,12 @@ export function AdminCrudTable({
                                 return searchValue || "";
                               })()
                             }
-                            onScrapeComplete={(value) => {
+                            translateDescriptionToAr={
+                              pairedDescriptionEnAr &&
+                              col.key === "description" &&
+                              col.scraper?.type === "description"
+                            }
+                            onScrapeComplete={(value, meta) => {
                               if (col.type === "array" && typeof value === "string") {
                                 // For array fields, split by newlines or bullets
                                 const items = value
@@ -641,6 +649,16 @@ export function AdminCrudTable({
                                 handleChange(col.key, items.join("\n"), col.type);
                               } else {
                                 handleChange(col.key, value, col.type);
+                              }
+                              if (
+                                meta?.description_ar != null &&
+                                meta.description_ar.trim() !== ""
+                              ) {
+                                handleChange(
+                                  "description_ar",
+                                  meta.description_ar,
+                                  "textarea"
+                                );
                               }
                             }}
                             scraperType={col.scraper.type || "custom"}

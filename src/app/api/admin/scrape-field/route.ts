@@ -4,6 +4,7 @@ import {
   fetchPublicKnowledgeIntro,
   splitIntroToActivityLines,
 } from "@/lib/publicKnowledgeBlurb";
+import { translateEnToAr } from "@/lib/translateEnToArMyMemory";
 
 /**
  * Scrape field values from the internet
@@ -17,13 +18,45 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { field_key, search_query, scraper_type } = await request.json();
+    const body = (await request.json()) as {
+      field_key?: string;
+      search_query?: string;
+      scraper_type?: string;
+      translate_description_to_ar?: boolean;
+    };
+    const { field_key, search_query, scraper_type } = body;
+    const translateDescriptionToAr = Boolean(body.translate_description_to_ar);
 
     if (!field_key || !search_query) {
       return NextResponse.json(
         { error: "field_key and search_query are required" },
         { status: 400 }
       );
+    }
+
+    if (
+      translateDescriptionToAr &&
+      field_key === "description" &&
+      scraper_type === "description"
+    ) {
+      const en = await fetchPublicKnowledgeIntro(
+        String(search_query).trim(),
+        "en"
+      );
+      if (!en) {
+        return NextResponse.json(
+          { error: "No data found. Try a different search query." },
+          { status: 404 }
+        );
+      }
+      const ar = await translateEnToAr(en);
+      return NextResponse.json({
+        value: en,
+        field_key,
+        scraper_type,
+        ...(ar ? { description_ar: ar } : {}),
+        translation_failed: !ar,
+      });
     }
 
     let value: string | number | null = null;

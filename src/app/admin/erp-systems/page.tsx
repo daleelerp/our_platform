@@ -46,9 +46,9 @@ export default function AdminErpSystemsPage() {
           { key: "id", label: "ID", hidden: true, readOnly: true },
           { key: "name", label: "Name", type: "text" },
           { key: "vendor", label: "Vendor", type: "text" },
-          { 
-            key: "description", 
-            label: "Description (EN)", 
+          {
+            key: "description",
+            label: "Description (EN) — search also fills AR",
             type: "textarea",
             scraper: {
               enabled: true,
@@ -56,15 +56,10 @@ export default function AdminErpSystemsPage() {
               searchField: "name",
             },
           },
-          { 
-            key: "description_ar", 
-            label: "Description (AR)", 
+          {
+            key: "description_ar",
+            label: "Description (AR)",
             type: "textarea",
-            scraper: {
-              enabled: true,
-              type: "description",
-              searchField: "name",
-            },
           },
           /* Salary Range — commented out per product request (tooltip + field). Re-enable by uncommenting.
           { 
