@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { AdminCrudTable } from "@/components/admin/AdminCrudTable";
+import { buildJobRoleAutoFill } from "@/data/jobRoleAutoFill";
 import { useEffect, useState, useCallback } from "react";
 import toast from "react-hot-toast";
 
@@ -44,6 +45,14 @@ export default function JobRolesPage() {
   const [templatesLoading, setTemplatesLoading] = useState(false);
   const [templateSelection, setTemplateSelection] = useState<string>("");
   const [erpModulesLoading, setErpModulesLoading] = useState(false);
+  const [modulesById, setModulesById] = useState<
+    Record<string, { code: string; name: string }>
+  >({});
+  const [selectedModuleId, setSelectedModuleId] = useState<string>("");
+  const [autoFillApply, setAutoFillApply] = useState<{
+    token: number;
+    patch: Record<string, unknown>;
+  } | null>(null);
 
   useEffect(() => {
     const fetchErpSystems = async () => {
@@ -69,6 +78,7 @@ export default function JobRolesPage() {
     async (systemId: string) => {
       if (!systemId) {
         setErpModuleOptions([]);
+        setModulesById({});
         setErpModulesLoading(false);
         return;
       }
@@ -92,7 +102,15 @@ export default function JobRolesPage() {
             value: module.id,
             label: module.name || module.code || module.id,
           }));
+          const byId: Record<string, { code: string; name: string }> = {};
+          for (const row of rows) {
+            byId[row.id] = {
+              code: (row.code || "").toUpperCase().trim(),
+              name: (row.name || row.code || row.id).trim(),
+            };
+          }
           setErpModuleOptions(options);
+          setModulesById(byId);
         } else {
           setErpModuleOptions([]);
           if (json.error) {
@@ -153,6 +171,38 @@ export default function JobRolesPage() {
     setTemplateSelection("");
   }, [selectedErpSystemId, roleCategoryFilter]);
 
+  useEffect(() => {
+    if (!selectedErpSystemId || !roleCategoryFilter || !selectedModuleId) {
+      setAutoFillApply(null);
+      return;
+    }
+    const mod = modulesById[selectedModuleId];
+    if (!mod) return;
+    const erpLabel =
+      erpSystemOptions.find((s) => s.value === selectedErpSystemId)?.label ?? "";
+    const rc = roleCategoryFilter;
+    if (rc !== "technical" && rc !== "functional") {
+      return;
+    }
+    const patch = buildJobRoleAutoFill({
+      erpLabel,
+      roleCategory: rc,
+      moduleCode: mod.code,
+      moduleName: mod.name,
+    });
+    if (Object.keys(patch).length === 0) return;
+    setAutoFillApply((prev) => ({
+      token: (prev?.token ?? 0) + 1,
+      patch,
+    }));
+  }, [
+    selectedErpSystemId,
+    roleCategoryFilter,
+    selectedModuleId,
+    modulesById,
+    erpSystemOptions,
+  ]);
+
   const roleTypeOptions = [
     { value: "technical", label: "Technical" },
     { value: "functional", label: "Functional" },
@@ -175,27 +225,24 @@ export default function JobRolesPage() {
         orderBy="title"
         formHeaderSlot={() => (
           <div className="rounded-lg border border-sky-200 bg-sky-50/90 px-3 py-2.5 text-xs text-slate-700 space-y-1.5 mb-1">
+            <p className="font-semibold text-slate-800">
+              Auto-fill / التعبئة التلقائية
+            </p>
             <p>
-              <span className="font-semibold text-slate-800">How this form works:</span>{" "}
-              Choose an ERP system first; then pick{" "}
-              <strong className="font-medium">Technical</strong> or{" "}
-              <strong className="font-medium">Functional</strong> for the{" "}
-              <em>job role</em>. The module dropdown loads rows linked to that ERP in{" "}
+              After you choose <strong>ERP</strong>, <strong>Role type</strong>, and{" "}
+              <strong>ERP Module</strong>, titles, descriptions, and daily activities fill in
+              automatically (Arabic + English). يمكنك تعديل أي حقل قبل الحفظ.
+            </p>
+            <p>
+              <span className="font-semibold text-slate-800">Setup:</span> Module list comes
+              from{" "}
               <Link
                 href="/admin/modules"
                 className="text-teal-700 underline font-medium hover:text-teal-800"
               >
                 ERP Modules
               </Link>
-              — not from role type.
-            </p>
-            <p className="text-slate-600">
-              “Copy from existing position” only lists job roles already saved for this ERP +
-              role type. SAP defaults for FI/MM/ABAP/Basis are provided via the SQL migration{" "}
-              <code className="rounded bg-white/80 px-1 py-0.5 text-[11px]">
-                docs/sql/migrations/seed_sap_s4hana_erp_modules.sql
-              </code>
-              .
+              . “Copy from existing position” is optional if you already have saved roles.
             </p>
           </div>
         )}
@@ -298,7 +345,14 @@ export default function JobRolesPage() {
               typeof value === "string" ? value : ""
             );
           }
+          if (key === "erp_module_id") {
+            setSelectedModuleId((value as string) || "");
+            if (!(value as string)) {
+              setAutoFillApply(null);
+            }
+          }
         }}
+        autoFillApply={autoFillApply}
         dynamicColumnOptions={{
           erp_module_id: erpModuleOptions,
         }}

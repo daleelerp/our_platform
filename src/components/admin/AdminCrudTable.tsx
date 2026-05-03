@@ -76,6 +76,8 @@ type AdminCrudTableProps = {
     afterKey: string;
     render: (ctx: FormHeaderSlotContext) => React.ReactNode;
   }>;
+  /** When `token` increments, merges `patch` into the modal form (create flow only). */
+  autoFillApply?: { token: number; patch: Record<string, unknown> } | null;
 };
 
 export function AdminCrudTable({
@@ -90,6 +92,7 @@ export function AdminCrudTable({
   dynamicColumnOptions = {},
   formHeaderSlot,
   afterColumnSlots,
+  autoFillApply,
 }: AdminCrudTableProps) {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -104,6 +107,12 @@ export function AdminCrudTable({
   const [isCreating, setIsCreating] = useState(false);
 
   const visibleColumns = columns.filter((c) => !c.hidden && !c.hideInTable);
+
+  useEffect(() => {
+    if (!autoFillApply || autoFillApply.token < 1) return;
+    if (editingItem) return;
+    setFormData((prev) => ({ ...prev, ...autoFillApply.patch }));
+  }, [autoFillApply, editingItem]);
 
   const loadItems = async () => {
     setLoading(true);
