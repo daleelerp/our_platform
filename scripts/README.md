@@ -83,7 +83,7 @@ python scripts/scrape_certifications.py --all
 
 ## Job Roles ETL (automated market data)
 
-This project also includes an automated ETL script to build job-role demand/salary snapshots.
+This project also includes an automated ETL script that pulls remote ERP postings and writes aggregates into Supabase (`job_postings_*`, `role_*_metrics`, `etl_runs`). There are **no public HTTP routes** for job-role salary bands on this app (salary/market REST endpoints were removed).
 
 ### 1) Create schema
 
@@ -97,15 +97,11 @@ This extends the existing `job_roles` table from `learning_paths_system_schema.s
 
 After schema changes, run `npm run etl:job-roles`. You should see non-zero `normalized_rows` when Remotive returns jobs and pipeline roles are seeded (six slugs).
 
-### Egypt salaries (real EGP — not USD conversion)
+### Optional: Egypt rows in `job_market_data`
 
-The `/job-roles` page calls **`/api/job-roles/overview?country=eg&city=Egypt`**, which reads **`job_market_data`** rows where **`country = 'EG'`** and **`job_role_id`** is set. Put **actual Egyptian market** numbers there (Wuzzuf, LinkedIn EG, HR surveys, etc.).
-
-Run once in Supabase (then edit bands/sources as you research):
+Only if you use that table elsewhere (reports, admin, future UI). Seed placeholders with:
 
 `docs/sql/seed_egypt_job_market_per_role.sql`
-
-Replace placeholder min/max and `data_source` strings with your real methodology.
 
 ### 2) Execute ETL
 
@@ -118,18 +114,8 @@ What it does:
 - pulls ERP job data from Remotive API
 - stores immutable raw payloads in `job_postings_raw`
 - normalizes postings into `job_postings_normalized`
-- aggregates monthly market + salary metrics
+- aggregates monthly market + salary metrics (stored in DB for analytics)
 - logs run health in `etl_runs`
-
-### 3) Read API output
-
-Overview (all roles, latest month per location — use Egypt for EGP on site):
-
-`GET /api/job-roles/overview?country=eg&city=Egypt&limit=20`
-
-Per-role time series (market + salary rows):
-
-`GET /api/job-roles/sap-fico-consultant/market?country=eg&city=Egypt&months=12`
 
 ## Troubleshooting
 
