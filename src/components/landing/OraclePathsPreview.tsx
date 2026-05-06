@@ -47,35 +47,6 @@ function getLocalizedText(
   return enText || "";
 }
 
-// Helper function to normalize career_outcomes to always be an array or null
-function normalizeCareerOutcomes(
-  careerOutcomes: string[] | string | null | undefined
-): string[] | null {
-  if (!careerOutcomes) {
-    return null;
-  }
-  
-  // If it's already an array, return it
-  if (Array.isArray(careerOutcomes)) {
-    return careerOutcomes.filter((item) => typeof item === "string" && item.trim().length > 0);
-  }
-  
-  // If it's a string, try to parse it as JSON
-  if (typeof careerOutcomes === "string") {
-    try {
-      const parsed = JSON.parse(careerOutcomes);
-      if (Array.isArray(parsed)) {
-        return parsed.filter((item) => typeof item === "string" && item.trim().length > 0);
-      }
-    } catch {
-      // If parsing fails, treat it as a single string value
-      return careerOutcomes.trim() ? [careerOutcomes.trim()] : null;
-    }
-  }
-  
-  return null;
-}
-
 export function OraclePathsPreview({ paths }: Props) {
   const { t } = useTranslation();
   const language = useAppStore((state) => state.language);
@@ -127,12 +98,11 @@ export function OraclePathsPreview({ paths }: Props) {
 
         {/* Paths Grid */}
         <div className="grid md:grid-cols-2 gap-6">
-          {paths.map((path) => {
+          {paths.slice(0, 4).map((path) => {
             const difficulty = difficultyColors[path.difficulty_level || "beginner"];
             const audienceIcon = audienceIcons[path.target_audience || "beginners"] || "📚";
             const title = getLocalizedText(path.title, path.title_ar, language);
             const description = getLocalizedText(path.description, path.description_ar, language);
-            const careerOutcomes = normalizeCareerOutcomes(path.career_outcomes);
 
             return (
               <div
@@ -151,17 +121,6 @@ export function OraclePathsPreview({ paths }: Props) {
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${difficulty.bg} ${difficulty.text}`}>
                           {language === "ar" ? difficulty.labelAr : difficulty.label}
                         </span>
-                        {path.target_audience && (
-                          <span className="text-xs text-slate-500 capitalize">
-                            {language === "ar" 
-                              ? path.target_audience === "beginners" ? "للمبتدئين"
-                              : path.target_audience === "experienced professionals" ? "للمحترفين"
-                              : path.target_audience === "career-switchers" ? "لتغيير المسار"
-                              : path.target_audience === "technical professionals" ? "للتقنيين"
-                              : path.target_audience
-                              : path.target_audience}
-                          </span>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -185,30 +144,6 @@ export function OraclePathsPreview({ paths }: Props) {
                     </div>
                   )}
                 </div>
-
-                {/* Career Outcomes */}
-                {careerOutcomes && careerOutcomes.length > 0 && (
-                  <div className="mb-4">
-                    <p className="text-xs font-medium text-slate-500 mb-2">
-                      {language === "ar" ? "الوظائف المستهدفة:" : "Target Roles:"}
-                    </p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {careerOutcomes.slice(0, 3).map((role, i) => (
-                        <span
-                          key={i}
-                          className="px-2 py-1 bg-slate-100 text-slate-600 rounded text-xs"
-                        >
-                          {role}
-                        </span>
-                      ))}
-                      {careerOutcomes.length > 3 && (
-                        <span className="px-2 py-1 text-slate-400 text-xs">
-                          +{careerOutcomes.length - 3} {language === "ar" ? "أخرى" : "more"}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
 
                 {/* CTA */}
                 <Link

@@ -26,36 +26,12 @@ export function ErpSystemsGrid({
 }: ErpSystemsGridProps) {
   const { t, language } = useTranslation();
 
-  const demandColors: Record<string, string> = {
-    very_high: "text-green-600 bg-green-50 border-green-200",
-    high: "text-[#429874] bg-[#f0f9f6] border-[#a9dbc7]",
-    medium: "text-amber-600 bg-amber-50 border-amber-200",
-    low: "text-slate-600 bg-slate-50 border-slate-200",
-  };
-
-  const getDemandLabel = (level: string) => {
-    const labels: Record<string, string> = {
-      very_high: t("erpGrid.demandVeryHigh"),
-      high: t("erpGrid.demandHigh"),
-      medium: t("erpGrid.demandMedium"),
-      low: t("erpGrid.demandLow"),
-    };
-    return labels[level] || level;
-  };
-
   // Sort: active first, then by priority
   const sortedSystems = [...systems].sort((a, b) => {
     if (a.is_active && !b.is_active) return -1;
     if (!a.is_active && b.is_active) return 1;
     return a.priority_order - b.priority_order;
   });
-
-  // Upcoming platforms (not in database yet)
-  const upcomingPlatforms = [
-    { name: "Salesforce", icon: "☁️", color: "bg-[#00A1E0]" },
-    { name: "ServiceNow", icon: "🔧", color: "bg-[#81B5A1]" },
-    { name: "Workday", icon: "👥", color: "bg-[#0066CC]" },
-  ];
 
   return (
     <section className="py-20 bg-slate-50">
@@ -141,48 +117,6 @@ export function ErpSystemsGrid({
                   : system.description || ""}
               </p>
 
-              {/* Stats */}
-              <div className="space-y-3 mb-4">
-                {/* Job demand */}
-                {system.job_demand_level && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-slate-500">{t("erpGrid.marketDemand")}</span>
-                    <span className={`text-xs px-2 py-1 rounded-full font-medium border ${demandColors[system.job_demand_level] || demandColors.medium}`}>
-                      {getDemandLabel(system.job_demand_level)}
-                    </span>
-                  </div>
-                )}
-
-                {/* Market share */}
-                {system.market_share_mena && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-slate-500">{t("erpGrid.marketShare")}</span>
-                    <span className="text-sm text-slate-700">{system.market_share_mena}%</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Industries */}
-              {system.primary_industries && system.primary_industries.length > 0 && (
-                <div className="mb-4">
-                  <div className="flex flex-wrap gap-1">
-                    {system.primary_industries.slice(0, 3).map((industry) => (
-                      <span
-                        key={industry}
-                        className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600"
-                      >
-                        {industry.replace("_", " ")}
-                      </span>
-                    ))}
-                    {system.primary_industries.length > 3 && (
-                      <span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-400">
-                        +{system.primary_industries.length - 3}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
-
               {/* CTA — plans page filtered by ERP provider slug when mappable */}
               {system.is_active ? (
                 <Link
@@ -208,44 +142,6 @@ export function ErpSystemsGrid({
             );
           })}
 
-          {/* More Coming Soon Card */}
-          <div className="relative rounded-2xl border-2 border-dashed border-slate-300 p-6 bg-gradient-to-br from-slate-50 to-white flex flex-col items-center justify-center text-center min-h-[300px]">
-            <div className="text-4xl mb-4">🚀</div>
-            <h3 className="text-xl font-bold text-slate-900 mb-2">
-              {t("erpGrid.moreComingSoon")}
-            </h3>
-            <p className="text-sm text-slate-600 mb-6">
-              {t("erpGrid.moreComingSoonDesc")}
-            </p>
-
-            {/* Upcoming platforms preview */}
-            <div className="flex flex-wrap justify-center gap-2 mb-6">
-              {upcomingPlatforms.map((platform) => (
-                <div
-                  key={platform.name}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-slate-200 shadow-sm"
-                >
-                  <span>{platform.icon}</span>
-                  <span className="text-xs font-medium text-slate-600">{platform.name}</span>
-                </div>
-              ))}
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-slate-200 shadow-sm">
-                <span className="text-xs text-slate-400">+more</span>
-              </div>
-            </div>
-
-            <button
-              onClick={() => {
-                const waitlistSection = document.getElementById("early-access");
-                if (waitlistSection) {
-                  waitlistSection.scrollIntoView({ behavior: "smooth" });
-                }
-              }}
-              className="px-6 py-2.5 rounded-xl bg-slate-900 text-white font-medium hover:bg-slate-800 transition"
-            >
-              {t("erpGrid.voteForNext")}
-            </button>
-          </div>
         </div>
       </div>
     </section>

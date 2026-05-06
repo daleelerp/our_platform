@@ -111,14 +111,9 @@ export function LandingNavbar() {
   
   const navLinks = [
     { href: homeHref, label: t("nav.home"), exact: true },
-    // { href: "/paths", label: t("nav.paths"), exact: false },
+    { href: "/about", label: t("nav.about"), exact: true },
     { href: "/path-finder", label: language === "ar" ? "اكتشف مسارك" : "Find Your Path", exact: true },
-    // Only show plans, job roles and salary ranges for logged-in users
-    // ...(user ? [
-      { href: "/plans", label: language === "ar" ? "الخطط" : "Plans", exact: true },
-      { href: "/job-roles", label: language === "ar" ? "الأدوار الوظيفية" : "Job Roles", exact: true },
-      // { href: "/salary-ranges", label: language === "ar" ? "نطاقات الرواتب" : "Salary Ranges", exact: true },
-    // ] : []),
+    { href: "/plans", label: language === "ar" ? "الخطط" : "Plans", exact: true },
   ];
 
   // Check if link is active

@@ -32,32 +32,6 @@ export function HowItWorks() {
     },
   ];
 
-  const problems = [
-    t("howItWorks.problem1"),
-    t("howItWorks.problem2"),
-    t("howItWorks.problem3"),
-    t("howItWorks.problem4"),
-    t("howItWorks.problem5"),
-    t("howItWorks.problem6"),
-  ];
-
-  const solutions = [
-    t("howItWorks.solution1"),
-    t("howItWorks.solution2"),
-    t("howItWorks.solution3"),
-    t("howItWorks.solution4"),
-    t("howItWorks.solution5"),
-  ];
-
-  // Systems we support - current and planned
-  const systems = [
-    { name: "Oracle ERP", status: "active", color: "bg-red-500" },
-    { name: "SAP", status: "planned", color: "bg-blue-600" },
-    { name: "Dynamics", status: "planned", color: "bg-[#00A4EF]" },
-    { name: "Salesforce", status: "planned", color: "bg-[#00A1E0]" },
-    { name: "Odoo", status: "planned", color: "bg-purple-600" },
-  ];
-
   return (
     <section id="how-it-works" className="py-20 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -73,38 +47,6 @@ export function HowItWorks() {
           <p className="text-slate-600 max-w-2xl mx-auto text-lg mb-8">
             {t("howItWorks.subtitle")}
           </p>
-
-          {/* Systems We Support */}
-          <div className="flex flex-wrap items-center justify-center gap-3 max-w-3xl mx-auto">
-            {systems.map((system) => (
-              <div
-                key={system.name}
-                className={`inline-flex items-center gap-2 px-3 py-2 rounded-full border ${
-                  system.status === "active"
-                    ? "bg-green-50 border-green-200"
-                    : "bg-slate-50 border-slate-200"
-                }`}
-              >
-                <span className={`w-2.5 h-2.5 rounded-full ${system.color}`}></span>
-                <span
-                  className={`text-sm font-medium ${
-                    system.status === "active" ? "text-green-700" : "text-slate-500"
-                  }`}
-                >
-                  {system.name}
-                </span>
-                {system.status === "active" ? (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-600 font-semibold uppercase">
-                    {language === "ar" ? "متاح" : "Live"}
-                  </span>
-                ) : (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 font-semibold uppercase">
-                    {language === "ar" ? "قريباً" : "Soon"}
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
         </div>
 
         {/* Steps */}
@@ -153,56 +95,11 @@ export function HowItWorks() {
           </div>
         </div>
 
-        {/* Problem vs Solution */}
-        <div className="mt-20 grid md:grid-cols-2 gap-8">
-          {/* The Problem */}
-          <div className="bg-red-50 rounded-2xl p-8 border border-red-100">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
-                <span className="text-xl">😫</span>
-              </div>
-              <h3 className="text-xl font-bold text-red-900">{t("howItWorks.problemTitle")}</h3>
-            </div>
-            <div className="space-y-3 text-red-800">
-              {problems.map((problem, index) => (
-                <div key={index} className="flex items-start gap-2">
-                  <span className="text-red-400 mt-0.5">✗</span>
-                  <span>{problem}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Our Solution */}
-          <div className="bg-[#f0f9f6] rounded-2xl p-8 border border-[#d4ede3]">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-[#d4ede3] flex items-center justify-center">
-                <span className="text-xl">✨</span>
-              </div>
-              <h3 className="text-xl font-bold text-[#285c46]">{t("howItWorks.solutionTitle")}</h3>
-            </div>
-            <div className="space-y-3 text-[#357a5d]">
-              {solutions.map((solution, index) => (
-                <div key={index} className="flex items-start gap-2">
-                  <span className="text-[#429874] mt-0.5">✓</span>
-                  <span>{solution}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* Starting with Oracle badge */}
-            <div className="mt-6 pt-4 border-t border-[#d4ede3]">
-              <div className="flex items-center gap-2 text-sm text-[#357a5d]">
-                <span className="w-3 h-3 rounded-full bg-red-500"></span>
-                <span className="font-medium">
-                  {language === "ar" 
-                    ? "🚀 بنبدأ بـ Oracle ERP - والمزيد قريباً!" 
-                    : "🚀 Starting with Oracle ERP - more coming soon!"}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
+        <p className="mt-10 text-center text-sm text-slate-500">
+          {language === "ar"
+            ? "3 خطوات واضحة: حدّد هدفك، خُد مسارك، وابدأ تنفيذ يومي."
+            : "3 clear steps: define your goal, get your path, and execute daily."}
+        </p>
       </div>
     </section>
   );

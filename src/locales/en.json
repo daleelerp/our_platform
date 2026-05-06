@@ -25,26 +25,26 @@
     "subtitle": "Your complete guide to ERP career paths. Whether you're a student or a professional looking to switch careers - we're with you every step of the way."
   },
   "hero": {
-    "badge": "Currently in Beta • Launching Q1 2026",
-    "title": "Your Complete Guide to",
-    "titleHighlight": "Tech Career Paths",
+    "badge": "Beta • Built for MENA learners",
+    "title": "A Career Learning Platform for",
+    "titleHighlight": "ERP and Software Fields",
     "titleSuffix": "",
-    "subtitle": "Your complete guide to tech career paths in MENA",
+    "subtitle": "Right now we provide clear, practical learning paths for ERP and Software fields, with broader coverage rolling out soon.",
     "subtitlePoints": {
       "point1": "Student starting young",
       "point2": "Professional switching careers",
       "point3": "Developer or Technical",
       "point4": "Functional or Business"
     },
-    "subtitleFooter": "Deep data from thousands of sources • Carefully reviewed • Answers all your questions",
+    "subtitleFooter": "Clear paths, practical resources, and guided progress.",
     "cta": "Get Early Access",
-    "secondaryCta": "Learn How It Works",
+    "secondaryCta": "See how it works",
     "socialProof": "professionals on the waitlist",
-    "startingWith": "Starting with",
-    "comingSoonSystems": "SAP, Microsoft Dynamics, Salesforce & more coming soon",
-    "stillRollingOut": "rolling out next on Daleel",
-    "noPendingPlatforms": "More ERP ecosystems on our roadmap — we add coverage as we go.",
-    "roadmapAllCaughtUp": "You’re on our current launch set. We keep expanding to more stacks.",
+    "startingWith": "Current focus",
+    "comingSoonSystems": "More systems and software tracks coming soon",
+    "stillRollingOut": "in our near-term expansion",
+    "noPendingPlatforms": "We are expanding coverage step by step until we cover most in-demand fields.",
+    "roadmapAllCaughtUp": "This is our current launch set, and expansion is ongoing.",
     "mockPath": {
       "title": "Your Learning Path",
       "path1": {
@@ -93,12 +93,12 @@
     },
     "floatingBadge": "🎯 Starting with Oracle ERP",
     "floatingCta": "🎯 Start now",
-    "expandingTo": "Next on the roadmap"
+    "expandingTo": "Next in expansion"
   },
   "status": {
-    "currentlyActive": "Currently Active:",
-    "comingSoon": "Coming Soon:",
-    "comingSoonSystems": "SAP, Microsoft Dynamics, and more"
+    "currentlyActive": "Now:",
+    "comingSoon": "Next:",
+    "comingSoonSystems": "More ERP and software fields"
   },
   "erpGrid": {
     "title": "Enterprise Systems We're Mapping",
@@ -124,9 +124,9 @@
   },
   "howItWorks": {
     "badge": "How It Works",
-    "title": "Your Complete Guide",
-    "titleHighlight": "to Tech Career Paths",
-    "subtitle": "Whether you're a student starting young, a professional looking to switch careers, or someone wanting to learn something new - we're with you every step of the way. Deep, comprehensive data gathered from thousands of sources online and carefully reviewed to answer all your questions.",
+    "title": "How Daleel Works",
+    "titleHighlight": "in 3 clear steps",
+    "subtitle": "Tell us your target role, get a focused learning path, and move forward step by step.",
     "startingWith": "Starting with",
     "comingSoon": "Coming soon",
     "step1Title": "Tell us your goal",
@@ -185,6 +185,11 @@
     "nameLabel": "Name (optional)",
     "namePlaceholder": "Your name",
     "erpLabel": "Which ERP system are you interested in?",
+    "interestTrackLabel": "What is your main interest area?",
+    "interestTrackTechnical": "Technical",
+    "interestTrackFunctional": "Business Functional",
+    "otherInterestLabel": "Which ERP are you looking for?",
+    "otherInterestPlaceholder": "e.g. Oracle Netsuite, ERPNext, Workday...",
     "emailLabel": "Email",
     "emailPlaceholder": "you@company.com",
     "submitButton": "Join the Waitlist",

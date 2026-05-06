@@ -8,6 +8,8 @@ type WaitlistEntry = {
   email: string;
   full_name: string | null;
   interested_erp: string | null;
+  interest_track: string | null;
+  custom_interest: string | null;
   referral_source: string | null;
   status: string;
   created_at: string;
@@ -117,6 +119,9 @@ export function WaitlistTable({ initialData }: Props) {
                 Source
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase">
+                Interest
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase">
                 Status
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase">
@@ -130,7 +135,7 @@ export function WaitlistTable({ initialData }: Props) {
           <tbody className="divide-y divide-slate-200">
             {filteredEntries.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
                   No entries found
                 </td>
               </tr>
@@ -168,6 +173,22 @@ export function WaitlistTable({ initialData }: Props) {
                             </div>
                           )}
                         </div>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-slate-700">
+                        {entry.interest_track ? (
+                          <div className="space-y-1">
+                            <span className="inline-flex items-center px-2 py-1 rounded bg-emerald-50 text-emerald-700 text-xs capitalize">
+                              {entry.interest_track}
+                            </span>
+                            {entry.interest_track === "other" && entry.custom_interest && (
+                              <div className="text-xs text-slate-500">
+                                {entry.custom_interest}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          "-"
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <span
@@ -218,7 +239,7 @@ export function WaitlistTable({ initialData }: Props) {
                     </tr>
                     {isExpanded && contactData && (
                       <tr>
-                        <td colSpan={6} className="px-4 py-4 bg-slate-50 border-b border-slate-200">
+                        <td colSpan={7} className="px-4 py-4 bg-slate-50 border-b border-slate-200">
                           <div className="space-y-3">
                             <div>
                               <h4 className="text-sm font-semibold text-slate-900 mb-1">Request Title:</h4>

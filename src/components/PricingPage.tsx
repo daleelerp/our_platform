@@ -15,6 +15,7 @@ type Props = {
   erpProviders?: any[];
   selectedProvider?: string | null;
   onProviderChange?: (providerId: string | null) => void;
+  embedded?: boolean;
 };
 
 // Define audience types
@@ -394,7 +395,7 @@ function PricingCard({
   );
 }
 
-export function PricingPage({ plans, features, erpProviders = [], selectedProvider, onProviderChange }: Props) {
+export function PricingPage({ plans, features, erpProviders = [], selectedProvider, onProviderChange, embedded = false }: Props) {
   const pathname = usePathname();
   const language = useAppStore((state) => state.language);
   const user = useAppStore((state) => state.user);
@@ -677,6 +678,63 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
   };
 
   const hasActiveFilters = selectedAudience !== null || selectedProvider !== null;
+
+  if (embedded) {
+    const embeddedPlans = plans.filter((p) => p.is_active).sort((a, b) => a.sort_order - b.sort_order);
+    return (
+      <div className="max-w-6xl mx-auto">
+        <div
+          className={`grid gap-6 ${
+            embeddedPlans.length === 1
+              ? "grid-cols-1 max-w-md mx-auto"
+              : embeddedPlans.length === 2
+              ? "grid-cols-1 md:grid-cols-2 max-w-3xl mx-auto"
+              : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+          }`}
+        >
+          {embeddedPlans.map((plan) => {
+            const price = getPlanPrice(plan);
+            const isPremium = plan.name === "premium";
+            const isTeam = plan.name === "team";
+            const isOneTime = isOneTimePlan(plan);
+            const isFree = isFreePlan(plan);
+            const isPaymentPending = pendingPaymentPlanIds.includes(plan.id);
+            const isCurrentPlan = subscription?.plan_id === plan.id;
+            const isOwnedPlan = ownedPaidPlanIds.includes(plan.id);
+            const blockedByForeignPending = pendingPayment.blocksCheckoutForPlan(plan.id);
+
+            const allPlanFeatures = Object.entries(featuresByCategory).flatMap(([_, categoryFeatures]) =>
+              categoryFeatures.filter((f) => planHasFeature(plan, f.key))
+            );
+
+            return (
+              <PricingCard
+                key={plan.id}
+                plan={plan}
+                price={price}
+                isPremium={isPremium}
+                isTeam={isTeam}
+                isOneTime={isOneTime || false}
+                isFree={isFree}
+                isLoading={isLoading}
+                selectedPlan={selectedPlan}
+                allPlanFeatures={allPlanFeatures}
+                isArabic={isArabic}
+                t={t}
+                getFeatureName={getFeatureName}
+                handleSubscribe={handleSubscribe}
+                isCurrentPlan={isCurrentPlan}
+                isOwnedPlan={isOwnedPlan}
+                isPaymentPending={isPaymentPending}
+                blockedByForeignPending={blockedByForeignPending}
+                resumeCheckoutHref={pendingPayment.resumeCheckoutHref}
+              />
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">

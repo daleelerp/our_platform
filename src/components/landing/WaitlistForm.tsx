@@ -27,6 +27,8 @@ export function WaitlistForm({ onSuccess, compact = false, preselectedErp }: Wai
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [selectedErp, setSelectedErp] = useState(preselectedErp || "");
+  const [interestTrack, setInterestTrack] = useState("");
+  const [customInterest, setCustomInterest] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,6 +47,8 @@ export function WaitlistForm({ onSuccess, compact = false, preselectedErp }: Wai
           email,
           full_name: name || null,
           interested_erp: selectedErp || null,
+          interest_track: interestTrack || null,
+          custom_interest: selectedErp === "other" ? customInterest.trim() || null : null,
         });
 
       if (insertError) {
@@ -153,6 +157,47 @@ export function WaitlistForm({ onSuccess, compact = false, preselectedErp }: Wai
           </div>
         </div>
 
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-2">
+            {t("waitlist.interestTrackLabel")} *
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {[
+              { value: "technical", label: t("waitlist.interestTrackTechnical") },
+              { value: "business_functional", label: t("waitlist.interestTrackFunctional") },
+            ].map((track) => (
+              <button
+                key={track.value}
+                type="button"
+                onClick={() => setInterestTrack(track.value)}
+                className={`p-3 rounded-lg border text-sm font-medium text-left transition-all ${
+                  interestTrack === track.value
+                    ? "border-[#429874] bg-[#f0f9f6] text-[#285c46] ring-1 ring-[#429874]"
+                    : "border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                }`}
+              >
+                {track.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {selectedErp === "other" && (
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              {t("waitlist.otherInterestLabel")} *
+            </label>
+            <input
+              type="text"
+              value={customInterest}
+              onChange={(e) => setCustomInterest(e.target.value)}
+              placeholder={t("waitlist.otherInterestPlaceholder")}
+              required={selectedErp === "other"}
+              className="w-full px-4 py-3 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#429874] focus:border-transparent"
+            />
+          </div>
+        )}
+
         {error && (
           <div className="px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
             {error}
@@ -161,7 +206,12 @@ export function WaitlistForm({ onSuccess, compact = false, preselectedErp }: Wai
 
         <button
           type="submit"
-          disabled={isSubmitting || !selectedErp}
+          disabled={
+            isSubmitting ||
+            !selectedErp ||
+            !interestTrack ||
+            (selectedErp === "other" && !customInterest.trim())
+          }
           className="w-full px-6 py-4 bg-[#429874] text-white rounded-lg font-semibold text-lg hover:bg-[#357a5d] transition disabled:opacity-50 shadow-sm"
         >
           {isSubmitting ? t("waitlist.submitting") : t("waitlist.submitButton")}

@@ -6,11 +6,7 @@ import { CurrentStatusBanner } from "@/components/landing/CurrentStatusBanner";
 import { ErpSystemsGrid } from "@/components/landing/ErpSystemsGrid";
 import { HowItWorks } from "@/components/landing/HowItWorks";
 import { OraclePathsPreview } from "@/components/landing/OraclePathsPreview";
-import { FoundersNote } from "@/components/landing/FoundersNote";
 import { EarlyAccessCTA } from "@/components/landing/EarlyAccessCTA";
-import { PricingSection } from "@/components/landing/PricingSection";
-import { SpecialOffers } from "@/components/landing/SpecialOffers";
-import { CareerResourcesSection } from "@/components/landing/CareerResourcesSection";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -115,10 +111,6 @@ export default async function HomePage() {
         pendingSystemNames={pendingErpNames}
       />
       <OraclePathsPreview paths={sortedPaths} />
-      <CareerResourcesSection />
-      <PricingSection />
-      <SpecialOffers />
-      <FoundersNote />
       <EarlyAccessCTA />
     </main>
   );

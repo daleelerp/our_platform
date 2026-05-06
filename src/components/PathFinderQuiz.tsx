@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
+import { SubscriptionFeature, SubscriptionPlan } from "@/types/subscription";
+import { PricingPage } from "@/components/PricingPage";
 
 type Path = {
   id: string;
@@ -17,6 +19,7 @@ type Path = {
   difficulty_level: string | null;
   prerequisites: string[] | null;
   career_outcomes: string[] | null;
+  erp_module?: { erp_system_id?: string | null } | null;
 };
 
 type ErpSystem = {
@@ -34,6 +37,7 @@ type SavedPreferences = {
   time_commitment: string | null;
   learning_style: string | null;
   target_role: string | null;
+  interested_erp_id: string | null;
   recommended_path_ids: string[] | null;
   ai_insight: string | null;
   quiz_completed_at: string | null;
@@ -41,7 +45,11 @@ type SavedPreferences = {
 
 type Props = {
   paths: Path[];
+  accessiblePaths: Path[];
   erpSystems: ErpSystem[];
+  erpProviders: { id: string; name: string; name_ar: string | null; slug: string }[];
+  plans: SubscriptionPlan[];
+  planFeatures: SubscriptionFeature[];
   savedPreferences?: SavedPreferences | null;
   userId?: string | null;
   userProfile?: any | null; // User profile with onboarding data
@@ -170,7 +178,7 @@ const difficultyConfig: Record<string, { labelEn: string; labelAr: string; color
   advanced: { labelEn: "Advanced", labelAr: "متقدم", color: "bg-orange-100 text-orange-700" },
 };
 
-export function PathFinderQuiz({ paths, erpSystems, savedPreferences, userId, userProfile }: Props) {
+export function PathFinderQuiz({ paths, accessiblePaths, erpSystems, erpProviders, plans, planFeatures, savedPreferences, userId, userProfile }: Props) {
   const language = useAppStore((state) => state.language);
   const isHydrated = useAppStore((state) => state.isHydrated);
   const supabase = createClient();
@@ -182,9 +190,12 @@ export function PathFinderQuiz({ paths, erpSystems, savedPreferences, userId, us
   const [aiInsight, setAiInsight] = useState<string | null>(null);
   const [showSavedResults, setShowSavedResults] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedErpId, setSelectedErpId] = useState<string>("");
   const [showOnboardingSummary, setShowOnboardingSummary] = useState(false);
   const [editingAnswer, setEditingAnswer] = useState<string | null>(null);
   const [showAllPaths, setShowAllPaths] = useState(false);
+  const [recommendedPlans, setRecommendedPlans] = useState<SubscriptionPlan[] | null>(null);
+  const accessiblePathIds = new Set((accessiblePaths || []).map((p) => p.id));
 
   const currentQuestions = language === "ar" ? questions.ar : questions.en;
   
@@ -223,10 +234,11 @@ export function PathFinderQuiz({ paths, erpSystems, savedPreferences, userId, us
         learningStyle: savedPreferences.learning_style || "",
         targetRole: savedPreferences.target_role || "",
       });
+      setSelectedErpId(savedPreferences.interested_erp_id || "");
 
       // Load recommended paths
       if (savedPreferences.recommended_path_ids && savedPreferences.recommended_path_ids.length > 0) {
-        const recommendedPaths = paths.filter(p => 
+        const recommendedPaths = paths.filter(p =>
           savedPreferences.recommended_path_ids?.includes(p.id)
         );
         setRecommendations(recommendedPaths);
@@ -264,6 +276,42 @@ export function PathFinderQuiz({ paths, erpSystems, savedPreferences, userId, us
       setShowOnboardingSummary(true); // Show summary/edit view first
     }
   }, [savedPreferences, paths, userProfile]);
+
+  const inferProviderIdFromErp = (erpId: string): string | null => {
+    const erp = erpSystems.find((s) => s.id === erpId);
+    if (!erp) return null;
+    const lowered = erp.name.toLowerCase();
+    const provider = erpProviders.find((p) => lowered.includes(p.name.toLowerCase()) || p.name.toLowerCase().includes(lowered));
+    return provider?.id || null;
+  };
+
+  const buildRecommendedPlans = (erpId: string): SubscriptionPlan[] => {
+    const providerId = userProfile?.erp_provider_id || inferProviderIdFromErp(erpId);
+    if (!providerId) return [];
+    const byProvider = plans.filter((plan) => Array.isArray(plan.erp_provider_ids) && plan.erp_provider_ids.includes(providerId));
+    return byProvider.slice(0, 3);
+  };
+
+  const getRecommendationPool = (): Path[] => {
+    let pool = paths || [];
+    if (!selectedErpId) return pool;
+
+    // Prefer exact DB mapping via erp_module -> erp_system_id when available
+    const bySystemId = pool.filter(
+      (p) => p.erp_module?.erp_system_id && p.erp_module.erp_system_id === selectedErpId
+    );
+    if (bySystemId.length > 0) return bySystemId;
+
+    // Fallback: title/description keyword matching by selected ERP name
+    const selectedErp = erpSystems.find((s) => s.id === selectedErpId);
+    if (!selectedErp) return pool;
+    const keyword = selectedErp.name.toLowerCase();
+    const byKeyword = pool.filter((p) => {
+      const text = `${p.title} ${p.title_ar || ""} ${p.description || ""} ${p.description_ar || ""}`.toLowerCase();
+      return text.includes(keyword);
+    });
+    return byKeyword.length > 0 ? byKeyword : pool;
+  };
 
   const getText = (en: string | null, ar: string | null): string => {
     if (language === "ar" && ar) return ar;
@@ -307,6 +355,7 @@ export function PathFinderQuiz({ paths, erpSystems, savedPreferences, userId, us
           time_commitment: answers.timeCommitment,
           learning_style: answers.learningStyle,
           target_role: answers.targetRole,
+          interested_erp_id: selectedErpId || null,
           recommended_path_ids: recs.map(p => p.id),
           ai_insight: insight,
           quiz_completed_at: new Date().toISOString(),
@@ -346,6 +395,9 @@ export function PathFinderQuiz({ paths, erpSystems, savedPreferences, userId, us
   };
 
   const analyzeAndRecommend = async () => {
+    if (!selectedErpId) {
+      return;
+    }
     setIsAnalyzing(true);
 
     try {
@@ -355,12 +407,13 @@ export function PathFinderQuiz({ paths, erpSystems, savedPreferences, userId, us
                           answers.targetRole === 'functional' ? 'business_functional' : null);
 
       // Call AI API for recommendations
+      const recommendationPool = getRecommendationPool();
       const response = await fetch("/api/ai/recommend-path", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           answers, 
-          paths, 
+          paths: recommendationPool,
           language,
           career_focus: careerFocus // Pass career focus to AI
         }),
@@ -376,12 +429,13 @@ export function PathFinderQuiz({ paths, erpSystems, savedPreferences, userId, us
         console.log("AI Response:", data); // Debug log
       } else {
         // Fallback to basic recommendations
-        recs = getBasicRecommendations();
+        recs = getBasicRecommendations(recommendationPool);
         insight = getBasicInsight();
       }
 
       setRecommendations(recs);
       setAiInsight(insight);
+      setRecommendedPlans(buildRecommendedPlans(selectedErpId));
 
       // Save to database if user is logged in
       if (userId) {
@@ -393,10 +447,11 @@ export function PathFinderQuiz({ paths, erpSystems, savedPreferences, userId, us
     } catch (error) {
       console.error("Recommendation error:", error);
       // Fallback to basic recommendations
-      const recs = getBasicRecommendations();
+      const recs = getBasicRecommendations(getRecommendationPool());
       const insight = getBasicInsight();
       setRecommendations(recs);
       setAiInsight(insight);
+      setRecommendedPlans(buildRecommendedPlans(selectedErpId));
       
       if (userId) {
         await savePreferencesToDB(recs, insight);
@@ -409,8 +464,8 @@ export function PathFinderQuiz({ paths, erpSystems, savedPreferences, userId, us
   };
 
   // Fallback recommendation logic
-  const getBasicRecommendations = (): Path[] => {
-    const scored = paths.map((path) => {
+  const getBasicRecommendations = (pool: Path[]): Path[] => {
+    const scored = pool.map((path) => {
       let score = 0;
       if (answers.experience === "none" && path.difficulty_level === "beginner") score += 3;
       if (answers.experience === "basic" && path.difficulty_level === "beginner") score += 2;
@@ -685,10 +740,32 @@ export function PathFinderQuiz({ paths, erpSystems, savedPreferences, userId, us
               )}
             </div>
 
+            <div className="border border-slate-200 rounded-lg p-4 mb-6">
+              <div className="text-sm font-medium text-slate-700 mb-2">
+                {language === "ar" ? "نظام ERP المستهدف" : "Target ERP System"}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {erpSystems.filter((s) => s.is_active).map((erp) => (
+                  <button
+                    key={erp.id}
+                    onClick={() => setSelectedErpId(erp.id)}
+                    className={`px-3 py-2 rounded-lg text-sm border text-start transition ${
+                      selectedErpId === erp.id
+                        ? "border-teal-500 bg-teal-50 text-teal-700"
+                        : "border-slate-200 hover:border-slate-300"
+                    }`}
+                  >
+                    {erp.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Continue Button */}
             <button
               onClick={handleContinueFromSummary}
-              className="w-full bg-teal-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-teal-700 transition-colors"
+              disabled={!selectedErpId}
+              className="w-full bg-teal-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {availableQuestions.length > 0
                 ? (language === "ar" ? "متابعة الأسئلة المتبقية" : "Continue with Remaining Questions")
@@ -702,6 +779,7 @@ export function PathFinderQuiz({ paths, erpSystems, savedPreferences, userId, us
 
   // Show saved results or recommendations
   if (showSavedResults || recommendations) {
+    const providerId = userProfile?.erp_provider_id || inferProviderIdFromErp(selectedErpId);
     return (
       <main className="min-h-screen bg-gradient-to-br from-teal-50 to-slate-50 py-12">
         <div className="max-w-3xl mx-auto px-4">
@@ -772,7 +850,22 @@ export function PathFinderQuiz({ paths, erpSystems, savedPreferences, userId, us
             </div>
           )}
 
-          {/* Best Match - Prominently Displayed */}
+          {/* Recommended Plans - Primary */}
+          {recommendedPlans && recommendedPlans.length > 0 && (
+            <div className="mb-8">
+              <div className="bg-white rounded-xl p-5 border border-emerald-200 mb-4">
+                <h2 className="text-xl font-bold text-slate-900 mb-1">
+                  {language === "ar" ? "الخطط الموصى بها لك" : "Recommended Plans For You"}
+                </h2>
+                <p className="text-sm text-slate-600">
+                  {language === "ar" ? "هذه الخطط مرتبطة بالـ ERP الذي اخترته." : "These plans are matched to your selected ERP."}
+                </p>
+              </div>
+              <PricingPage plans={recommendedPlans} features={planFeatures} embedded />
+            </div>
+          )}
+
+          {/* Best Match Paths - Secondary */}
           {recommendations && recommendations.length > 0 && (
             <div className="mb-8">
               <div className="bg-gradient-to-br from-teal-500 to-emerald-600 rounded-2xl p-8 text-white mb-6 shadow-xl">
@@ -812,12 +905,21 @@ export function PathFinderQuiz({ paths, erpSystems, savedPreferences, userId, us
                             </span>
                           )}
                         </div>
-                        <Link
-                          href={`/paths/${bestMatch.slug}`}
-                          className="px-6 py-3 bg-white text-teal-600 rounded-lg font-semibold hover:bg-teal-50 transition-colors"
-                        >
-                          {language === "ar" ? "ابدأ هذا المسار" : "Start This Path"}
-                        </Link>
+                        {accessiblePathIds.has(bestMatch.id) ? (
+                          <Link
+                            href={`/paths/${bestMatch.slug}`}
+                            className="px-6 py-3 bg-white text-teal-600 rounded-lg font-semibold hover:bg-teal-50 transition-colors"
+                          >
+                            {language === "ar" ? "ابدأ هذا المسار" : "Start This Path"}
+                          </Link>
+                        ) : (
+                          <Link
+                            href={providerId ? `/plans?provider=${providerId}` : "/plans"}
+                            className="px-6 py-3 bg-white text-teal-600 rounded-lg font-semibold hover:bg-teal-50 transition-colors"
+                          >
+                            {language === "ar" ? "افتحه من الخطط" : "Unlock via Plans"}
+                          </Link>
+                        )}
                       </div>
                     </div>
                   );
@@ -852,15 +954,24 @@ export function PathFinderQuiz({ paths, erpSystems, savedPreferences, userId, us
                               </span>
                             )}
                           </div>
-                          <Link
-                            href={`/paths/${nextPath.slug}`}
-                            className="inline-flex items-center gap-2 text-teal-600 font-medium text-sm hover:text-teal-700"
-                          >
-                            {language === "ar" ? "عرض المسار" : "View Path"}
-                            <svg className="w-4 h-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                            </svg>
-                          </Link>
+                          {accessiblePathIds.has(nextPath.id) ? (
+                            <Link
+                              href={`/paths/${nextPath.slug}`}
+                              className="inline-flex items-center gap-2 text-teal-600 font-medium text-sm hover:text-teal-700"
+                            >
+                              {language === "ar" ? "عرض المسار" : "View Path"}
+                              <svg className="w-4 h-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                              </svg>
+                            </Link>
+                          ) : (
+                            <Link
+                              href={providerId ? `/plans?provider=${providerId}` : "/plans"}
+                              className="inline-flex items-center gap-2 text-teal-600 font-medium text-sm hover:text-teal-700"
+                            >
+                              {language === "ar" ? "افتحه من الخطط" : "Unlock via Plans"}
+                            </Link>
+                          )}
                         </div>
                       </div>
                     );
@@ -916,15 +1027,24 @@ export function PathFinderQuiz({ paths, erpSystems, savedPreferences, userId, us
                                   </span>
                                 )}
                               </div>
-                              <Link
-                                href={`/paths/${path.slug}`}
-                                className="inline-flex items-center gap-2 text-teal-600 font-medium text-sm hover:text-teal-700"
-                              >
-                                {language === "ar" ? "عرض المسار" : "View Path"}
-                                <svg className="w-4 h-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                                </svg>
-                              </Link>
+                              {accessiblePathIds.has(path.id) ? (
+                                <Link
+                                  href={`/paths/${path.slug}`}
+                                  className="inline-flex items-center gap-2 text-teal-600 font-medium text-sm hover:text-teal-700"
+                                >
+                                  {language === "ar" ? "عرض المسار" : "View Path"}
+                                  <svg className="w-4 h-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                                  </svg>
+                                </Link>
+                              ) : (
+                                <Link
+                                  href={providerId ? `/plans?provider=${providerId}` : "/plans"}
+                                  className="inline-flex items-center gap-2 text-teal-600 font-medium text-sm hover:text-teal-700"
+                                >
+                                  {language === "ar" ? "افتحه من الخطط" : "Unlock via Plans"}
+                                </Link>
+                              )}
                             </div>
                           </div>
                         );
@@ -959,10 +1079,10 @@ export function PathFinderQuiz({ paths, erpSystems, savedPreferences, userId, us
               </button>
             )}
             <Link
-              href="/paths"
+              href={providerId ? `/plans?provider=${providerId}` : "/plans"}
               className="px-6 py-3 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 transition-colors text-center"
             >
-              {language === "ar" ? "عرض جميع المسارات" : "View All Paths"}
+              {language === "ar" ? "عرض كل الخطط" : "View All Plans"}
             </Link>
           </div>
 
@@ -1004,7 +1124,7 @@ export function PathFinderQuiz({ paths, erpSystems, savedPreferences, userId, us
   }
 
   // If no questions left, go straight to recommendations
-  if (totalSteps === 0 && Object.keys(answers).length > 0) {
+  if (totalSteps === 0 && Object.keys(answers).length > 0 && selectedErpId) {
     if (!recommendations && !isAnalyzing) {
       analyzeAndRecommend();
     }
@@ -1069,6 +1189,25 @@ export function PathFinderQuiz({ paths, erpSystems, savedPreferences, userId, us
 
         {/* Question Card */}
         <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-8">
+          {!selectedErpId && (
+            <div className="mb-8">
+              <h2 className="text-xl font-semibold text-slate-900 mb-3">
+                {language === "ar" ? "اختر نظام ERP أولاً" : "Select Your ERP First"}
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {erpSystems.filter((s) => s.is_active).map((erp) => (
+                  <button
+                    key={erp.id}
+                    onClick={() => setSelectedErpId(erp.id)}
+                    className="p-3 rounded-xl border-2 border-slate-200 hover:border-teal-300 text-start"
+                  >
+                    <div className="font-medium text-slate-900">{erp.name}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <h2 className="text-xl font-semibold text-slate-900 mb-6">
             {currentQuestion.question}
           </h2>
@@ -1105,6 +1244,8 @@ export function PathFinderQuiz({ paths, erpSystems, savedPreferences, userId, us
             {currentStep === totalSteps - 1 && answers[currentQuestion.id as keyof QuizAnswers] && (
               <button
                 onClick={analyzeAndRecommend}
+                disabled={!selectedErpId}
+                title={!selectedErpId ? (language === "ar" ? "اختر ERP أولاً" : "Select ERP first") : ""}
                 className="px-6 py-2 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 transition-colors"
               >
                 {language === "ar" ? "احصل على التوصيات" : "Get Recommendations"}

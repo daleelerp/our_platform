@@ -222,6 +222,8 @@ CREATE TABLE waitlist (
   full_name VARCHAR(255),
   country VARCHAR(5),
   interested_erp VARCHAR(50),
+  interest_track VARCHAR(30),
+  custom_interest VARCHAR(255),
   referral_source VARCHAR(50),
   status VARCHAR(20) DEFAULT 'pending', -- 'pending', 'invited', 'converted'
   invited_at TIMESTAMPTZ,

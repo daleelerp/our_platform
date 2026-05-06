@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { PathFinderQuiz } from "@/components/PathFinderQuiz";
 import { filterPathsByPlan } from "@/utils/pathAccess";
+import { SubscriptionFeature, SubscriptionPlan } from "@/types/subscription";
 
 export default async function PathFinderPage() {
   const cookieStore = await cookies();
@@ -36,7 +37,8 @@ export default async function PathFinderPage() {
       difficulty_level,
       prerequisites,
       career_outcomes,
-      career_focus
+      career_focus,
+      erp_module:erp_modules(erp_system_id)
     `)
     .eq("is_published", true);
 
@@ -53,6 +55,24 @@ export default async function PathFinderPage() {
     .from("erp_systems")
     .select("id, name, description, description_ar, is_active")
     .order("priority_order");
+
+  // Fetch providers + active plans for plan recommendations
+  const [{ data: erpProviders }, { data: subscriptionPlans }, { data: subscriptionFeatures }] = await Promise.all([
+    supabase
+      .from("erp_providers")
+      .select("id, name, name_ar, slug")
+      .eq("is_active", true)
+      .order("name"),
+    supabase
+      .from("subscription_plans")
+      .select("*")
+      .eq("is_active", true)
+      .order("sort_order"),
+    supabase
+      .from("subscription_features")
+      .select("*")
+      .order("sort_order"),
+  ]);
 
   // Fetch saved preferences if user is logged in
   let savedPreferences = null;
@@ -128,14 +148,20 @@ export default async function PathFinderPage() {
     }
   }
 
-  // Filter paths by user's subscription plan
-  // Only show paths that are in the user's plan
+  // Keep two pools:
+  // - allCandidatePaths: full recommendation pool (not restricted by current plan)
+  // - accessiblePaths: what user can open right now with current plan
+  const allCandidatePaths = filteredPaths;
   const accessiblePaths = await filterPathsByPlan(filteredPaths, supabase, user?.id, undefined);
 
   return (
     <PathFinderQuiz 
-      paths={accessiblePaths} 
+      paths={allCandidatePaths}
+      accessiblePaths={accessiblePaths}
       erpSystems={erpSystems || []}
+      erpProviders={erpProviders || []}
+      plans={(subscriptionPlans || []) as SubscriptionPlan[]}
+      planFeatures={(subscriptionFeatures || []) as SubscriptionFeature[]}
       savedPreferences={savedPreferences}
       userId={user?.id || null}
       userProfile={userProfile}
