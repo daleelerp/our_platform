@@ -81,6 +81,44 @@ python scripts/scrape_certifications.py --all
 - Tools are upserted (inserted or updated if they already exist) based on `provider_id` and `slug`
 - Certifications are filtered by `career_focus` (technical/business_functional) and only shown if user selects "Get certified" in learning goals
 
+## Job Roles ETL (automated market data)
+
+This project also includes an automated ETL script to build job-role demand/salary snapshots.
+
+### 1) Create schema
+
+Run:
+
+`docs/sql/job_roles_pipeline_schema.sql`
+
+in Supabase SQL editor.
+
+This extends the existing `job_roles` table from `learning_paths_system_schema.sql` (adds `slug`, `pipeline_erp_vendor`, etc.). It does **not** recreate `job_roles`.
+
+### 2) Execute ETL
+
+```bash
+npm run etl:job-roles
+```
+
+What it does:
+
+- pulls ERP job data from Remotive API
+- stores immutable raw payloads in `job_postings_raw`
+- normalizes postings into `job_postings_normalized`
+- aggregates monthly market + salary metrics
+- logs run health in `etl_runs`
+
+### 3) Read API output
+
+Overview (all roles, latest month per location):
+
+`GET /api/job-roles/overview?country=global&city=Remote&limit=20`
+
+Per-role time series (market + salary rows):
+
+`GET /api/job-roles/sap-fico-consultant/market?country=global&city=Remote&months=12`
+
 ## Troubleshooting
 
 1. **"Provider not found"**: Make sure you've run `docs/sql/erp_providers_schema.sql` first to create the providers table
