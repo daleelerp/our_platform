@@ -114,10 +114,9 @@ export function LandingNavbar() {
     ...(user
       ? [
           {
-            href: "https://www.daleel.site/job-roles",
+            href: "/job-roles",
             label: language === "ar" ? "الأدوار الوظيفية" : "Job Roles",
-            exact: false,
-            external: true,
+            exact: true,
           },
         ]
       : [{ href: "/about", label: t("nav.about"), exact: true }]),
