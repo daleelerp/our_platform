@@ -328,6 +328,58 @@ async function ensureSeedData() {
       `job_roles seed incomplete: need ${ROLE_RULES.length} rows with slug, found ${withSlug.length}. Check unique index on job_roles.slug and DB errors.`
     );
   }
+
+  const LEGACY_DAILY_PATCHES = [
+    {
+      title_en: "Junior Financial Analyst (Oracle)",
+      daily_en: [
+        "Process journal entries",
+        "Run standard reports",
+        "Assist with month-end close",
+        "Reconcile accounts",
+        "Support senior analysts",
+        "Document processes",
+      ],
+      daily_ar: [
+        "معالجة القيود اليومية",
+        "تشغيل التقارير القياسية",
+        "المساعدة في إقفال نهاية الشهر",
+        "تسوية الحسابات",
+        "دعم المحللين الأقدم",
+        "توثيق العمليات",
+      ],
+    },
+  ];
+  for (const p of LEGACY_DAILY_PATCHES) {
+    const { data: legacyRow, error: legErr } = await supabase
+      .from("job_roles")
+      .select("id, daily_activities")
+      .eq("title", p.title_en)
+      .maybeSingle();
+    if (legErr) throw legErr;
+    if (!legacyRow?.id) continue;
+    const raw = legacyRow.daily_activities;
+    let parsedLen = 0;
+    if (Array.isArray(raw)) parsedLen = raw.length;
+    else if (typeof raw === "string" && raw.trim()) {
+      try {
+        const j = JSON.parse(raw);
+        if (Array.isArray(j)) parsedLen = j.length;
+      } catch {
+        parsedLen = 0;
+      }
+    }
+    if (parsedLen > 0) continue;
+    const { error: patchErr } = await supabase
+      .from("job_roles")
+      .update({
+        daily_activities: p.daily_en,
+        daily_activities_ar: p.daily_ar,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", legacyRow.id);
+    if (patchErr) throw patchErr;
+  }
 }
 
 async function fetchRawJobs() {
@@ -412,7 +464,8 @@ function salaryStatsFromRows(rows) {
     salary_min: salaries.length ? salaries[0] : null,
     salary_median: mid,
     salary_max: salaries.length ? salaries[salaries.length - 1] : null,
-    sample_size: salaries.length,
+    /** Number of job postings in this bucket (matches “roles in sample”). Not 2× postings. */
+    sample_size: rows.length,
   };
 }
 

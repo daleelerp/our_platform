@@ -29,15 +29,26 @@ function normalizeDailyList(role: JobRole, lang: "en" | "ar"): string[] {
     lang === "ar" && role.daily_activities_ar != null
       ? role.daily_activities_ar
       : role.daily_activities;
-  if (Array.isArray(pick)) {
-    return pick.map((x) => String(x)).filter(Boolean);
-  }
-  if (pick && typeof pick === "object") {
-    return Object.values(pick as Record<string, unknown>)
-      .map((x) => String(x))
-      .filter(Boolean);
-  }
-  return [];
+
+  const coerce = (raw: unknown): string[] => {
+    if (Array.isArray(raw)) return raw.map((x) => String(x)).filter(Boolean);
+    if (typeof raw === "string" && raw.trim()) {
+      try {
+        const j = JSON.parse(raw) as unknown;
+        if (Array.isArray(j)) return j.map((x) => String(x)).filter(Boolean);
+      } catch {
+        /* plain text line — ignore */
+      }
+    }
+    if (raw && typeof raw === "object") {
+      return Object.values(raw as Record<string, unknown>)
+        .map((x) => String(x))
+        .filter(Boolean);
+    }
+    return [];
+  };
+
+  return coerce(pick);
 }
 
 type PremiumPlan = {
@@ -127,6 +138,10 @@ export function JobRolesPageContent({
       language === "ar"
         ? "الرواتب بالجنيه مُشتقة من عينة بالدولار باستخدام سعر تحويل قابل للضبط؛ للاتجاهات وليس عقد عمل محدد في مصر."
         : "EGP figures convert the USD sample using a configurable rate—for directional guidance, not an Egypt-specific employer quote.",
+    nExplainer:
+      language === "ar"
+        ? "n = عدد الوظائف في العينة المستخدمة لحساب نطاق الراتب (يُفترض أن يطابق «وظائف في العينة» أعلاه)."
+        : "n = job postings used for the salary-band estimate (should match “roles in sample” above).",
   };
 
   const categoryLabels: Record<string, { en: string; ar: string }> = {
@@ -280,11 +295,11 @@ export function JobRolesPageContent({
                         {categoryLabel}
                       </span>
                     )}
-                    {role.description && (
-                      <p className="text-sm text-slate-600 line-clamp-3 mt-2">
-                        {getText(role.description, role.description_ar)}
-                      </p>
-                    )}
+                    <p className="text-sm text-slate-600 line-clamp-3 mt-2">
+                      {getText(role.description, role.description_ar).trim()
+                        ? getText(role.description, role.description_ar)
+                        : t.descPlaceholder}
+                    </p>
                     {snap && snap.openings_count > 0 && (
                       <p className="text-xs text-teal-700 mt-2 font-medium">
                         {language === "ar"
@@ -347,7 +362,8 @@ export function JobRolesPageContent({
                                 {overviewByRoleId[selectedRole.id].sample_size != null && (
                                   <span className="font-normal text-slate-600">
                                     {" "}
-                                    (n={overviewByRoleId[selectedRole.id].sample_size})
+                                    (n={overviewByRoleId[selectedRole.id].sample_size}{" "}
+                                    {language === "ar" ? "وظيفة" : "postings"})
                                   </span>
                                 )}
                               </dd>
@@ -355,6 +371,7 @@ export function JobRolesPageContent({
                           )}
                         </dl>
                         <p className="mt-3 text-xs text-slate-500">{t.egpDisclaimer}</p>
+                        <p className="mt-2 text-xs text-slate-400">{t.nExplainer}</p>
                       </div>
                     )}
 
