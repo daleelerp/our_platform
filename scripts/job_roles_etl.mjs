@@ -34,9 +34,6 @@ const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const REMOTIVE_API = "https://remotive.com/api/remote-jobs?search=erp";
 const PIPELINE_NAME = "job_roles_market_etl";
 
-/** Used to derive EGP salary bands from USD sample signals (override via JOB_MARKET_USD_TO_EGP). */
-const USD_TO_EGP = Number(process.env.JOB_MARKET_USD_TO_EGP || "50") || 50;
-
 if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
   console.error("Missing env vars: NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY");
   process.exit(1);
@@ -402,22 +399,12 @@ async function loadLookupMaps() {
     .single();
   if (globalErr) throw globalErr;
 
-  const { data: egLoc, error: egErr } = await supabase
-    .from("job_locations")
-    .select("id,country_code,city")
-    .eq("country_code", "eg")
-    .eq("city", "Egypt")
-    .limit(1)
-    .single();
-  if (egErr) throw egErr;
-
   const roleBySlug = new Map(
     roles.filter((row) => row.slug).map((row) => [row.slug, row.id])
   );
   return {
     roleBySlug,
     defaultLocationId: globalLoc.id,
-    egyptLocationId: egLoc.id,
   };
 }
 
@@ -531,22 +518,6 @@ async function recomputeMonthlyMetrics(supabase, tuples) {
   return { marketMetrics, salaryMetrics };
 }
 
-function buildEgyptDerivedMetrics(marketMetrics, salaryMetrics, egyptLocationId, rate) {
-  const egMarket = marketMetrics.map((m) => ({
-    ...m,
-    location_id: egyptLocationId,
-  }));
-  const egSalary = salaryMetrics.map((s) => ({
-    ...s,
-    location_id: egyptLocationId,
-    salary_min: s.salary_min != null ? Math.round(Number(s.salary_min) * rate) : null,
-    salary_median: s.salary_median != null ? Math.round(Number(s.salary_median) * rate) : null,
-    salary_max: s.salary_max != null ? Math.round(Number(s.salary_max) * rate) : null,
-    currency: "EGP",
-  }));
-  return { egMarket, egSalary };
-}
-
 async function run() {
   const runId = await createEtlRun();
   const stats = {
@@ -554,9 +525,6 @@ async function run() {
     normalized_rows: 0,
     market_rows: 0,
     salary_rows: 0,
-    egypt_market_rows: 0,
-    egypt_salary_rows: 0,
-    usd_to_egp_rate: USD_TO_EGP,
   };
 
   try {
@@ -591,7 +559,7 @@ async function run() {
     stats.ingested_raw = jobs.length;
 
     const rawByExternalId = new Map(rawList.map((r) => [String(r.external_id), r]));
-    const { roleBySlug, defaultLocationId, egyptLocationId } = await loadLookupMaps();
+    const { roleBySlug, defaultLocationId } = await loadLookupMaps();
     const normalizedRows = [];
 
     for (const job of jobs) {
@@ -649,29 +617,6 @@ async function run() {
           .select("id");
         if (salaryError) throw salaryError;
         stats.salary_rows = salaryRows.length;
-      }
-
-      const { egMarket, egSalary } = buildEgyptDerivedMetrics(
-        marketMetrics,
-        salaryMetrics,
-        egyptLocationId,
-        USD_TO_EGP
-      );
-      if (egMarket.length) {
-        const { data: egM, error: egMErr } = await supabase
-          .from("role_market_metrics")
-          .upsert(egMarket, { onConflict: "role_id,location_id,metric_month" })
-          .select("id");
-        if (egMErr) throw egMErr;
-        stats.egypt_market_rows = egM?.length ?? 0;
-      }
-      if (egSalary.length) {
-        const { data: egS, error: egSErr } = await supabase
-          .from("role_salary_metrics")
-          .upsert(egSalary, { onConflict: "role_id,location_id,metric_month" })
-          .select("id");
-        if (egSErr) throw egSErr;
-        stats.egypt_salary_rows = egS?.length ?? 0;
       }
     }
 

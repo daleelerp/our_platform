@@ -97,11 +97,15 @@ This extends the existing `job_roles` table from `learning_paths_system_schema.s
 
 After schema changes, run `npm run etl:job-roles`. You should see non-zero `normalized_rows` when Remotive returns jobs and pipeline roles are seeded (six slugs).
 
-Optional env (defaults shown):
+### Egypt salaries (real EGP — not USD conversion)
 
-- `JOB_MARKET_USD_TO_EGP` — multiplier used to derive **EGP** salary bands for the Egypt (`eg` / `Egypt`) location from the USD sample (default `50`).
+The `/job-roles` page calls **`/api/job-roles/overview?country=eg&city=Egypt`**, which reads **`job_market_data`** rows where **`country = 'EG'`** and **`job_role_id`** is set. Put **actual Egyptian market** numbers there (Wuzzuf, LinkedIn EG, HR surveys, etc.).
 
-The `/job-roles` UI reads **`/api/job-roles/overview?country=eg&city=Egypt`** so students see **EGP**-labeled estimates.
+Run once in Supabase (then edit bands/sources as you research):
+
+`docs/sql/seed_egypt_job_market_per_role.sql`
+
+Replace placeholder min/max and `data_source` strings with your real methodology.
 
 ### 2) Execute ETL
 
