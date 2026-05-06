@@ -19,7 +19,7 @@ type Path = {
   difficulty_level: string | null;
   prerequisites: string[] | null;
   career_outcomes: string[] | null;
-  erp_module?: { erp_system_id?: string | null } | null;
+  erp_module?: { erp_system_id?: string | null } | { erp_system_id?: string | null }[] | null;
 };
 
 type ErpSystem = {
@@ -297,9 +297,14 @@ export function PathFinderQuiz({ paths, accessiblePaths, erpSystems, erpProvider
     if (!selectedErpId) return pool;
 
     // Prefer exact DB mapping via erp_module -> erp_system_id when available
-    const bySystemId = pool.filter(
-      (p) => p.erp_module?.erp_system_id && p.erp_module.erp_system_id === selectedErpId
-    );
+    const bySystemId = pool.filter((p) => {
+      const moduleData = p.erp_module;
+      if (!moduleData) return false;
+      if (Array.isArray(moduleData)) {
+        return moduleData.some((m) => m?.erp_system_id === selectedErpId);
+      }
+      return moduleData.erp_system_id === selectedErpId;
+    });
     if (bySystemId.length > 0) return bySystemId;
 
     // Fallback: title/description keyword matching by selected ERP name
