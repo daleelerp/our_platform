@@ -50,6 +50,7 @@ type Props = {
   erpProviders: { id: string; name: string; name_ar: string | null; slug: string }[];
   plans: SubscriptionPlan[];
   planFeatures: SubscriptionFeature[];
+  ownedPlanIds?: string[];
   savedPreferences?: SavedPreferences | null;
   userId?: string | null;
   userProfile?: any | null; // User profile with onboarding data
@@ -178,7 +179,7 @@ const difficultyConfig: Record<string, { labelEn: string; labelAr: string; color
   advanced: { labelEn: "Advanced", labelAr: "متقدم", color: "bg-orange-100 text-orange-700" },
 };
 
-export function PathFinderQuiz({ paths, accessiblePaths, erpSystems, erpProviders, plans, planFeatures, savedPreferences, userId, userProfile }: Props) {
+export function PathFinderQuiz({ paths, accessiblePaths, erpSystems, erpProviders, plans, planFeatures, ownedPlanIds = [], savedPreferences, userId, userProfile }: Props) {
   const language = useAppStore((state) => state.language);
   const isHydrated = useAppStore((state) => state.isHydrated);
   const supabase = createClient();
@@ -289,7 +290,9 @@ export function PathFinderQuiz({ paths, accessiblePaths, erpSystems, erpProvider
     const providerId = userProfile?.erp_provider_id || inferProviderIdFromErp(erpId);
     if (!providerId) return [];
     const byProvider = plans.filter((plan) => Array.isArray(plan.erp_provider_ids) && plan.erp_provider_ids.includes(providerId));
-    return byProvider.slice(0, 3);
+    const unseenPlans = byProvider.filter((plan) => !ownedPlanIds.includes(plan.id));
+    // Prefer plans user doesn't own yet. If all are owned, show nothing (they already have them).
+    return unseenPlans.slice(0, 3);
   };
 
   const getRecommendationPool = (): Path[] => {
@@ -867,6 +870,19 @@ export function PathFinderQuiz({ paths, accessiblePaths, erpSystems, erpProvider
                 </p>
               </div>
               <PricingPage plans={recommendedPlans} features={planFeatures} embedded />
+            </div>
+          )}
+
+          {recommendedPlans && recommendedPlans.length === 0 && userId && ownedPlanIds.length > 0 && (
+            <div className="mb-8 bg-white rounded-xl p-5 border border-emerald-200">
+              <h2 className="text-lg font-bold text-slate-900 mb-1">
+                {language === "ar" ? "أنت تمتلك بالفعل خطط هذا الـ ERP" : "You already own plans for this ERP"}
+              </h2>
+              <p className="text-sm text-slate-600">
+                {language === "ar"
+                  ? "لن نكرر نفس الخطط المشتراة ضمن التوصيات. ركّز الآن على المسارات المقترحة أو افتح خططك الحالية."
+                  : "We won't re-suggest plans you already purchased. Focus on recommended paths or open your current plans."}
+              </p>
             </div>
           )}
 

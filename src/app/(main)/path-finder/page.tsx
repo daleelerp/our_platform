@@ -77,6 +77,7 @@ export default async function PathFinderPage() {
   // Fetch saved preferences if user is logged in
   let savedPreferences = null;
   let userProfile = null;
+  let ownedPlanIds: string[] = [];
   if (user) {
     const { data: prefs } = await supabase
       .from("user_path_preferences")
@@ -98,6 +99,14 @@ export default async function PathFinderPage() {
       .single();
     
     userProfile = profile;
+
+    const { data: subscriptions } = await supabase
+      .from("user_subscriptions")
+      .select("plan_id, status")
+      .eq("user_id", user.id)
+      .in("status", ["active", "trial", "paused", "expired"]);
+
+    ownedPlanIds = (subscriptions || []).map((s) => s.plan_id);
   }
 
   // Additional filtering by ERP provider if user has selected one
@@ -162,6 +171,7 @@ export default async function PathFinderPage() {
       erpProviders={erpProviders || []}
       plans={(subscriptionPlans || []) as SubscriptionPlan[]}
       planFeatures={(subscriptionFeatures || []) as SubscriptionFeature[]}
+      ownedPlanIds={ownedPlanIds}
       savedPreferences={savedPreferences}
       userId={user?.id || null}
       userProfile={userProfile}
