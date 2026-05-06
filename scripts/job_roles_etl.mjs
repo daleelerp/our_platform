@@ -51,20 +51,20 @@ const ROLE_RULES = [
     role_category: "functional",
     keywords: ["functional", "consultant", "business analyst"],
     description_en:
-      "Bridges business needs and ERP software: requirements, configuration, testing, cutover, and user adoption so finance/operations can run end-to-end processes.",
+      "An ERP Functional Consultant is the bridge between how the business really works and what the ERP can do out of the box. They work with finance, supply chain, HR, or operations to run discovery workshops, map current and target processes, and turn policies into system setup: org structures, ledgers, workflows, approvals, tax and pricing rules, and clean master data. They align business rules with standard ERP capabilities, document gaps, and work with technical specialists when you need interfaces, custom fields, or deeper changes. Through the project they own test plans, support user acceptance testing, track defects, build training and job aids, and stay close to go-live and hypercare so people actually use the system and management can trust the numbers.",
     description_ar:
-      "يربط احتياجات الأعمال بنظام الـ ERP: الجمع والتحليل، الإعداد، الاختبار، الإقلاع، وتبني المستخدمين حتى تعمل المالية والعمليات بسلاسة.",
+      "مستشار وظيفي في الـ ERP هو حلقة الوصل بين «كيف تدير شركتك أعمالك فعلياً» وبين «ماذا يستطيع النظام تقديمه بشكل قياسي». يعمل مع المالية أو المشتريات أو المخزون أو الموارد البشرية لعقد ورش اكتشاف، ورسم العمليات الحالية والمستهدفة، وترجمة السياسات إلى إعداد داخل النظام: الهياكل التنظيمية، الدفاتر، سير العمل، الموافقات، الضرائب والتسعير، والبيانات الأساسية بشكل منضبط. يوائم قواعد العمل مع قدرات النظام القياسية، ويوثق الفجوات، وينسق مع الفريق التقني عند الحاجة للواجهات أو التوسعات. طوال المشروع يضع خطط اختبار، ويدعم اختبار القبول (UAT)، ويتابع الأعطال، ويعد التدريب ودليل المستخدم، ويظل قريباً من الإقلاع وما بعده لضمان تبنٍ حقيقي للنظام وثقة في التقارير.",
     daily_en: [
-      "Workshops & interviews to capture requirements and gaps",
-      "Configure modules, workflows, approvals, and master data",
-      "Write test scripts, support UAT, and fix defects with IT",
-      "Prepare training, job aids, and handover for go-live",
+      "Run workshops and interviews with process owners; document as-is / to-be and sign off scope",
+      "Configure modules, org data, workflows, approvals, and master data to match agreed design",
+      "Build test cases, support UAT, log and retest defects with technical and business teams",
+      "Prepare user training, SOPs, and handover; support go-live and first weeks of production",
     ],
     daily_ar: [
-      "جلسات عمل ومقابلات لاستخراج المتطلبات والفجوات",
-      "إعداد الوحدات وسير العمل والموافقات والبيانات الأساسية",
-      "كتابة سيناريوهات الاختبار ودعم UAT مع تقنية المعلومات",
-      "إعداد التدريب وأدلة العمل وتسليم ما بعد الإطلاق",
+      "عقد ورش ومقابلات مع أصحاب العمليات؛ توثيق الحالة الحالية/المستهدفة واعتماد النطاق",
+      "إعداد الوحدات والهياكل وسير العمل والموافقات والبيانات الأساسية وفق التصميم",
+      "بناء سيناريوهات الاختبار ودعم UAT وتسجيل وإعادة اختبار الأعطال",
+      "إعداد التدريب وإجراءات التشغيل والتسليم؛ دعم الإقلاع وأسابيع التشغيل الأولى",
     ],
   },
   {
@@ -74,20 +74,20 @@ const ROLE_RULES = [
     role_category: "technical",
     keywords: ["technical", "developer", "integration", "api"],
     description_en:
-      "Implements integrations, extensions, reports, and performance fixes so the ERP stays reliable, secure, and connected to other systems.",
+      "An ERP Technical Consultant builds and maintains the technical layer around the ERP: integrations with banks, e-commerce, CRM, HR, or legacy systems; scheduled jobs and automation; extensions or light customizations where the product allows; reports and performance tuning; and safe promotion of changes across dev / test / production. They translate functional requirements into technical designs, estimate effort and risk, implement APIs or file-based feeds, debug batch failures, and keep environments healthy (releases, backups, monitoring). They partner with functional consultants on feasibility and with infrastructure or security on identity, secrets, and compliance so the platform stays reliable under real load.",
     description_ar:
-      "ينفذ التكاملات والتوسعات والتقارير وتحسينات الأداء ليبقى النظام موثوقاً وآمناً ومتصلاً بالأنظمة الأخرى.",
+      "المستشار التقني في الـ ERP يبني ويصون الطبقة التقنية حول النظام: التكامل مع البنوك أو المتاجر أو CRM أو الأنظمة القديمة؛ المهام المجدولة والأتمتة؛ التوسعات أو التخصيصات الخفيفة حسب ما يسمح به المنتج؛ التقارير وتحسين الأداء؛ ونقل التغييرات بأمان بين بيئات التطوير والاختبار والإنتاج. يترجم المتطلبات الوظيفية إلى تصاميم تقنية، ويقدّر الجهد والمخاطر، وينفّذ واجهات برمجية أو تبادل ملفات، ويعالج فشل الدُفعات، ويحافظ على صحة البيئات (إصدارات، نسخ احتياطي، مراقبة). يتعاون مع الوظيفيين حول الجدوى ومع البنية التحتية أو الأمن حول الهويات والأسرار والامتثال ليبقى النظام موثوقاً تحت الحمل الفعلي.",
     daily_en: [
-      "Design and build integrations (APIs, iPaaS, file feeds)",
-      "Debug workflows, jobs, and customizations",
-      "Support releases, migrations, and environment hygiene",
-      "Collaborate with functional peers on technical feasibility",
+      "Design and implement integrations (REST/SOAP, iPaaS, SFTP, message queues) with logging and retries",
+      "Troubleshoot jobs, workflows, custom code, and environment-specific errors",
+      "Support deployments, data fixes (when controlled), and performance analysis",
+      "Review security (roles, keys, PII) with functional and infra peers before production",
     ],
     daily_ar: [
-      "تصميم وبناء التكاملات (واجهات، ملفات، منصات تكامل)",
-      "تتبع الأخطاء في الأتمتة والمهام والتخصيصات",
-      "دعم الإصدارات والترحيل والبيئات",
-      "التنسيق مع الوظيفيين حول الجدوى التقنية",
+      "تصميم وتنفيذ التكاملات (واجهات، منصات تكامل، ملفات) مع تسجيل وإعادة محاولة",
+      "معالجة أعطال المهام والأتمتة والكود والبيئات",
+      "دعم النشر والإصلاحات المضبوطة وتحليل الأداء",
+      "مراجعة الصلاحيات والمفاتيح والبيانات الحساسة قبل الإنتاج",
     ],
   },
   {
@@ -97,20 +97,20 @@ const ROLE_RULES = [
     role_category: "functional",
     keywords: ["sap", "fico"],
     description_en:
-      "Specializes in SAP Finance & Controlling: chart of accounts, asset accounting, costing, period close, and statutory reporting alignment.",
+      "A SAP FICO Consultant focuses on SAP Finance (FI) and Controlling (CO): chart of accounts and company codes, general ledger and sub-ledgers, accounts payable/receivable, asset accounting, tax, bank, and integration points to logistics. On the controlling side they configure cost centers, internal orders, product costing, profitability analysis (e.g. CO-PA), and management reporting that matches how leadership reads the P&L. They align SAP with local accounting standards and audit expectations, support month-end and year-end close, fix reconciliation breaks, and train finance users on transactions, authorizations, and controls so statutory and management reporting stay consistent.",
     description_ar:
-      "متخصص في SAP للمالية والمحاسبة الإدارية: دليل الحسابات، الأصول، التكلفة، الإقفال، والتقارير التنظيمية.",
+      "مستشار SAP FICO يركز على المالية (FI) والمحاسبة الإدارية (CO): دليل الحسابات والشركات، الأستاذ العام والحسابات المساعدة، المدينون والدائنون، أصول ثابتة، ضرائب، بنوك، ونقاط التكامل مع اللوجستيات. في CO يضبط مراكز التكلفة والأوامر الداخلية وتكلفة المنتج وتحليل الربحية حسب ما يقرأه الإدارة في قائمة الدخل. يوائم SAP مع المعايير المحلية وتوقعات المراجعة، ويدعم الإقفال الشهري والسنوي، ويعالج انكسارات التسوية، ويدرب مستخدمي المالية على العمليات والصلاحيات والضوابط لتبقى التقارير النظامية والإدارية متسقة.",
     daily_en: [
-      "Translate finance policies into SAP FICO setup",
-      "Support month-end close, reconciliations, and audits",
-      "Tune CO-PA, costing sheets, and profitability reporting",
-      "Train finance users on transactions and controls",
+      "Configure FI/CO structures, posting rules, integrations to MM/SD/PS, and reporting variants",
+      "Support period-end close: reconciliations, GR/IR, asset runs, CO allocations, and audit queries",
+      "Tune profitability and costing (e.g. COPA, product costing) for accurate margins",
+      "Coach accountants on transactions, workflows, and segregation of duties",
     ],
     daily_ar: [
-      "ترجمة سياسات المالية إلى إعدادات FICO",
-      "دعم الإقفال الشهري والتسويات والمراجعات",
-      "ضبط CO-PA وأوراق التكلفة وتقارير الربحية",
-      "تدريب مستخدمي المالية على العمليات والضوابط",
+      "إعداد هياكل FI/CO وقواعد القيد والتكامل مع المشتريات/المبيعات/المشاريع",
+      "دعم الإقفال: تسويات، GR/IR، أصول، توزيعات CO، استعلامات المراجعة",
+      "ضبط الربحية والتكلفة بدقة هوامش",
+      "تدريب المحاسبين على العمليات وسير العمل وفصل المهام",
     ],
   },
   {
@@ -120,20 +120,20 @@ const ROLE_RULES = [
     role_category: "functional",
     keywords: ["oracle", "ebs", "fusion"],
     description_en:
-      "Delivers Oracle ERP (EBS / Fusion Cloud) solutions across finance, SCM, or projects—configuration through go-live and steady-state support.",
+      "An Oracle ERP Consultant implements Oracle’s finance and operations footprint—whether E-Business Suite (EBS) or Oracle Fusion Cloud—in areas like GL, AP/AR, procurement, inventory, manufacturing, or projects. They lead or contribute to blueprinting: mapping business processes to Oracle modules, deciding setup versus customization, and planning integrations and extensions. They configure the application, coordinate technical teams for interfaces and reports, drive testing from unit to UAT, manage cutover plans, and support stabilization after go-live. They often specialize in one pillar (e.g. Financials or SCM) but understand cross-module impacts so orders, inventory, and costing stay aligned.",
     description_ar:
-      "يقدم حلول Oracle ERP (EBS أو Fusion) في المالية أو سلسلة التوريد أو المشاريع من الإعداد حتى الإطلاق والدعم.",
+      "مستشار Oracle ERP ينفّذ حزمة المالية والعمليات من Oracle—سواء E-Business Suite أو Oracle Fusion Cloud—في مجالات مثل الأستاذ العام، المدينون/الدائنون، المشتريات، المخزون، التصنيع، أو المشاريع. يشارك في التخطيط الزراعي: ربط العمليات بوحدات Oracle، واختيار الإعداد مقابل التخصيص، وتخطيط التكامل والتوسعات. يضبط التطبيق، وينسق الفريق التقني للواجهات والتقارير، ويقود الاختبار حتى قبول المستخدم، ويدير خطط الإقلاع، ويدعم الاستقرار بعد الإطلاق. غالباً يتخصص في محور (مالية أو سلسلة توريد) مع فهم التأثيرات بين الوحدات لتبقى الطلبات والمخزون والتكلفة متوافقة.",
     daily_en: [
-      "Blueprint processes and map them to Oracle modules",
-      "Configure setups, integrations, and extensions",
-      "Lead testing cycles and defect triage",
-      "Drive adoption with SMEs and change activities",
+      "Blueprint and configure Oracle modules; document setups and integration contracts",
+      "Plan and execute testing cycles; prioritize defects with technical owners",
+      "Prepare migration/cutover steps and support hypercare after go-live",
+      "Work with SMEs on adoption, reporting, and period-close routines",
     ],
     daily_ar: [
-      "رسم العمليات وربطها بوحدات Oracle",
-      "إعداد النظام والتكاملات والتوسعات",
-      "قيادة الاختبار ومتابعة العيوب",
-      "دعم التبني مع أصحاب المصلحة والتغيير",
+      "التخطيط وإعداد وحدات Oracle وتوثيق الإعدادات وعقود التكامل",
+      "تنفيذ دورات الاختبار وترتيب الأولويات مع التقنيين",
+      "إعداد خطوات الترحيل/الإقلاع والدعم المكثف بعد الإطلاق",
+      "التعاون مع الخبراء للتبني والتقارير والإقفال",
     ],
   },
   {
@@ -143,20 +143,20 @@ const ROLE_RULES = [
     role_category: "consulting",
     keywords: ["dynamics", "d365", "ax"],
     description_en:
-      "Implements Microsoft Dynamics 365 (Finance & Operations / CE): discovery, configuration, data migration, and rollout for SMB to enterprise.",
+      "A Microsoft Dynamics Consultant delivers Dynamics 365 solutions—often Finance & Operations (F&O) for ERP or Customer Engagement for CRM—covering discovery, fit-gap workshops, solution architecture, configuration of entities, workflows, dimensions, and security roles, data migration and validation, and rollout from pilot to multi-country deployments. They balance standard Dynamics patterns with necessary extensions (via approved channels), integrate with Microsoft 365, Power Platform, and third-party apps, and stay through go-live and optimization: fixing process friction, tuning batch jobs, and refining reports so leadership gets operational truth from one stack.",
     description_ar:
-      "ينفذ Microsoft Dynamics 365 للمالية أو العمليات أو العملاء: الاكتشاف، الإعداد، ترحيل البيانات، والإطلاق.",
+      "مستشار Microsoft Dynamics ينفّذ حلول Dynamics 365—غالباً Finance & Operations للـ ERP أو Customer Engagement للـ CRM—يشمل الاكتشاف، ورش الفجوات، وهندسة الحل، وإعداد الكيانات وسير العمل والأبعاد وأدوار الأمان، وترحيل البيانات والتحقق منها، والإطلاق من تجريبي إلى نشر متعدد الدول. يوازن بين أنماط Dynamics القياسية والتوسعات المسموحة، ويتكامل مع Microsoft 365 وPower Platform وتطبيقات خارجية، ويظل بعد الإقلاع للتحسين: تخفيف احتكاك العمليات، وضبط المهام الدفعية، وتنقيح التقارير حتى تحصل الإدارة على صورة تشغيلية موحدة.",
     daily_en: [
-      "Workshops for fit/gap and solution design",
-      "Configure D365 entities, workflows, and security",
-      "Coordinate data migration and integration tests",
-      "Hypercare and optimization after go-live",
+      "Lead fit/gap and design workshops; produce backlog and configuration specs",
+      "Configure D365 modules, workflows, number sequences, dimensions, and security",
+      "Own data migration templates, reconciliation, and integration/UAT sign-off",
+      "Hypercare: incident triage, minor tuning, and training reinforcement",
     ],
     daily_ar: [
-      "ورش الفجوات والتصميم",
-      "إعداد الكيانات وسير العمل والصلاحيات",
-      "تنسيق ترحيل البيانات واختبارات التكامل",
-      "الدعم المكثف والتحسين بعد الإطلاق",
+      "قيادة ورش الفجوات والتصميم وإخراج قائمة الأعمال والمواصفات",
+      "إعداد الوحدات وسير العمل والتسلسلات والأبعاد والصلاحيات",
+      "امتلاك قوالب الترحيل والتسوية وتوقيع التكامل/UAT",
+      "الدعم المكثف: تصنيف الحوادث والضبط الخفيف وتعزيز التدريب",
     ],
   },
   {
@@ -166,20 +166,20 @@ const ROLE_RULES = [
     role_category: "functional",
     keywords: ["odoo"],
     description_en:
-      "Designs and deploys Odoo apps (accounting, inventory, CRM, HR) with automation and reporting tailored to growing businesses.",
+      "An Odoo Consultant designs end-to-end Odoo rollouts for SMBs and mid-market teams: choosing apps (Accounting, Inventory, Manufacturing, CRM, HR, Helpdesk), modeling workflows with minimal custom code, importing opening balances and masters, and wiring automations (scheduled actions, email templates, alerts). They translate operational reality—multi-step approvals, landed costs, reorder rules—into Odoo configuration and light Studio or module tweaks when needed. They train internal champions, build dashboards for owners, and iterate after go-live so adoption grows without breaking simplicity Odoo is known for.",
     description_ar:
-      "يصمم ويطبّق تطبيقات Odoo (محاسبة، مخزون، علاقات عملاء، موارد بشرية) مع الأتمتة والتقارير للشركات النامية.",
+      "مستشار Odoo يصمم إطلاقات متكاملة للشركات الصغيرة والمتوسطة: اختيار التطبيقات (محاسبة، مخزون، تصنيع، علاقات عملاء، موارد بشرية، دعم)، ونمذجة سير العمل بأقل كود ممكن، واستيراد الأرصدة الافتاضية والبيانات الأساسية، وربط الأتمتة (مهام مجدولة، قوالب بريد، تنبيهات). يترجم واقع التشغيل—موافقات متعددة، تكاليف لاندد، قواعد إعادة طلب—إلى إعداد Odoo وتعديلات Studio أو الوحدات عند الحاجة. يدرّب الأبطال الداخليين، يبني لوحات للإدارة، ويتكرر بعد الإقلاع ليبقى التبني قوياً دون تعقيد يضيع بساطة Odoo.",
     daily_en: [
-      "Scope modules and customize Odoo workflows",
-      "Import master data and validate balances",
-      "Build dashboards and scheduled reports",
-      "Coach teams on daily operations in Odoo",
+      "Scope apps and flows; configure accounting, stock rules, CRM pipelines, and approvals",
+      "Import or clean masters and validate trial balances / stock valuations",
+      "Automate recurring tasks and reporting; optional light customization via Studio",
+      "Train users and iterate on feedback during rollout and after go-live",
     ],
     daily_ar: [
-      "تحديد النطاق وتخصيص سير العمل",
-      "استيراد البيانات الأساسية والتحقق من الأرصدة",
-      "بناء لوحات التحكم والتقارير الدورية",
-      "تدريب الفرق على العمليات اليومية",
+      "تحديد النطاق والتطبيقات؛ إعداد المحاسبة والمخزون ومسارات CRM والموافقات",
+      "استيراد أو تنظيف البيانات الأساسية والتحقق من الأرصدة والتقييمات",
+      "أتمتة المهام والتقارير؛ تخصيص خفيف عبر Studio عند الحاجة",
+      "تدريب المستخدمين وتكرار التحسين بعد الإقلاع",
     ],
   },
 ];
@@ -268,33 +268,17 @@ async function ensureSeedData() {
     if (findError) throw findError;
 
     if (existing?.id) {
-      const { data: cur, error: curErr } = await supabase
-        .from("job_roles")
-        .select("description, description_ar, daily_activities, daily_activities_ar, role_category")
-        .eq("id", existing.id)
-        .maybeSingle();
-      if (curErr) throw curErr;
-
       const patch = {
         title: r.name_en,
         pipeline_erp_vendor: r.vendor,
+        role_category: r.role_category,
+        description: r.description_en,
+        description_ar: r.description_ar,
+        daily_activities: r.daily_en,
+        daily_activities_ar: r.daily_ar,
         is_active: true,
         updated_at: new Date().toISOString(),
       };
-      if (!cur?.description?.trim()) patch.description = r.description_en;
-      if (!cur?.description_ar?.trim()) patch.description_ar = r.description_ar;
-      const da = cur?.daily_activities;
-      const hasDaily =
-        Array.isArray(da) && da.length > 0
-          ? true
-          : Boolean(da && typeof da === "object" && !Array.isArray(da)
-              ? Object.keys(da).length > 0
-              : false);
-      if (!hasDaily) {
-        patch.daily_activities = r.daily_en;
-        patch.daily_activities_ar = r.daily_ar;
-      }
-      if (!cur?.role_category?.trim()) patch.role_category = r.role_category;
 
       const { error: updError } = await supabase.from("job_roles").update(patch).eq("id", existing.id);
       if (updError) throw updError;

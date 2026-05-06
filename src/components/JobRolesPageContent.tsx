@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useAppStore } from "@/store/useAppStore";
 
 type JobRole = {
@@ -12,22 +12,6 @@ type JobRole = {
   role_category: string | null;
   daily_activities: any;
   daily_activities_ar: any;
-};
-
-type OverviewSnapshot = {
-  role_id: string;
-  openings_count: number;
-  growth_mom_pct: number | null;
-  salary_median: number | null;
-  salary_min?: number | null;
-  salary_max?: number | null;
-  salary_currency?: string | null;
-  salary_period?: string | null;
-  sample_size: number | null;
-  data_month: string | null;
-  data_source?: string | null;
-  data_date?: string | null;
-  currency?: string | null;
 };
 
 function normalizeDailyList(role: JobRole, lang: "en" | "ar"): string[] {
@@ -43,7 +27,7 @@ function normalizeDailyList(role: JobRole, lang: "en" | "ar"): string[] {
         const j = JSON.parse(raw) as unknown;
         if (Array.isArray(j)) return j.map((x) => String(x)).filter(Boolean);
       } catch {
-        /* plain text line — ignore */
+        /* ignore */
       }
     }
     if (raw && typeof raw === "object") {
@@ -69,52 +53,17 @@ type Props = {
   jobRoles: JobRole[];
   hasPremiumAccess: boolean;
   premiumPlan: PremiumPlan;
-  isAuthenticated: boolean; // New prop
+  isAuthenticated: boolean;
 };
 
-export function JobRolesPageContent({ 
-  jobRoles, 
-  hasPremiumAccess, 
+export function JobRolesPageContent({
+  jobRoles,
+  hasPremiumAccess,
   premiumPlan,
-  isAuthenticated 
+  isAuthenticated,
 }: Props) {
   const language = useAppStore((state) => state.language);
   const [selectedRole, setSelectedRole] = useState<JobRole | null>(null);
-  const [overviewByRoleId, setOverviewByRoleId] = useState<
-    Record<string, OverviewSnapshot>
-  >({});
-  const [overviewStatus, setOverviewStatus] = useState<
-    "loading" | "ok" | "error"
-  >("loading");
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(
-          "/api/job-roles/overview?country=eg&city=Egypt&limit=100"
-        );
-        const json = await res.json();
-        if (!json.success || !Array.isArray(json.data)) {
-          if (!cancelled) setOverviewStatus("error");
-          return;
-        }
-        const map: Record<string, OverviewSnapshot> = {};
-        for (const row of json.data as OverviewSnapshot[]) {
-          map[row.role_id] = row;
-        }
-        if (!cancelled) {
-          setOverviewByRoleId(map);
-          setOverviewStatus("ok");
-        }
-      } catch {
-        if (!cancelled) setOverviewStatus("error");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const getText = (en: string | null, ar: string | null): string => {
     if (language === "ar" && ar) return ar;
@@ -123,80 +72,28 @@ export function JobRolesPageContent({
 
   const t = {
     title: language === "ar" ? "الأدوار الوظيفية في ERP" : "ERP Job Roles",
-    subtitle: language === "ar"
-      ? "اكتشف الأدوار الوظيفية المختلفة في مجال ERP واختر المسار المناسب لك"
-      : "Explore different job roles in ERP and choose the right path for you",
+    subtitle:
+      language === "ar"
+        ? "تعرّف على كل دور: ماذا يفعل في الواقع، ومع من يعمل، وأهم مهامه اليومية."
+        : "Understand each role: what they actually do, who they work with, and typical day-to-day work.",
     selectRole: language === "ar" ? "اختر دورك" : "Select Your Role",
-    roleDescription: language === "ar" ? "وصف الدور" : "Role Description",
-    dailyActivities: language === "ar" ? "الأنشطة اليومية" : "Daily Activities",
+    whatRoleDoes:
+      language === "ar"
+        ? "ماذا يفعل هذا الدور بالتفصيل؟"
+        : "What this role does (in detail)",
+    dailyActivities:
+      language === "ar" ? "أمثلة لمهام يومية شائعة" : "Typical day-to-day tasks",
     category: language === "ar" ? "الفئة" : "Category",
     noRoles: language === "ar" ? "لا توجد أدوار متاحة" : "No roles available",
-    marketSnapshot:
-      language === "ar"
-        ? "لمحة سوق — مصر (جنيه مصري من قاعدة البيانات)"
-        : "Market snapshot — Egypt (EGP from database)",
-    openings:
-      language === "ar"
-        ? "إعلانات متوقعة / طلب (إن وُجدت في السجل)"
-        : "Open roles (if tracked in record)",
-    salaryRange:
-      language === "ar"
-        ? "نطاق الراتب في مصر (جنيه)"
-        : "Salary range in Egypt (EGP)",
-    medianBand:
-      language === "ar"
-        ? "منتصف النطاق (تقريبي)"
-        : "Mid-range (approx.)",
-    periodYear: language === "ar" ? "سنوي" : "year",
-    periodMonth: language === "ar" ? "شهري" : "month",
-    sourceLabel: language === "ar" ? "المصدر" : "Source",
-    mom: language === "ar" ? "تغيّر شهر على شهر" : "month-over-month",
     descPlaceholder:
       language === "ar"
         ? "لا يوجد وصف مضاف لهذا الدور بعد."
         : "No description has been added for this role yet.",
     dailyPlaceholder:
       language === "ar"
-        ? "لم تُضف بعد أنشطة يومية تفصيلية لهذا الدور."
-        : "No day-to-day activity list has been added for this role yet.",
-    egpDisclaimer:
-      language === "ar"
-        ? "الأرقام بالجنيه مخزّنة كـ EGP في قاعدة البيانات (جدول job_market_data، مصر). حدّثها من أبحاثك (وظائف، استبيانات، مواقع توظيف مصرية)."
-        : "EGP amounts are stored as real EGP in `job_market_data` (Egypt)—not converted from USD. Update them from your Egyptian market research.",
-    marketMissingData:
-      language === "ar"
-        ? "لماذا لا تظهر الأسعار؟ لم يُضف بعد سجل رواتب مصر لهذا الدور في جدول job_market_data (country = EG وربط job_role_id). نفّذ في Supabase الملف docs/sql/seed_egypt_job_market_per_role.sql أو أدخل النطاق يدوياً من لوحة الإدارة."
-        : "Salaries are hidden because there is no Egypt row in job_market_data for this role (country=EG, job_role_id set). Run docs/sql/seed_egypt_job_market_per_role.sql in Supabase or add the row in Admin.",
-    marketLoadError:
-      language === "ar"
-        ? "تعذّر تحميل بيانات السوق. تأكد من ضبط SUPABASE_SERVICE_ROLE_KEY على الخادم وإعادة النشر."
-        : "Could not load market data. Check SUPABASE_SERVICE_ROLE_KEY on the server.",
-    marketLoading:
-      language === "ar"
-        ? "جاري تحميل بيانات السوق المصري…"
-        : "Loading Egypt market data…",
+        ? "لم تُضف بعد قائمة مهام يومية لهذا الدور."
+        : "No day-to-day task list has been added for this role yet.",
   };
-
-  const num = (v: unknown): number | null => {
-    if (v == null || v === "") return null;
-    const n = Number(v);
-    return Number.isFinite(n) ? n : null;
-  };
-
-  const formatMoney = (n: number | string | null | undefined) => {
-    const x = num(n);
-    if (x == null) return "—";
-    return Math.round(x).toLocaleString(language === "ar" ? "ar-EG" : "en-EG");
-  };
-
-  const hasMarketSnapshot = (snap: OverviewSnapshot | undefined) =>
-    Boolean(
-      snap &&
-        ((Number(snap.openings_count) || 0) > 0 ||
-          num(snap.salary_min) != null ||
-          num(snap.salary_max) != null ||
-          num(snap.salary_median) != null)
-    );
 
   const categoryLabels: Record<string, { en: string; ar: string }> = {
     functional: { en: "Functional", ar: "وظيفي" },
@@ -210,61 +107,22 @@ export function JobRolesPageContent({
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-slate-900 mb-4">{t.title}</h1>
-          <p className="text-xl text-slate-600">{t.subtitle}</p>
+          <p className="text-xl text-slate-600 max-w-3xl mx-auto">{t.subtitle}</p>
         </div>
 
-        {/* CTA for Unauthenticated Users */}
-        {/* {!isAuthenticated && (
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-8 md:p-12 mb-8 text-white shadow-xl">
-            <div className="max-w-3xl mx-auto text-center">
-              <div className="text-6xl mb-4">🔐</div>
-              <h2 className="text-3xl md:text-4xl font-bold mb-4">
-                {language === "ar" 
-                  ? "سجل الدخول للحصول على المزيد" 
-                  : "Sign In to Get More"}
-              </h2>
-              <p className="text-lg md:text-xl mb-6 opacity-95">
-                {language === "ar"
-                  ? "أنشئ حساباً مجانياً أو سجل الدخول للوصول إلى المزيد من الميزات والمحتوى الحصري."
-                  : "Create a free account or sign in to access more features and exclusive content."}
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                <a
-                  href="/?redirect=/job-roles"
-                  className="bg-white text-blue-600 px-8 py-4 rounded-lg font-bold text-lg hover:bg-blue-50 transition-colors shadow-lg"
-                >
-                  {language === "ar" ? "تسجيل الدخول" : "Sign In"}
-                </a>
-                <a
-                  href="/?redirect=/job-roles&mode=signup"
-                  className="bg-blue-500 text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-blue-400 transition-colors shadow-lg border-2 border-white/30"
-                >
-                  {language === "ar" ? "إنشاء حساب مجاني" : "Create Free Account"}
-                </a>
-              </div>
-              <p className="mt-6 text-sm opacity-90">
-                {language === "ar"
-                  ? "✨ التسجيل مجاني تماماً - ابدأ الآن!"
-                  : "✨ Registration is completely free - Start now!"}
-              </p>
-            </div>
-          </div>
-        )} */}
-
-        {/* Premium Access CTA - Show when user is authenticated but doesn't have premium */}
         {isAuthenticated && !hasPremiumAccess && (
           <div className="bg-gradient-to-r from-teal-600 to-emerald-600 rounded-2xl p-8 md:p-12 mb-8 text-white shadow-xl">
             <div className="max-w-3xl mx-auto text-center">
               <div className="text-6xl mb-4">💼</div>
               <h2 className="text-3xl md:text-4xl font-bold mb-4">
-                {language === "ar" 
-                  ? "اكتشف جميع الأدوار الوظيفية" 
+                {language === "ar"
+                  ? "اكتشف جميع الأدوار الوظيفية"
                   : "Unlock All Job Roles"}
               </h2>
               <p className="text-lg md:text-xl mb-6 opacity-95">
                 {language === "ar"
-                  ? "اشترك الآن واحصل على وصول كامل لجميع الأدوار الوظيفية في مجال ERP مع تفاصيل كاملة عن كل دور. استثمر في مستقبلك المهني!"
-                  : "Subscribe now and get full access to all ERP job roles with complete details about each role. Invest in your career future!"}
+                  ? "اشترك الآن واحصل على وصول كامل لجميع الأدوار الوظيفية في مجال ERP مع تفاصيل كاملة عن كل دور."
+                  : "Subscribe now and get full access to all ERP job roles with complete details about each role."}
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
                 <a
@@ -276,7 +134,8 @@ export function JobRolesPageContent({
                 {premiumPlan && premiumPlan.price_egp && (
                   <div className="text-white/90">
                     <span className="text-2xl font-bold">
-                      {premiumPlan.price_egp.toLocaleString()} {language === "ar" ? "جنيه" : "EGP"}
+                      {premiumPlan.price_egp.toLocaleString()}{" "}
+                      {language === "ar" ? "جنيه" : "EGP"}
                       <span className="text-base font-normal ml-2">
                         {language === "ar" ? "/شهر" : "/month"}
                       </span>
@@ -284,27 +143,21 @@ export function JobRolesPageContent({
                   </div>
                 )}
               </div>
-              <p className="mt-6 text-sm opacity-90">
-                {language === "ar"
-                  ? "💡 عرض محدود للطلاب المصريين - ابدأ رحلتك المهنية اليوم!"
-                  : "💡 Limited offer for Egyptian students - Start your career journey today!"}
-              </p>
             </div>
           </div>
         )}
 
-        {/* Limited Access Notice for Non-Premium Users */}
         {!hasPremiumAccess && jobRoles.length > 0 && (
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
             <p className="text-amber-800 text-center font-medium">
               {!isAuthenticated ? (
                 language === "ar"
                   ? "⚠️ عرض محدود: يتم عرض مثالين فقط. سجل الدخول واشترك للحصول على وصول كامل."
-                  : "⚠️ Limited Preview: Only 2 examples shown. Sign in and subscribe for full access."
+                  : "⚠️ Limited preview: only 2 roles shown. Sign in and subscribe for full access."
               ) : (
                 language === "ar"
-                  ? "⚠️ عرض محدود: يتم عرض مثالين فقط. اشترك للحصول على وصول كامل لجميع البيانات."
-                  : "⚠️ Limited Preview: Only 2 examples shown. Subscribe for full access to all data."
+                  ? "⚠️ عرض محدود: يتم عرض مثالين فقط. اشترك للوصول الكامل."
+                  : "⚠️ Limited preview: only 2 roles shown. Subscribe for full access."
               )}
             </p>
           </div>
@@ -314,11 +167,9 @@ export function JobRolesPageContent({
           <div className="text-center py-12 text-slate-500">{t.noRoles}</div>
         ) : (
           <div className="grid md:grid-cols-2 gap-6">
-            {/* Job Roles Grid */}
             <div className="space-y-4 max-h-[800px] overflow-y-auto">
               {jobRoles.map((role) => {
                 const isSelected = selectedRole?.id === role.id;
-                const snap = overviewByRoleId[role.id];
                 const categoryLabel =
                   role.role_category && categoryLabels[role.role_category]
                     ? language === "ar"
@@ -329,6 +180,7 @@ export function JobRolesPageContent({
                 return (
                   <button
                     key={role.id}
+                    type="button"
                     onClick={() => setSelectedRole(role)}
                     className={`w-full p-6 rounded-xl border-2 text-left transition-all ${
                       isSelected
@@ -336,12 +188,12 @@ export function JobRolesPageContent({
                         : "border-slate-200 hover:border-teal-300 hover:bg-slate-50"
                     }`}
                   >
-                    <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-start justify-between mb-2 gap-2">
                       <h3 className="font-semibold text-lg text-slate-900">
                         {getText(role.title, role.title_ar)}
                       </h3>
                       {isSelected && (
-                        <span className="text-teal-600 text-2xl">✓</span>
+                        <span className="text-teal-600 text-2xl shrink-0">✓</span>
                       )}
                     </div>
                     {categoryLabel && (
@@ -349,161 +201,53 @@ export function JobRolesPageContent({
                         {categoryLabel}
                       </span>
                     )}
-                    <p className="text-sm text-slate-600 line-clamp-3 mt-2">
+                    <p className="text-sm text-slate-600 line-clamp-4 mt-2">
                       {getText(role.description, role.description_ar).trim()
                         ? getText(role.description, role.description_ar)
                         : t.descPlaceholder}
                     </p>
-                    {snap && hasMarketSnapshot(snap) && (
-                      <p className="text-xs text-teal-700 mt-2 font-medium">
-                        {num(snap.salary_min) != null && num(snap.salary_max) != null
-                          ? language === "ar"
-                            ? `${formatMoney(snap.salary_min)}–${formatMoney(snap.salary_max)} ج.م (سوق مصر)`
-                            : `${formatMoney(snap.salary_min)}–${formatMoney(snap.salary_max)} EGP (Egypt market)`
-                          : Number(snap.openings_count) > 0
-                            ? language === "ar"
-                              ? `${snap.openings_count} إعلانات مسجّلة`
-                              : `${snap.openings_count} openings tracked`
-                            : ""}
-                      </p>
-                    )}
                   </button>
                 );
               })}
             </div>
 
-            {/* Selected Role Details */}
             <div className="sticky top-4 h-fit">
               {selectedRole ? (
-                <div className="bg-white border-2 border-teal-200 rounded-xl p-8 shadow-lg">
+                <div
+                  className="bg-white border-2 border-teal-200 rounded-xl p-6 md:p-8 shadow-lg"
+                  dir={language === "ar" ? "rtl" : "ltr"}
+                >
                   <h2 className="text-2xl font-bold text-slate-900 mb-6">
                     {getText(selectedRole.title, selectedRole.title_ar)}
                   </h2>
 
-                  <div className="mb-6">
-                    <h3 className="text-sm font-semibold text-slate-700 mb-3 uppercase tracking-wide">
-                      {t.roleDescription}
+                  <div className="mb-8">
+                    <h3 className="text-sm font-semibold text-teal-800 mb-3 uppercase tracking-wide">
+                      {t.whatRoleDoes}
                     </h3>
-                    <p className="text-base text-slate-600 leading-relaxed">
-                      {getText(selectedRole.description, selectedRole.description_ar).trim() ||
-                        t.descPlaceholder}
-                    </p>
+                    <div className="text-base md:text-lg text-slate-700 leading-relaxed whitespace-pre-wrap">
+                      {getText(selectedRole.description, selectedRole.description_ar).trim()
+                        ? getText(selectedRole.description, selectedRole.description_ar)
+                        : t.descPlaceholder}
+                    </div>
                   </div>
-
-                  {overviewStatus === "loading" && (
-                    <div className="mb-6 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                      {t.marketLoading}
-                    </div>
-                  )}
-                  {overviewStatus === "error" && (
-                    <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-                      {t.marketLoadError}
-                    </div>
-                  )}
-                  {overviewStatus === "ok" &&
-                    (() => {
-                      const selectedSnap = overviewByRoleId[selectedRole.id];
-                      if (!selectedSnap || !hasMarketSnapshot(selectedSnap)) {
-                        return (
-                          <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50/90 p-5">
-                            <h3 className="text-sm font-semibold text-amber-900 mb-2 uppercase tracking-wide">
-                              {t.marketSnapshot}
-                            </h3>
-                            <p className="text-sm text-amber-950 leading-relaxed">
-                              {t.marketMissingData}
-                            </p>
-                          </div>
-                        );
-                      }
-                      const periodLabel =
-                        selectedSnap.salary_period === "monthly"
-                          ? t.periodMonth
-                          : t.periodYear;
-                      return (
-                        <div className="mb-6 rounded-xl border border-teal-100 bg-teal-50/80 p-5">
-                          <h3 className="text-sm font-semibold text-teal-900 mb-3 uppercase tracking-wide">
-                            {t.marketSnapshot}
-                          </h3>
-                          <dl className="grid gap-2 text-sm text-slate-700">
-                            <div className="flex justify-between gap-4">
-                              <dt>{t.openings}</dt>
-                              <dd className="font-semibold text-slate-900">
-                                {Number(selectedSnap.openings_count) > 0
-                                  ? selectedSnap.openings_count
-                                  : "—"}
-                              </dd>
-                            </div>
-                            {selectedSnap.growth_mom_pct != null && (
-                              <div className="flex justify-between gap-4">
-                                <dt>{t.mom}</dt>
-                                <dd className="font-semibold text-slate-900">
-                                  {Number(selectedSnap.growth_mom_pct).toFixed(1)}%
-                                </dd>
-                              </div>
-                            )}
-                            {num(selectedSnap.salary_min) != null &&
-                              num(selectedSnap.salary_max) != null && (
-                                <div className="flex justify-between gap-4">
-                                  <dt>{t.salaryRange}</dt>
-                                  <dd className="font-semibold text-slate-900 text-end">
-                                    {formatMoney(selectedSnap.salary_min)} –{" "}
-                                    {formatMoney(selectedSnap.salary_max)}{" "}
-                                    {selectedSnap.salary_currency ?? "EGP"} /{" "}
-                                    {periodLabel}
-                                  </dd>
-                                </div>
-                              )}
-                            {num(selectedSnap.salary_median) != null &&
-                              (num(selectedSnap.salary_min) == null ||
-                                num(selectedSnap.salary_max) == null) && (
-                                <div className="flex justify-between gap-4">
-                                  <dt>{t.medianBand}</dt>
-                                  <dd className="font-semibold text-slate-900">
-                                    {formatMoney(selectedSnap.salary_median)}{" "}
-                                    {selectedSnap.salary_currency ?? "EGP"}
-                                  </dd>
-                                </div>
-                              )}
-                            {selectedSnap.sample_size != null &&
-                              Number(selectedSnap.sample_size) > 0 && (
-                                <div className="flex justify-between gap-4">
-                                  <dt>
-                                    {language === "ar"
-                                      ? "حجم العينة (استبيان/إعلان)"
-                                      : "Sample size (survey/postings)"}
-                                  </dt>
-                                  <dd className="font-semibold text-slate-900">
-                                    {selectedSnap.sample_size}
-                                  </dd>
-                                </div>
-                              )}
-                            {selectedSnap.data_source && (
-                              <div className="flex justify-between gap-4 items-start">
-                                <dt>{t.sourceLabel}</dt>
-                                <dd className="font-medium text-slate-800 text-end max-w-[65%]">
-                                  {selectedSnap.data_source}
-                                </dd>
-                              </div>
-                            )}
-                          </dl>
-                          <p className="mt-3 text-xs text-slate-500">{t.egpDisclaimer}</p>
-                        </div>
-                      );
-                    })()}
 
                   <div>
                     <h3 className="text-sm font-semibold text-slate-700 mb-3 uppercase tracking-wide">
                       {t.dailyActivities}
                     </h3>
                     {(() => {
-                      const items = normalizeDailyList(selectedRole, language === "ar" ? "ar" : "en");
+                      const items = normalizeDailyList(
+                        selectedRole,
+                        language === "ar" ? "ar" : "en"
+                      );
                       if (!items.length) {
                         return (
                           <p className="text-base text-slate-500">{t.dailyPlaceholder}</p>
                         );
                       }
                       return (
-                        <ul className="list-disc list-inside text-base text-slate-600 space-y-2">
+                        <ul className="list-disc list-inside md:list-outside md:ps-5 text-base text-slate-600 space-y-2.5">
                           {items.map((activity, idx) => (
                             <li key={idx}>{activity}</li>
                           ))}
@@ -516,8 +260,8 @@ export function JobRolesPageContent({
                 <div className="bg-slate-50 border-2 border-slate-200 rounded-xl p-8 text-center">
                   <p className="text-slate-500">
                     {language === "ar"
-                      ? "اختر دوراً من القائمة لعرض التفاصيل"
-                      : "Select a role from the list to view details"}
+                      ? "اختر دوراً من القائمة لعرض شرح تفصيلي"
+                      : "Select a role from the list to read the full explanation"}
                   </p>
                 </div>
               )}
