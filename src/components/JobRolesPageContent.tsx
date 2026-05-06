@@ -83,6 +83,9 @@ export function JobRolesPageContent({
   const [overviewByRoleId, setOverviewByRoleId] = useState<
     Record<string, OverviewSnapshot>
   >({});
+  const [overviewStatus, setOverviewStatus] = useState<
+    "loading" | "ok" | "error"
+  >("loading");
 
   useEffect(() => {
     let cancelled = false;
@@ -92,14 +95,20 @@ export function JobRolesPageContent({
           "/api/job-roles/overview?country=eg&city=Egypt&limit=100"
         );
         const json = await res.json();
-        if (!json.success || !Array.isArray(json.data)) return;
+        if (!json.success || !Array.isArray(json.data)) {
+          if (!cancelled) setOverviewStatus("error");
+          return;
+        }
         const map: Record<string, OverviewSnapshot> = {};
         for (const row of json.data as OverviewSnapshot[]) {
           map[row.role_id] = row;
         }
-        if (!cancelled) setOverviewByRoleId(map);
+        if (!cancelled) {
+          setOverviewByRoleId(map);
+          setOverviewStatus("ok");
+        }
       } catch {
-        /* pipeline optional */
+        if (!cancelled) setOverviewStatus("error");
       }
     })();
     return () => {
@@ -154,18 +163,39 @@ export function JobRolesPageContent({
       language === "ar"
         ? "الأرقام بالجنيه مخزّنة كـ EGP في قاعدة البيانات (جدول job_market_data، مصر). حدّثها من أبحاثك (وظائف، استبيانات، مواقع توظيف مصرية)."
         : "EGP amounts are stored as real EGP in `job_market_data` (Egypt)—not converted from USD. Update them from your Egyptian market research.",
+    marketMissingData:
+      language === "ar"
+        ? "لماذا لا تظهر الأسعار؟ لم يُضف بعد سجل رواتب مصر لهذا الدور في جدول job_market_data (country = EG وربط job_role_id). نفّذ في Supabase الملف docs/sql/seed_egypt_job_market_per_role.sql أو أدخل النطاق يدوياً من لوحة الإدارة."
+        : "Salaries are hidden because there is no Egypt row in job_market_data for this role (country=EG, job_role_id set). Run docs/sql/seed_egypt_job_market_per_role.sql in Supabase or add the row in Admin.",
+    marketLoadError:
+      language === "ar"
+        ? "تعذّر تحميل بيانات السوق. تأكد من ضبط SUPABASE_SERVICE_ROLE_KEY على الخادم وإعادة النشر."
+        : "Could not load market data. Check SUPABASE_SERVICE_ROLE_KEY on the server.",
+    marketLoading:
+      language === "ar"
+        ? "جاري تحميل بيانات السوق المصري…"
+        : "Loading Egypt market data…",
   };
 
-  const formatMoney = (n: number) =>
-    Math.round(n).toLocaleString(language === "ar" ? "ar-EG" : "en-EG");
+  const num = (v: unknown): number | null => {
+    if (v == null || v === "") return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  const formatMoney = (n: number | string | null | undefined) => {
+    const x = num(n);
+    if (x == null) return "—";
+    return Math.round(x).toLocaleString(language === "ar" ? "ar-EG" : "en-EG");
+  };
 
   const hasMarketSnapshot = (snap: OverviewSnapshot | undefined) =>
     Boolean(
       snap &&
-        (snap.openings_count > 0 ||
-          snap.salary_min != null ||
-          snap.salary_max != null ||
-          snap.salary_median != null)
+        ((Number(snap.openings_count) || 0) > 0 ||
+          num(snap.salary_min) != null ||
+          num(snap.salary_max) != null ||
+          num(snap.salary_median) != null)
     );
 
   const categoryLabels: Record<string, { en: string; ar: string }> = {
@@ -326,11 +356,11 @@ export function JobRolesPageContent({
                     </p>
                     {snap && hasMarketSnapshot(snap) && (
                       <p className="text-xs text-teal-700 mt-2 font-medium">
-                        {snap.salary_min != null && snap.salary_max != null
+                        {num(snap.salary_min) != null && num(snap.salary_max) != null
                           ? language === "ar"
                             ? `${formatMoney(snap.salary_min)}–${formatMoney(snap.salary_max)} ج.م (سوق مصر)`
                             : `${formatMoney(snap.salary_min)}–${formatMoney(snap.salary_max)} EGP (Egypt market)`
-                          : snap.openings_count > 0
+                          : Number(snap.openings_count) > 0
                             ? language === "ar"
                               ? `${snap.openings_count} إعلانات مسجّلة`
                               : `${snap.openings_count} openings tracked`
@@ -360,83 +390,106 @@ export function JobRolesPageContent({
                     </p>
                   </div>
 
-                  {(() => {
-                    const selectedSnap = overviewByRoleId[selectedRole.id];
-                    if (!selectedSnap || !hasMarketSnapshot(selectedSnap)) return null;
-                    const periodLabel =
-                      selectedSnap.salary_period === "monthly"
-                        ? t.periodMonth
-                        : t.periodYear;
-                    return (
-                      <div className="mb-6 rounded-xl border border-teal-100 bg-teal-50/80 p-5">
-                        <h3 className="text-sm font-semibold text-teal-900 mb-3 uppercase tracking-wide">
-                          {t.marketSnapshot}
-                        </h3>
-                        <dl className="grid gap-2 text-sm text-slate-700">
-                          <div className="flex justify-between gap-4">
-                            <dt>{t.openings}</dt>
-                            <dd className="font-semibold text-slate-900">
-                              {selectedSnap.openings_count > 0
-                                ? selectedSnap.openings_count
-                                : "—"}
-                            </dd>
+                  {overviewStatus === "loading" && (
+                    <div className="mb-6 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                      {t.marketLoading}
+                    </div>
+                  )}
+                  {overviewStatus === "error" && (
+                    <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                      {t.marketLoadError}
+                    </div>
+                  )}
+                  {overviewStatus === "ok" &&
+                    (() => {
+                      const selectedSnap = overviewByRoleId[selectedRole.id];
+                      if (!selectedSnap || !hasMarketSnapshot(selectedSnap)) {
+                        return (
+                          <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50/90 p-5">
+                            <h3 className="text-sm font-semibold text-amber-900 mb-2 uppercase tracking-wide">
+                              {t.marketSnapshot}
+                            </h3>
+                            <p className="text-sm text-amber-950 leading-relaxed">
+                              {t.marketMissingData}
+                            </p>
                           </div>
-                          {selectedSnap.growth_mom_pct != null && (
+                        );
+                      }
+                      const periodLabel =
+                        selectedSnap.salary_period === "monthly"
+                          ? t.periodMonth
+                          : t.periodYear;
+                      return (
+                        <div className="mb-6 rounded-xl border border-teal-100 bg-teal-50/80 p-5">
+                          <h3 className="text-sm font-semibold text-teal-900 mb-3 uppercase tracking-wide">
+                            {t.marketSnapshot}
+                          </h3>
+                          <dl className="grid gap-2 text-sm text-slate-700">
                             <div className="flex justify-between gap-4">
-                              <dt>{t.mom}</dt>
+                              <dt>{t.openings}</dt>
                               <dd className="font-semibold text-slate-900">
-                                {Number(selectedSnap.growth_mom_pct).toFixed(1)}%
+                                {Number(selectedSnap.openings_count) > 0
+                                  ? selectedSnap.openings_count
+                                  : "—"}
                               </dd>
                             </div>
-                          )}
-                          {selectedSnap.salary_min != null &&
-                            selectedSnap.salary_max != null && (
+                            {selectedSnap.growth_mom_pct != null && (
                               <div className="flex justify-between gap-4">
-                                <dt>{t.salaryRange}</dt>
-                                <dd className="font-semibold text-slate-900 text-end">
-                                  {formatMoney(selectedSnap.salary_min)} –{" "}
-                                  {formatMoney(selectedSnap.salary_max)}{" "}
-                                  {selectedSnap.salary_currency ?? "EGP"} / {periodLabel}
-                                </dd>
-                              </div>
-                            )}
-                          {selectedSnap.salary_median != null &&
-                            (selectedSnap.salary_min == null ||
-                              selectedSnap.salary_max == null) && (
-                              <div className="flex justify-between gap-4">
-                                <dt>{t.medianBand}</dt>
+                                <dt>{t.mom}</dt>
                                 <dd className="font-semibold text-slate-900">
-                                  {formatMoney(Number(selectedSnap.salary_median))}{" "}
-                                  {selectedSnap.salary_currency ?? "EGP"}
+                                  {Number(selectedSnap.growth_mom_pct).toFixed(1)}%
                                 </dd>
                               </div>
                             )}
-                          {selectedSnap.sample_size != null &&
-                            selectedSnap.sample_size > 0 && (
-                              <div className="flex justify-between gap-4">
-                                <dt>
-                                  {language === "ar"
-                                    ? "حجم العينة (استبيان/إعلان)"
-                                    : "Sample size (survey/postings)"}
-                                </dt>
-                                <dd className="font-semibold text-slate-900">
-                                  {selectedSnap.sample_size}
+                            {num(selectedSnap.salary_min) != null &&
+                              num(selectedSnap.salary_max) != null && (
+                                <div className="flex justify-between gap-4">
+                                  <dt>{t.salaryRange}</dt>
+                                  <dd className="font-semibold text-slate-900 text-end">
+                                    {formatMoney(selectedSnap.salary_min)} –{" "}
+                                    {formatMoney(selectedSnap.salary_max)}{" "}
+                                    {selectedSnap.salary_currency ?? "EGP"} /{" "}
+                                    {periodLabel}
+                                  </dd>
+                                </div>
+                              )}
+                            {num(selectedSnap.salary_median) != null &&
+                              (num(selectedSnap.salary_min) == null ||
+                                num(selectedSnap.salary_max) == null) && (
+                                <div className="flex justify-between gap-4">
+                                  <dt>{t.medianBand}</dt>
+                                  <dd className="font-semibold text-slate-900">
+                                    {formatMoney(selectedSnap.salary_median)}{" "}
+                                    {selectedSnap.salary_currency ?? "EGP"}
+                                  </dd>
+                                </div>
+                              )}
+                            {selectedSnap.sample_size != null &&
+                              Number(selectedSnap.sample_size) > 0 && (
+                                <div className="flex justify-between gap-4">
+                                  <dt>
+                                    {language === "ar"
+                                      ? "حجم العينة (استبيان/إعلان)"
+                                      : "Sample size (survey/postings)"}
+                                  </dt>
+                                  <dd className="font-semibold text-slate-900">
+                                    {selectedSnap.sample_size}
+                                  </dd>
+                                </div>
+                              )}
+                            {selectedSnap.data_source && (
+                              <div className="flex justify-between gap-4 items-start">
+                                <dt>{t.sourceLabel}</dt>
+                                <dd className="font-medium text-slate-800 text-end max-w-[65%]">
+                                  {selectedSnap.data_source}
                                 </dd>
                               </div>
                             )}
-                          {selectedSnap.data_source && (
-                            <div className="flex justify-between gap-4 items-start">
-                              <dt>{t.sourceLabel}</dt>
-                              <dd className="font-medium text-slate-800 text-end max-w-[65%]">
-                                {selectedSnap.data_source}
-                              </dd>
-                            </div>
-                          )}
-                        </dl>
-                        <p className="mt-3 text-xs text-slate-500">{t.egpDisclaimer}</p>
-                      </div>
-                    );
-                  })()}
+                          </dl>
+                          <p className="mt-3 text-xs text-slate-500">{t.egpDisclaimer}</p>
+                        </div>
+                      );
+                    })()}
 
                   <div>
                     <h3 className="text-sm font-semibold text-slate-700 mb-3 uppercase tracking-wide">
