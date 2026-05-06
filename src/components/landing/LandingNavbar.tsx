@@ -151,8 +151,6 @@ export function LandingNavbar() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  target={link.external ? "_blank" : undefined}
-                  rel={link.external ? "noopener noreferrer" : undefined}
                   className={`relative px-4 py-2 text-sm font-medium transition ${
                     active 
                       ? "text-[#429874]" 
@@ -291,8 +289,6 @@ export function LandingNavbar() {
                     key={link.href}
                     href={link.href}
                     onClick={() => setIsMobileMenuOpen(false)}
-                    target={link.external ? "_blank" : undefined}
-                    rel={link.external ? "noopener noreferrer" : undefined}
                     className={`block px-4 py-2.5 rounded-lg transition ${
                       active
                         ? "bg-[#f0f9f6] text-[#285c46] font-medium border-s-4 border-[#429874]"
