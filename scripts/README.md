@@ -95,6 +95,8 @@ in Supabase SQL editor.
 
 This extends the existing `job_roles` table from `learning_paths_system_schema.sql` (adds `slug`, `pipeline_erp_vendor`, etc.). It does **not** recreate `job_roles`.
 
+After schema changes, run `npm run etl:job-roles`. You should see non-zero `normalized_rows` when Remotive returns jobs and pipeline roles are seeded (six slugs).
+
 ### 2) Execute ETL
 
 ```bash

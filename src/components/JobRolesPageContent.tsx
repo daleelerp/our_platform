@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAppStore } from "@/store/useAppStore";
 
 type JobRole = {
@@ -12,6 +12,15 @@ type JobRole = {
   role_category: string | null;
   daily_activities: any;
   daily_activities_ar: any;
+};
+
+type OverviewSnapshot = {
+  role_id: string;
+  openings_count: number;
+  growth_mom_pct: number | null;
+  salary_median: number | null;
+  sample_size: number | null;
+  data_month: string | null;
 };
 
 type PremiumPlan = {
@@ -37,6 +46,32 @@ export function JobRolesPageContent({
 }: Props) {
   const language = useAppStore((state) => state.language);
   const [selectedRole, setSelectedRole] = useState<JobRole | null>(null);
+  const [overviewByRoleId, setOverviewByRoleId] = useState<
+    Record<string, OverviewSnapshot>
+  >({});
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          "/api/job-roles/overview?country=global&city=Remote&limit=100"
+        );
+        const json = await res.json();
+        if (!json.success || !Array.isArray(json.data)) return;
+        const map: Record<string, OverviewSnapshot> = {};
+        for (const row of json.data as OverviewSnapshot[]) {
+          map[row.role_id] = row;
+        }
+        if (!cancelled) setOverviewByRoleId(map);
+      } catch {
+        /* pipeline optional */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const getText = (en: string | null, ar: string | null): string => {
     if (language === "ar" && ar) return ar;
@@ -53,6 +88,10 @@ export function JobRolesPageContent({
     dailyActivities: language === "ar" ? "الأنشطة اليومية" : "Daily Activities",
     category: language === "ar" ? "الفئة" : "Category",
     noRoles: language === "ar" ? "لا توجد أدوار متاحة" : "No roles available",
+    marketSnapshot: language === "ar" ? "لمحة سوق (عالمي / عن بعد)" : "Market snapshot (global remote)",
+    openings: language === "ar" ? "وظائف مسجلة في العينة" : "roles in sample",
+    medianBand: language === "ar" ? "وسيط نطاق الراتب المقدّر (USD)" : "estimated salary band median (USD)",
+    mom: language === "ar" ? "تغيّر شهر على شهر" : "month-over-month",
   };
 
   const categoryLabels: Record<string, { en: string; ar: string }> = {
@@ -175,6 +214,7 @@ export function JobRolesPageContent({
             <div className="space-y-4 max-h-[800px] overflow-y-auto">
               {jobRoles.map((role) => {
                 const isSelected = selectedRole?.id === role.id;
+                const snap = overviewByRoleId[role.id];
                 const categoryLabel =
                   role.role_category && categoryLabels[role.role_category]
                     ? language === "ar"
@@ -210,6 +250,13 @@ export function JobRolesPageContent({
                         {getText(role.description, role.description_ar)}
                       </p>
                     )}
+                    {snap && snap.openings_count > 0 && (
+                      <p className="text-xs text-teal-700 mt-2 font-medium">
+                        {language === "ar"
+                          ? `${snap.openings_count} وظيفة في العينة (عالمي)`
+                          : `${snap.openings_count} roles in sample (global)`}
+                      </p>
+                    )}
                   </button>
                 );
               })}
@@ -233,6 +280,50 @@ export function JobRolesPageContent({
                       </p>
                     </div>
                   )}
+
+                  {overviewByRoleId[selectedRole.id] &&
+                    overviewByRoleId[selectedRole.id].openings_count > 0 && (
+                      <div className="mb-6 rounded-xl border border-teal-100 bg-teal-50/80 p-5">
+                        <h3 className="text-sm font-semibold text-teal-900 mb-3 uppercase tracking-wide">
+                          {t.marketSnapshot}
+                        </h3>
+                        <dl className="grid gap-2 text-sm text-slate-700">
+                          <div className="flex justify-between gap-4">
+                            <dt>{t.openings}</dt>
+                            <dd className="font-semibold text-slate-900">
+                              {overviewByRoleId[selectedRole.id].openings_count}
+                            </dd>
+                          </div>
+                          {overviewByRoleId[selectedRole.id].growth_mom_pct != null && (
+                            <div className="flex justify-between gap-4">
+                              <dt>{t.mom}</dt>
+                              <dd className="font-semibold text-slate-900">
+                                {overviewByRoleId[selectedRole.id].growth_mom_pct!.toFixed(1)}%
+                              </dd>
+                            </div>
+                          )}
+                          {overviewByRoleId[selectedRole.id].salary_median != null && (
+                            <div className="flex justify-between gap-4">
+                              <dt>{t.medianBand}</dt>
+                              <dd className="font-semibold text-slate-900">
+                                ${Math.round(overviewByRoleId[selectedRole.id].salary_median!)}
+                                {overviewByRoleId[selectedRole.id].sample_size != null && (
+                                  <span className="font-normal text-slate-600">
+                                    {" "}
+                                    (n={overviewByRoleId[selectedRole.id].sample_size})
+                                  </span>
+                                )}
+                              </dd>
+                            </div>
+                          )}
+                        </dl>
+                        <p className="mt-3 text-xs text-slate-500">
+                          {language === "ar"
+                            ? "البيانات تجريبية من مسطّح التجميع؛ صُممت للاتجاهات وليس عروض رواتب دقيقة."
+                            : "Sample-derived signals for trends—not precise compensation estimates."}
+                        </p>
+                      </div>
+                    )}
 
                   {selectedRole.daily_activities &&
                     Array.isArray(selectedRole.daily_activities) &&

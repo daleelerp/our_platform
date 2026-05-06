@@ -66,9 +66,26 @@ function inferRole(rawJob) {
 
 function monthStartIso(dateValue) {
   const d = new Date(dateValue);
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  return `${y}-${m}-01`;
+}
+
+function prevMonthStart(metricMonth) {
+  const d = new Date(`${metricMonth}T12:00:00.000Z`);
+  d.setUTCMonth(d.getUTCMonth() - 1);
   d.setUTCDate(1);
-  d.setUTCHours(0, 0, 0, 0);
   return d.toISOString().slice(0, 10);
+}
+
+function monthBoundsUtc(metricMonth) {
+  const [y, mo] = metricMonth.split("-").map(Number);
+  const startMs = Date.UTC(y, mo - 1, 1, 0, 0, 0, 0);
+  const endMs = Date.UTC(y, mo, 1, 0, 0, 0, 0);
+  return {
+    start: new Date(startMs).toISOString(),
+    end: new Date(endMs).toISOString(),
+  };
 }
 
 function pseudoSalaryUsdFromTitle(title) {
@@ -106,7 +123,7 @@ async function ensureSeedData() {
   );
   if (locError) throw locError;
 
-  // Explicit insert/update — avoids PostgREST upsert quirks with partial unique indexes on `slug`.
+  // Explicit insert/update — reliable vs bulk upsert on `slug`.
   for (const r of ROLE_RULES) {
     const { data: existing, error: findError } = await supabase
       .from("job_roles")
@@ -135,6 +152,18 @@ async function ensureSeedData() {
       });
       if (insError) throw insError;
     }
+  }
+
+  const { data: slugRows, error: slugErr } = await supabase
+    .from("job_roles")
+    .select("slug")
+    .not("slug", "is", null);
+  if (slugErr) throw slugErr;
+  const withSlug = (slugRows ?? []).filter((row) => row.slug && String(row.slug).trim() !== "");
+  if (withSlug.length < ROLE_RULES.length) {
+    throw new Error(
+      `job_roles seed incomplete: need ${ROLE_RULES.length} rows with slug, found ${withSlug.length}. Check unique index on job_roles.slug and DB errors.`
+    );
   }
 }
 
@@ -194,50 +223,79 @@ function toNormalizedRow(job, rawId, roleId, locationId) {
   };
 }
 
-function aggregateMonthly(rows) {
-  const bucket = new Map();
-
+function salaryStatsFromRows(rows) {
+  const salaries = [];
   for (const row of rows) {
-    const month = monthStartIso(row.posted_at);
-    const key = `${row.role_id}|${row.location_id}|${month}`;
-    const current = bucket.get(key) || {
-      role_id: row.role_id,
-      location_id: row.location_id,
-      metric_month: month,
-      openings_count: 0,
-      salaries: [],
-    };
-    current.openings_count += 1;
-    if (Number.isFinite(Number(row.salary_min))) current.salaries.push(Number(row.salary_min));
-    if (Number.isFinite(Number(row.salary_max))) current.salaries.push(Number(row.salary_max));
-    bucket.set(key, current);
+    if (Number.isFinite(Number(row.salary_min))) salaries.push(Number(row.salary_min));
+    if (Number.isFinite(Number(row.salary_max))) salaries.push(Number(row.salary_max));
   }
+  salaries.sort((a, b) => a - b);
+  const mid = salaries.length ? salaries[Math.floor(salaries.length / 2)] : null;
+  return {
+    openings_count: rows.length,
+    salary_min: salaries.length ? salaries[0] : null,
+    salary_median: mid,
+    salary_max: salaries.length ? salaries[salaries.length - 1] : null,
+    sample_size: salaries.length,
+  };
+}
 
+/**
+ * Recompute metrics from ALL normalized postings in each (role, location, month) bucket
+ * so reruns stay consistent.
+ */
+async function recomputeMonthlyMetrics(supabase, tuples) {
   const marketMetrics = [];
   const salaryMetrics = [];
+  const now = new Date().toISOString();
 
-  for (const value of bucket.values()) {
-    const salaries = value.salaries.sort((a, b) => a - b);
-    const mid = salaries.length ? salaries[Math.floor(salaries.length / 2)] : null;
+  for (const t of tuples) {
+    const { start, end } = monthBoundsUtc(t.metric_month);
+    const { data: rows, error } = await supabase
+      .from("job_postings_normalized")
+      .select("salary_min,salary_max,posted_at")
+      .eq("role_id", t.role_id)
+      .eq("location_id", t.location_id)
+      .gte("posted_at", start)
+      .lt("posted_at", end)
+      .eq("is_active", true);
+    if (error) throw error;
+
+    const stats = salaryStatsFromRows(rows ?? []);
+    const prevMonth = prevMonthStart(t.metric_month);
+    const { data: prevMetric } = await supabase
+      .from("role_market_metrics")
+      .select("openings_count")
+      .eq("role_id", t.role_id)
+      .eq("location_id", t.location_id)
+      .eq("metric_month", prevMonth)
+      .maybeSingle();
+
+    let growth_mom_pct = null;
+    if (prevMetric && prevMetric.openings_count > 0) {
+      growth_mom_pct =
+        ((stats.openings_count - prevMetric.openings_count) / prevMetric.openings_count) * 100;
+    }
+
     marketMetrics.push({
-      role_id: value.role_id,
-      location_id: value.location_id,
-      metric_month: value.metric_month,
-      openings_count: value.openings_count,
-      growth_mom_pct: null,
+      role_id: t.role_id,
+      location_id: t.location_id,
+      metric_month: t.metric_month,
+      openings_count: stats.openings_count,
+      growth_mom_pct,
       remote_ratio: 1,
-      updated_at: new Date().toISOString(),
+      updated_at: now,
     });
     salaryMetrics.push({
-      role_id: value.role_id,
-      location_id: value.location_id,
-      metric_month: value.metric_month,
-      salary_min: salaries.length ? salaries[0] : null,
-      salary_median: mid,
-      salary_max: salaries.length ? salaries[salaries.length - 1] : null,
-      sample_size: salaries.length,
+      role_id: t.role_id,
+      location_id: t.location_id,
+      metric_month: t.metric_month,
+      salary_min: stats.salary_min,
+      salary_median: stats.salary_median,
+      salary_max: stats.salary_max,
+      sample_size: stats.sample_size,
       currency: "USD",
-      updated_at: new Date().toISOString(),
+      updated_at: now,
     });
   }
 
@@ -269,9 +327,22 @@ async function run() {
       .upsert(rawRows, { onConflict: "source,external_id" })
       .select("id,external_id,payload_json");
     if (rawError) throw rawError;
-    stats.ingested_raw = rawInserted.length;
 
-    const rawByExternalId = new Map(rawInserted.map((r) => [String(r.external_id), r]));
+    let rawList = rawInserted ?? [];
+    if (!rawList.length && jobs.length) {
+      const externalIds = jobs.map((j) => String(j.id));
+      const { data: refetched, error: refetchErr } = await supabase
+        .from("job_postings_raw")
+        .select("id,external_id")
+        .eq("source", "remotive")
+        .in("external_id", externalIds);
+      if (refetchErr) throw refetchErr;
+      rawList = refetched ?? [];
+    }
+
+    stats.ingested_raw = jobs.length;
+
+    const rawByExternalId = new Map(rawList.map((r) => [String(r.external_id), r]));
     const { roleBySlug, defaultLocationId } = await loadLookupMaps();
     const normalizedRows = [];
 
@@ -283,15 +354,36 @@ async function run() {
       normalizedRows.push(toNormalizedRow(job, rawRecord.id, roleId, defaultLocationId));
     }
 
-    if (normalizedRows.length) {
-      const { data: normalizedInserted, error: normalizedError } = await supabase
-        .from("job_postings_normalized")
-        .upsert(normalizedRows, { onConflict: "dedupe_key" })
-        .select("role_id,location_id,posted_at,salary_min,salary_max");
-      if (normalizedError) throw normalizedError;
-      stats.normalized_rows = normalizedInserted.length;
+    if (!normalizedRows.length) {
+      console.warn("job_roles ETL: zero normalized rows", {
+        jobs: jobs.length,
+        rawRowsResolved: rawList.length,
+        pipelineSlugsLoaded: roleBySlug.size,
+      });
+    }
 
-      const { marketMetrics, salaryMetrics } = aggregateMonthly(normalizedInserted);
+    if (normalizedRows.length) {
+      const { error: normalizedError } = await supabase
+        .from("job_postings_normalized")
+        .upsert(normalizedRows, { onConflict: "dedupe_key" });
+      if (normalizedError) throw normalizedError;
+      stats.normalized_rows = normalizedRows.length;
+
+      const tupleMap = new Map();
+      for (const row of normalizedRows) {
+        const metricMonth = monthStartIso(row.posted_at);
+        const key = `${row.role_id}|${row.location_id}|${metricMonth}`;
+        if (!tupleMap.has(key)) {
+          tupleMap.set(key, {
+            role_id: row.role_id,
+            location_id: row.location_id,
+            metric_month: metricMonth,
+          });
+        }
+      }
+      const tuples = [...tupleMap.values()];
+
+      const { marketMetrics, salaryMetrics } = await recomputeMonthlyMetrics(supabase, tuples);
 
       if (marketMetrics.length) {
         const { data: marketRows, error: marketError } = await supabase
