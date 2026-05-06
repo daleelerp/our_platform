@@ -30,6 +30,11 @@ create table if not exists public.job_locations (
   unique(country_code, city)
 );
 
+-- Location buckets (ETL also upserts these). Safe to re-run.
+insert into public.job_locations (country_code, city, currency)
+values ('global', 'Remote', 'USD'), ('eg', 'Egypt', 'EGP')
+on conflict (country_code, city) do nothing;
+
 create table if not exists public.job_postings_raw (
   id uuid primary key default gen_random_uuid(),
   source text not null,

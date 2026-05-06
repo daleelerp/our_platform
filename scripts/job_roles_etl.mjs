@@ -34,6 +34,9 @@ const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const REMOTIVE_API = "https://remotive.com/api/remote-jobs?search=erp";
 const PIPELINE_NAME = "job_roles_market_etl";
 
+/** Used to derive EGP salary bands from USD sample signals (override via JOB_MARKET_USD_TO_EGP). */
+const USD_TO_EGP = Number(process.env.JOB_MARKET_USD_TO_EGP || "50") || 50;
+
 if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
   console.error("Missing env vars: NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY");
   process.exit(1);
@@ -44,12 +47,144 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
 });
 
 const ROLE_RULES = [
-  { slug: "erp-functional-consultant", name_en: "ERP Functional Consultant", vendor: "General", keywords: ["functional", "consultant", "business analyst"] },
-  { slug: "erp-technical-consultant", name_en: "ERP Technical Consultant", vendor: "General", keywords: ["technical", "developer", "integration", "api"] },
-  { slug: "sap-fico-consultant", name_en: "SAP FICO Consultant", vendor: "SAP", keywords: ["sap", "fico"] },
-  { slug: "oracle-erp-consultant", name_en: "Oracle ERP Consultant", vendor: "Oracle", keywords: ["oracle", "ebs", "fusion"] },
-  { slug: "microsoft-dynamics-consultant", name_en: "Microsoft Dynamics Consultant", vendor: "Dynamics", keywords: ["dynamics", "d365", "ax"] },
-  { slug: "odoo-consultant", name_en: "Odoo Consultant", vendor: "Odoo", keywords: ["odoo"] },
+  {
+    slug: "erp-functional-consultant",
+    name_en: "ERP Functional Consultant",
+    vendor: "General",
+    role_category: "functional",
+    keywords: ["functional", "consultant", "business analyst"],
+    description_en:
+      "Bridges business needs and ERP software: requirements, configuration, testing, cutover, and user adoption so finance/operations can run end-to-end processes.",
+    description_ar:
+      "يربط احتياجات الأعمال بنظام الـ ERP: الجمع والتحليل، الإعداد، الاختبار، الإقلاع، وتبني المستخدمين حتى تعمل المالية والعمليات بسلاسة.",
+    daily_en: [
+      "Workshops & interviews to capture requirements and gaps",
+      "Configure modules, workflows, approvals, and master data",
+      "Write test scripts, support UAT, and fix defects with IT",
+      "Prepare training, job aids, and handover for go-live",
+    ],
+    daily_ar: [
+      "جلسات عمل ومقابلات لاستخراج المتطلبات والفجوات",
+      "إعداد الوحدات وسير العمل والموافقات والبيانات الأساسية",
+      "كتابة سيناريوهات الاختبار ودعم UAT مع تقنية المعلومات",
+      "إعداد التدريب وأدلة العمل وتسليم ما بعد الإطلاق",
+    ],
+  },
+  {
+    slug: "erp-technical-consultant",
+    name_en: "ERP Technical Consultant",
+    vendor: "General",
+    role_category: "technical",
+    keywords: ["technical", "developer", "integration", "api"],
+    description_en:
+      "Implements integrations, extensions, reports, and performance fixes so the ERP stays reliable, secure, and connected to other systems.",
+    description_ar:
+      "ينفذ التكاملات والتوسعات والتقارير وتحسينات الأداء ليبقى النظام موثوقاً وآمناً ومتصلاً بالأنظمة الأخرى.",
+    daily_en: [
+      "Design and build integrations (APIs, iPaaS, file feeds)",
+      "Debug workflows, jobs, and customizations",
+      "Support releases, migrations, and environment hygiene",
+      "Collaborate with functional peers on technical feasibility",
+    ],
+    daily_ar: [
+      "تصميم وبناء التكاملات (واجهات، ملفات، منصات تكامل)",
+      "تتبع الأخطاء في الأتمتة والمهام والتخصيصات",
+      "دعم الإصدارات والترحيل والبيئات",
+      "التنسيق مع الوظيفيين حول الجدوى التقنية",
+    ],
+  },
+  {
+    slug: "sap-fico-consultant",
+    name_en: "SAP FICO Consultant",
+    vendor: "SAP",
+    role_category: "functional",
+    keywords: ["sap", "fico"],
+    description_en:
+      "Specializes in SAP Finance & Controlling: chart of accounts, asset accounting, costing, period close, and statutory reporting alignment.",
+    description_ar:
+      "متخصص في SAP للمالية والمحاسبة الإدارية: دليل الحسابات، الأصول، التكلفة، الإقفال، والتقارير التنظيمية.",
+    daily_en: [
+      "Translate finance policies into SAP FICO setup",
+      "Support month-end close, reconciliations, and audits",
+      "Tune CO-PA, costing sheets, and profitability reporting",
+      "Train finance users on transactions and controls",
+    ],
+    daily_ar: [
+      "ترجمة سياسات المالية إلى إعدادات FICO",
+      "دعم الإقفال الشهري والتسويات والمراجعات",
+      "ضبط CO-PA وأوراق التكلفة وتقارير الربحية",
+      "تدريب مستخدمي المالية على العمليات والضوابط",
+    ],
+  },
+  {
+    slug: "oracle-erp-consultant",
+    name_en: "Oracle ERP Consultant",
+    vendor: "Oracle",
+    role_category: "functional",
+    keywords: ["oracle", "ebs", "fusion"],
+    description_en:
+      "Delivers Oracle ERP (EBS / Fusion Cloud) solutions across finance, SCM, or projects—configuration through go-live and steady-state support.",
+    description_ar:
+      "يقدم حلول Oracle ERP (EBS أو Fusion) في المالية أو سلسلة التوريد أو المشاريع من الإعداد حتى الإطلاق والدعم.",
+    daily_en: [
+      "Blueprint processes and map them to Oracle modules",
+      "Configure setups, integrations, and extensions",
+      "Lead testing cycles and defect triage",
+      "Drive adoption with SMEs and change activities",
+    ],
+    daily_ar: [
+      "رسم العمليات وربطها بوحدات Oracle",
+      "إعداد النظام والتكاملات والتوسعات",
+      "قيادة الاختبار ومتابعة العيوب",
+      "دعم التبني مع أصحاب المصلحة والتغيير",
+    ],
+  },
+  {
+    slug: "microsoft-dynamics-consultant",
+    name_en: "Microsoft Dynamics Consultant",
+    vendor: "Dynamics",
+    role_category: "consulting",
+    keywords: ["dynamics", "d365", "ax"],
+    description_en:
+      "Implements Microsoft Dynamics 365 (Finance & Operations / CE): discovery, configuration, data migration, and rollout for SMB to enterprise.",
+    description_ar:
+      "ينفذ Microsoft Dynamics 365 للمالية أو العمليات أو العملاء: الاكتشاف، الإعداد، ترحيل البيانات، والإطلاق.",
+    daily_en: [
+      "Workshops for fit/gap and solution design",
+      "Configure D365 entities, workflows, and security",
+      "Coordinate data migration and integration tests",
+      "Hypercare and optimization after go-live",
+    ],
+    daily_ar: [
+      "ورش الفجوات والتصميم",
+      "إعداد الكيانات وسير العمل والصلاحيات",
+      "تنسيق ترحيل البيانات واختبارات التكامل",
+      "الدعم المكثف والتحسين بعد الإطلاق",
+    ],
+  },
+  {
+    slug: "odoo-consultant",
+    name_en: "Odoo Consultant",
+    vendor: "Odoo",
+    role_category: "functional",
+    keywords: ["odoo"],
+    description_en:
+      "Designs and deploys Odoo apps (accounting, inventory, CRM, HR) with automation and reporting tailored to growing businesses.",
+    description_ar:
+      "يصمم ويطبّق تطبيقات Odoo (محاسبة، مخزون، علاقات عملاء، موارد بشرية) مع الأتمتة والتقارير للشركات النامية.",
+    daily_en: [
+      "Scope modules and customize Odoo workflows",
+      "Import master data and validate balances",
+      "Build dashboards and scheduled reports",
+      "Coach teams on daily operations in Odoo",
+    ],
+    daily_ar: [
+      "تحديد النطاق وتخصيص سير العمل",
+      "استيراد البيانات الأساسية والتحقق من الأرصدة",
+      "بناء لوحات التحكم والتقارير الدورية",
+      "تدريب الفرق على العمليات اليومية",
+    ],
+  },
 ];
 
 function normalizeText(value) {
@@ -118,7 +253,10 @@ async function finishEtlRun(runId, status, stats = {}, errorMessage = null) {
 
 async function ensureSeedData() {
   const { error: locError } = await supabase.from("job_locations").upsert(
-    [{ country_code: "global", city: "Remote", currency: "USD" }],
+    [
+      { country_code: "global", city: "Remote", currency: "USD" },
+      { country_code: "eg", city: "Egypt", currency: "EGP" },
+    ],
     { onConflict: "country_code,city" }
   );
   if (locError) throw locError;
@@ -133,21 +271,46 @@ async function ensureSeedData() {
     if (findError) throw findError;
 
     if (existing?.id) {
-      const { error: updError } = await supabase
+      const { data: cur, error: curErr } = await supabase
         .from("job_roles")
-        .update({
-          title: r.name_en,
-          pipeline_erp_vendor: r.vendor,
-          is_active: true,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", existing.id);
+        .select("description, description_ar, daily_activities, daily_activities_ar, role_category")
+        .eq("id", existing.id)
+        .maybeSingle();
+      if (curErr) throw curErr;
+
+      const patch = {
+        title: r.name_en,
+        pipeline_erp_vendor: r.vendor,
+        is_active: true,
+        updated_at: new Date().toISOString(),
+      };
+      if (!cur?.description?.trim()) patch.description = r.description_en;
+      if (!cur?.description_ar?.trim()) patch.description_ar = r.description_ar;
+      const da = cur?.daily_activities;
+      const hasDaily =
+        Array.isArray(da) && da.length > 0
+          ? true
+          : Boolean(da && typeof da === "object" && !Array.isArray(da)
+              ? Object.keys(da).length > 0
+              : false);
+      if (!hasDaily) {
+        patch.daily_activities = r.daily_en;
+        patch.daily_activities_ar = r.daily_ar;
+      }
+      if (!cur?.role_category?.trim()) patch.role_category = r.role_category;
+
+      const { error: updError } = await supabase.from("job_roles").update(patch).eq("id", existing.id);
       if (updError) throw updError;
     } else {
       const { error: insError } = await supabase.from("job_roles").insert({
         slug: r.slug,
         title: r.name_en,
         pipeline_erp_vendor: r.vendor,
+        role_category: r.role_category,
+        description: r.description_en,
+        description_ar: r.description_ar,
+        daily_activities: r.daily_en,
+        daily_activities_ar: r.daily_ar,
         is_active: true,
       });
       if (insError) throw insError;
@@ -178,19 +341,32 @@ async function loadLookupMaps() {
   const { data: roles, error: roleError } = await supabase.from("job_roles").select("id,slug");
   if (roleError) throw roleError;
 
-  const { data: locations, error: locationError } = await supabase
+  const { data: globalLoc, error: globalErr } = await supabase
     .from("job_locations")
     .select("id,country_code,city")
     .eq("country_code", "global")
     .eq("city", "Remote")
     .limit(1)
     .single();
-  if (locationError) throw locationError;
+  if (globalErr) throw globalErr;
+
+  const { data: egLoc, error: egErr } = await supabase
+    .from("job_locations")
+    .select("id,country_code,city")
+    .eq("country_code", "eg")
+    .eq("city", "Egypt")
+    .limit(1)
+    .single();
+  if (egErr) throw egErr;
 
   const roleBySlug = new Map(
     roles.filter((row) => row.slug).map((row) => [row.slug, row.id])
   );
-  return { roleBySlug, defaultLocationId: locations.id };
+  return {
+    roleBySlug,
+    defaultLocationId: globalLoc.id,
+    egyptLocationId: egLoc.id,
+  };
 }
 
 function toRawRow(job) {
@@ -302,6 +478,22 @@ async function recomputeMonthlyMetrics(supabase, tuples) {
   return { marketMetrics, salaryMetrics };
 }
 
+function buildEgyptDerivedMetrics(marketMetrics, salaryMetrics, egyptLocationId, rate) {
+  const egMarket = marketMetrics.map((m) => ({
+    ...m,
+    location_id: egyptLocationId,
+  }));
+  const egSalary = salaryMetrics.map((s) => ({
+    ...s,
+    location_id: egyptLocationId,
+    salary_min: s.salary_min != null ? Math.round(Number(s.salary_min) * rate) : null,
+    salary_median: s.salary_median != null ? Math.round(Number(s.salary_median) * rate) : null,
+    salary_max: s.salary_max != null ? Math.round(Number(s.salary_max) * rate) : null,
+    currency: "EGP",
+  }));
+  return { egMarket, egSalary };
+}
+
 async function run() {
   const runId = await createEtlRun();
   const stats = {
@@ -309,6 +501,9 @@ async function run() {
     normalized_rows: 0,
     market_rows: 0,
     salary_rows: 0,
+    egypt_market_rows: 0,
+    egypt_salary_rows: 0,
+    usd_to_egp_rate: USD_TO_EGP,
   };
 
   try {
@@ -343,7 +538,7 @@ async function run() {
     stats.ingested_raw = jobs.length;
 
     const rawByExternalId = new Map(rawList.map((r) => [String(r.external_id), r]));
-    const { roleBySlug, defaultLocationId } = await loadLookupMaps();
+    const { roleBySlug, defaultLocationId, egyptLocationId } = await loadLookupMaps();
     const normalizedRows = [];
 
     for (const job of jobs) {
@@ -401,6 +596,29 @@ async function run() {
           .select("id");
         if (salaryError) throw salaryError;
         stats.salary_rows = salaryRows.length;
+      }
+
+      const { egMarket, egSalary } = buildEgyptDerivedMetrics(
+        marketMetrics,
+        salaryMetrics,
+        egyptLocationId,
+        USD_TO_EGP
+      );
+      if (egMarket.length) {
+        const { data: egM, error: egMErr } = await supabase
+          .from("role_market_metrics")
+          .upsert(egMarket, { onConflict: "role_id,location_id,metric_month" })
+          .select("id");
+        if (egMErr) throw egMErr;
+        stats.egypt_market_rows = egM?.length ?? 0;
+      }
+      if (egSalary.length) {
+        const { data: egS, error: egSErr } = await supabase
+          .from("role_salary_metrics")
+          .upsert(egSalary, { onConflict: "role_id,location_id,metric_month" })
+          .select("id");
+        if (egSErr) throw egSErr;
+        stats.egypt_salary_rows = egS?.length ?? 0;
       }
     }
 
