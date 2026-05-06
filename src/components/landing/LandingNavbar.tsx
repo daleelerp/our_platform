@@ -145,7 +145,7 @@ export function LandingNavbar() {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-1">
             {navLinks.map((link) => {
-              const active = link.external ? false : isActive(link.href, link.exact);
+              const active = isActive(link.href, link.exact);
               return (
                 <Link
                   key={link.href}
@@ -282,7 +282,7 @@ export function LandingNavbar() {
           <div className="md:hidden py-4 border-t border-slate-200">
             <div className="space-y-1">
               {navLinks.map((link) => {
-                const active = link.external ? false : isActive(link.href, link.exact);
+                const active = isActive(link.href, link.exact);
                 return (
                   <Link
                     key={link.href}
