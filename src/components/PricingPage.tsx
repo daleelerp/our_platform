@@ -140,16 +140,16 @@ function PricingCard({
 
   return (
     <div
-      className={`relative bg-white rounded-2xl transition-all duration-300 flex flex-col h-full ${
+      className={`relative bg-white rounded-xl transition-all duration-300 flex flex-col h-full ${
         isPremium
-          ? "border-2 border-[#429874] shadow-xl shadow-[#429874]/20 scale-[1.02] z-10"
-          : "border border-slate-200 hover:border-[#429874]/50 hover:shadow-xl"
+          ? "border-2 border-[#429874] shadow-md shadow-[#429874]/15 z-10"
+          : "border border-slate-200 hover:border-[#429874]/40 hover:shadow-md"
       }`}
     >
       {/* Popular Badge */}
       {plan.is_popular && !isFree && (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
-          <span className="bg-gradient-to-r from-[#429874] to-[#357a5d] text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg whitespace-nowrap">
+          <span className="bg-gradient-to-r from-[#429874] to-[#357a5d] text-white text-[11px] font-bold px-3 py-1 rounded-full shadow whitespace-nowrap">
             ⭐ {t.popular}
           </span>
         </div>
@@ -158,7 +158,7 @@ function PricingCard({
       {/* Default Plan Badge for Free */}
       {isFree && (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
-          <span className="bg-gradient-to-r from-slate-600 to-slate-700 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg whitespace-nowrap flex items-center gap-1.5">
+          <span className="bg-gradient-to-r from-slate-600 to-slate-700 text-white text-[11px] font-bold px-3 py-1 rounded-full shadow whitespace-nowrap flex items-center gap-1.5">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
@@ -170,7 +170,7 @@ function PricingCard({
       {/* Payment incomplete — matches dashboard */}
       {isPaymentPending && !isFree && (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
-          <span className="bg-gradient-to-r from-amber-500 to-amber-600 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg whitespace-nowrap flex items-center gap-1.5">
+          <span className="bg-gradient-to-r from-amber-500 to-amber-600 text-white text-[11px] font-bold px-3 py-1 rounded-full shadow whitespace-nowrap flex items-center gap-1.5">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
@@ -182,7 +182,7 @@ function PricingCard({
       {/* Current Plan Badge for paid subscribed plan */}
       {!isPaymentPending && isCurrentPlan && !isFree && (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
-          <span className="bg-gradient-to-r from-teal-600 to-teal-700 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg whitespace-nowrap flex items-center gap-1.5">
+          <span className="bg-gradient-to-r from-teal-600 to-teal-700 text-white text-[11px] font-bold px-3 py-1 rounded-full shadow whitespace-nowrap flex items-center gap-1.5">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
@@ -194,7 +194,7 @@ function PricingCard({
       {/* Purchased Badge for other owned paid plans */}
       {!isPaymentPending && isOwnedPlan && !isFree && !isCurrentPlan && (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
-          <span className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-lg whitespace-nowrap flex items-center gap-1.5">
+          <span className="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white text-[11px] font-bold px-3 py-1 rounded-full shadow whitespace-nowrap flex items-center gap-1.5">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
@@ -204,13 +204,13 @@ function PricingCard({
       )}
 
       {/* Card Content */}
-        <div className={`p-5 flex flex-col h-full ${plan.is_popular || isFree || isPaymentPending || isCurrentPlan || isOwnedPlan ? "pt-7" : ""}`}>
+        <div className={`p-4 flex flex-col h-full ${plan.is_popular || isFree || isPaymentPending || isCurrentPlan || isOwnedPlan ? "pt-6" : ""}`}>
         {/* Top Section - Fixed Height */}
-        <div className="space-y-4">
+        <div className="space-y-3">
           {/* Audience Badge */}
           <div className="flex items-center gap-2 flex-wrap">
             <span
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${audienceClasses}`}
+              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium border ${audienceClasses}`}
             >
               <span>{audienceInfo.icon}</span>
               <span>{isArabic ? audienceInfo.description_ar : audienceInfo.description_en}</span>
@@ -218,7 +218,7 @@ function PricingCard({
 
             {/* One-Time Badge */}
             {isOneTime && !isFree && (
-              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 bg-blue-50 px-3 py-1.5 rounded-full border border-blue-200">
+              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-200">
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
@@ -229,19 +229,19 @@ function PricingCard({
 
           {/* Plan Title & Description */}
           <div>
-            <h3 className="text-lg font-bold text-slate-900 mb-2">
+            <h3 className="text-base font-semibold text-slate-900 mb-1.5 leading-snug">
               {isArabic ? plan.display_name_ar : plan.display_name_en}
             </h3>
-            <p className="text-slate-500 text-sm leading-relaxed min-h-[40px]">
+            <p className="text-slate-500 text-xs leading-relaxed min-h-[2.5rem]">
               {isArabic ? plan.description_ar : plan.description_en}
             </p>
           </div>
 
           {/* Price Section */}
-          <div className="pb-4 border-b border-slate-100">
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold text-slate-900">{price.display}</span>
-              {price.sub && <span className="text-sm text-slate-500 font-medium">{price.sub}</span>}
+          <div className="pb-3 border-b border-slate-100">
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-2xl font-bold text-slate-900 tabular-nums">{price.display}</span>
+              {price.sub && <span className="text-xs text-slate-500 font-medium">{price.sub}</span>}
             </div>
 
             {/* One-time benefits */}
@@ -274,21 +274,21 @@ function PricingCard({
         </div>
 
         {/* CTA: buy / buy again / owned badge */}
-        <div className="py-4">
+        <div className="py-3">
           {isFree ? (
-            <div className="w-full py-2.5 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 bg-slate-100 text-slate-600 border-2 border-dashed border-slate-300">
-              <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-full py-2 px-3 rounded-lg font-semibold text-xs flex items-center justify-center gap-1.5 bg-slate-100 text-slate-600 border border-dashed border-slate-300">
+              <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               {t.yourDefaultPlan}
             </div>
           ) : blockedByForeignPending ? (
-            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-center space-y-2">
-              <p className="text-sm text-slate-600 leading-snug">{t.checkoutBlockedCardHint}</p>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-center space-y-1.5">
+              <p className="text-xs text-slate-600 leading-snug">{t.checkoutBlockedCardHint}</p>
               {resumeCheckoutHref && (
                 <Link
                   href={resumeCheckoutHref}
-                  className="inline-block text-sm font-semibold text-[#357a5f] hover:text-[#285c46] hover:underline"
+                  className="inline-block text-xs font-semibold text-[#357a5f] hover:text-[#285c46] hover:underline"
                 >
                   {t.resumePendingCheckoutLink}
                 </Link>
@@ -299,7 +299,7 @@ function PricingCard({
               type="button"
               onClick={() => handleSubscribe(plan.id)}
               disabled={isLoading && selectedPlan === plan.id}
-              className="w-full py-2.5 px-4 rounded-xl font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2 bg-teal-600 text-white hover:bg-teal-700 shadow-lg hover:shadow-xl hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+              className="w-full py-2 px-3 rounded-lg font-semibold text-xs transition-all duration-200 flex items-center justify-center gap-2 bg-teal-600 text-white hover:bg-teal-700 shadow-sm hover:shadow disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading && selectedPlan === plan.id ? (
                 <>
@@ -314,10 +314,10 @@ function PricingCard({
               )}
             </button>
           ) : isCurrentPlan ? (
-            <div className="space-y-3">
-              <div className="w-full py-2.5 px-4 rounded-xl font-bold text-sm flex flex-col items-center justify-center gap-1 bg-teal-50 text-teal-900 border-2 border-teal-200">
-                <div className="flex items-center justify-center gap-2">
-                  <svg className="w-5 h-5 text-teal-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="space-y-2">
+              <div className="w-full py-2 px-3 rounded-lg font-semibold text-xs flex flex-col items-center justify-center gap-1 bg-teal-50 text-teal-900 border border-teal-200">
+                <div className="flex items-center justify-center gap-1.5">
+                  <svg className="w-4 h-4 text-teal-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   <span>{t.subscribedToPlan}</span>
@@ -325,14 +325,14 @@ function PricingCard({
               </div>
               <Link
                 href={`/paths?planId=${plan.id}`}
-                className="block w-full py-2.5 px-4 text-center rounded-xl text-sm font-semibold bg-white border-2 border-[#429874] text-[#429874] hover:bg-[#429874]/5 transition-colors"
+                className="block w-full py-2 px-3 text-center rounded-lg text-xs font-semibold bg-white border border-[#429874] text-[#429874] hover:bg-[#429874]/5 transition-colors"
               >
                 {t.viewPathsCta}
               </Link>
             </div>
           ) : isOwnedPlan ? (
-            <div className="w-full py-2.5 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 bg-slate-100 text-slate-600 border-2 border-dashed border-slate-300">
-              <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-full py-2 px-3 rounded-lg font-semibold text-xs flex items-center justify-center gap-1.5 bg-slate-100 text-slate-600 border border-dashed border-slate-300">
+              <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               {t.purchased}
@@ -341,13 +341,13 @@ function PricingCard({
             <button
               onClick={() => handleSubscribe(plan.id)}
               disabled={isLoading && selectedPlan === plan.id}
-              className={`w-full py-2.5 px-4 rounded-xl font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2 ${
+              className={`w-full py-2 px-3 rounded-lg font-semibold text-xs transition-all duration-200 flex items-center justify-center gap-2 ${
                 isPremium
-                  ? "bg-gradient-to-r from-[#429874] to-[#357a5d] text-white hover:from-[#357a5d] hover:to-[#285c46] shadow-lg hover:shadow-xl hover:-translate-y-0.5"
+                  ? "bg-gradient-to-r from-[#429874] to-[#357a5d] text-white hover:from-[#357a5d] hover:to-[#285c46] shadow-sm hover:shadow"
                   : isTeam
-                  ? "bg-slate-900 text-white hover:bg-slate-800 shadow-lg hover:shadow-xl hover:-translate-y-0.5"
-                  : "bg-[#429874] text-white hover:bg-[#357a5d] shadow-lg hover:shadow-xl hover:-translate-y-0.5"
-              } disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0`}
+                  ? "bg-slate-900 text-white hover:bg-slate-800 shadow-sm hover:shadow"
+                  : "bg-[#429874] text-white hover:bg-[#357a5d] shadow-sm hover:shadow"
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               {isLoading && selectedPlan === plan.id ? (
                 <>
@@ -370,17 +370,17 @@ function PricingCard({
 
         <Link
           href={isFree ? `/paths?planId=${plan.id}` : `/plans/${plan.id}`}
-          className="block w-full mb-3 py-2.5 px-4 text-center border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 transition-colors"
+          className="block w-full mb-2 py-2 px-3 text-center border border-slate-200 text-slate-700 rounded-lg text-xs font-medium hover:bg-slate-50 transition-colors"
         >
           {isFree ? t.freePlanPathsCta : t.viewDetails}
         </Link>
 
         {/* Simple Key Benefits */}
-        <div className="flex-grow border border-slate-100 rounded-xl p-3">
-          <p className="text-xs font-semibold text-slate-700 mb-2">{t.features}</p>
-          <div className="space-y-1.5">
+        <div className="flex-grow border border-slate-100 rounded-lg p-2.5">
+          <p className="text-[11px] font-semibold text-slate-600 mb-1.5">{t.features}</p>
+          <div className="space-y-1">
             {allPlanFeatures.slice(0, 3).map((feature) => (
-              <div key={feature.id} className="flex items-center gap-2 text-sm text-slate-600">
+              <div key={feature.id} className="flex items-center gap-1.5 text-xs text-slate-600">
                 <span className="text-teal-600">✓</span>
                 <span>{getFeatureName(feature)}</span>
               </div>
@@ -692,7 +692,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
 
   const renderPlanCardsGrid = (plansToRender: SubscriptionPlan[]) => (
     <div
-      className={`grid gap-5 ${
+      className={`grid gap-4 ${
         plansToRender.length === 1
           ? "grid-cols-1 max-w-md mx-auto"
           : plansToRender.length === 2
@@ -790,26 +790,20 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
   })();
 
   const renderSectionHeader = (title: string, plansCount?: number, muted = false) => (
-    <div className="flex items-center gap-3">
-      <h2 className={`text-base md:text-lg font-bold ${muted ? "text-slate-700" : "text-slate-900"}`}>{title}</h2>
+    <div className="flex items-center gap-2">
+      <h2 className={`text-sm md:text-base font-semibold ${muted ? "text-slate-600" : "text-slate-800"}`}>{title}</h2>
       {typeof plansCount === "number" && (
         <span
-          className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold border ${
+          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium border ${
             muted
-              ? "bg-slate-100 text-slate-600 border-slate-200"
-              : "bg-[#429874]/10 text-[#2f6f55] border-[#429874]/20"
+              ? "bg-white text-slate-500 border-slate-200"
+              : "bg-white text-slate-600 border-slate-200"
           }`}
         >
           {plansCount} {t.plansCount}
         </span>
       )}
-      <div
-        className={`h-px flex-1 ${
-          muted
-            ? "bg-gradient-to-r from-slate-300 via-slate-200 to-transparent"
-            : "bg-gradient-to-r from-[#429874]/50 via-slate-200 to-transparent"
-        }`}
-      />
+      <div className="h-px flex-1 bg-slate-200" />
     </div>
   );
 
@@ -818,7 +812,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
     return (
       <div className="max-w-[1120px] mx-auto w-full">
         <div
-          className={`grid gap-5 ${
+          className={`grid gap-4 ${
             embeddedPlans.length === 1
               ? "grid-cols-1 max-w-md mx-auto"
               : embeddedPlans.length === 2
@@ -871,25 +865,25 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
+    <div className="min-h-screen bg-slate-50/40">
       {/* Compact Sticky Header */}
       <div className="bg-white/95 backdrop-blur-md border-b border-slate-200 relative z-20 md:sticky md:top-0">
         <div className="max-w-[1120px] mx-auto w-full px-4 sm:px-5 lg:px-5">
           {subscribeNotice && (
             <div
-              className={`mt-3 mb-2 rounded-xl px-4 py-3 text-sm border ${
+              className={`mt-2 mb-1.5 rounded-lg px-3 py-2 text-xs border ${
                 subscribeNotice.tone === "amber"
                   ? "border-amber-200 bg-amber-50 text-amber-950"
                   : "border-red-200 bg-red-50 text-red-900"
               }`}
               role="status"
             >
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="font-medium flex-1 min-w-[200px]">{subscribeNotice.text}</p>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="font-medium flex-1 min-w-[160px] leading-snug">{subscribeNotice.text}</p>
                 <button
                   type="button"
                   onClick={() => setSubscribeNotice(null)}
-                  className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold border ${
+                  className={`shrink-0 rounded-md px-2 py-1 text-[11px] font-semibold border ${
                     subscribeNotice.tone === "amber"
                       ? "border-amber-300 bg-white text-amber-900 hover:bg-amber-100"
                       : "border-red-300 bg-white text-red-800 hover:bg-red-100"
@@ -901,22 +895,22 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
             </div>
           )}
           {/* Row 1: Title & Trust Badge */}
-          <div className="py-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
+          <div className="py-2.5 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               <div>
-                <h1 className="text-lg sm:text-xl font-bold text-slate-900">{t.title}</h1>
-                <p className="text-xs text-slate-500 mt-0.5 hidden sm:block">{t.subtitle}</p>
+                <h1 className="text-base sm:text-lg font-semibold text-slate-900 tracking-tight">{t.title}</h1>
+                <p className="text-[11px] text-slate-500 mt-0.5 hidden sm:block leading-snug">{t.subtitle}</p>
               </div>
               {!hasRecurringPlans && (
-                <span className="hidden sm:inline-flex items-center gap-1.5 bg-gradient-to-r from-green-50 to-emerald-50 text-green-700 px-3 py-1.5 rounded-full text-xs font-semibold border border-green-200">
+                <span className="hidden sm:inline-flex items-center gap-1 bg-green-50 text-green-700 px-2 py-1 rounded-md text-[11px] font-medium border border-green-200/80 shrink-0">
                   💰 {t.payOnceAccessForever}
                 </span>
               )}
             </div>
 
             {/* Trust Badge - Desktop */}
-            <div className="hidden md:flex items-center gap-1.5 text-xs text-slate-500 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
-              <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="hidden md:flex items-center gap-1 text-[11px] text-slate-500 bg-slate-50 px-2 py-1 rounded-md border border-slate-100 shrink-0">
+              <svg className="w-3.5 h-3.5 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -929,9 +923,9 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
           </div>
 
           {/* Row 2: Filters */}
-          <div className="pb-4 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="pb-2.5 flex flex-col sm:flex-row sm:items-center gap-2">
             {/* Filter Group */}
-            <div className="flex flex-wrap items-center gap-2 flex-1">
+            <div className="flex flex-wrap items-center gap-1.5 flex-1">
               {/* Target Audience Filter */}
               {availableAudiences.length > 1 && (
                 <div className="relative">
@@ -939,7 +933,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
                   <select
                     value={selectedAudience || ""}
                     onChange={(e) => setSelectedAudience(e.target.value ? (e.target.value as AudienceType) : null)}
-                    className="appearance-none pl-9 pr-8 py-2 text-xs font-medium border border-slate-200 rounded-lg bg-white text-slate-700 cursor-pointer hover:border-slate-300 focus:ring-2 focus:ring-[#429874] focus:border-[#429874] transition-all min-w-[160px]"
+                    className="appearance-none pl-8 pr-7 py-1.5 text-[11px] font-medium border border-slate-200 rounded-md bg-white text-slate-700 cursor-pointer hover:border-slate-300 focus:ring-1 focus:ring-[#429874]/40 focus:border-[#429874] transition-all min-w-[132px]"
                   >
                     <option value="">{t.allAudiences}</option>
                     {availableAudiences.map((audience) => {
@@ -951,8 +945,8 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
                       );
                     })}
                   </select>
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
@@ -961,8 +955,8 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
                       />
                     </svg>
                   </div>
-                  <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
                   </div>
@@ -976,7 +970,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
                   <select
                     value={selectedProvider || ""}
                     onChange={(e) => onProviderChange(e.target.value || null)}
-                    className="appearance-none pl-9 pr-8 py-2 text-xs font-medium border border-slate-200 rounded-lg bg-white text-slate-700 cursor-pointer hover:border-slate-300 focus:ring-2 focus:ring-[#429874] focus:border-[#429874] transition-all min-w-[140px]"
+                    className="appearance-none pl-8 pr-7 py-1.5 text-[11px] font-medium border border-slate-200 rounded-md bg-white text-slate-700 cursor-pointer hover:border-slate-300 focus:ring-1 focus:ring-[#429874]/40 focus:border-[#429874] transition-all min-w-[118px]"
                   >
                     <option value="">{t.allProviders}</option>
                     {erpProviders.map((provider) => (
@@ -985,8 +979,8 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
                       </option>
                     ))}
                   </select>
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
@@ -995,8 +989,8 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
                       />
                     </svg>
                   </div>
-                  <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
                   </div>
@@ -1005,10 +999,10 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
 
               {/* Billing Toggle */}
               {hasRecurringPlans && (
-                <div className="bg-slate-100 rounded-lg p-1 inline-flex">
+                <div className="bg-slate-100 rounded-md p-0.5 inline-flex">
                   <button
                     onClick={() => setBillingCycle("monthly")}
-                    className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                    className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-all ${
                       billingCycle === "monthly"
                         ? "bg-white text-slate-900 shadow-sm"
                         : "text-slate-500 hover:text-slate-700"
@@ -1018,7 +1012,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
                   </button>
                   <button
                     onClick={() => setBillingCycle("yearly")}
-                    className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                    className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-all ${
                       billingCycle === "yearly"
                         ? "bg-white text-slate-900 shadow-sm"
                         : "text-slate-500 hover:text-slate-700"
@@ -1033,7 +1027,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
               {hasActiveFilters && (
                 <button
                   onClick={clearFilters}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors border border-red-200"
+                  className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-red-600 bg-red-50 rounded-md hover:bg-red-100 transition-colors border border-red-200"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1046,14 +1040,14 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
 
           {/* Row 3: Active Filters Tags (only when filters are active) */}
           {hasActiveFilters && (
-            <div className="pb-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
-              <span className="text-xs text-slate-500 font-medium">
+            <div className="pb-2 flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-2">
+              <span className="text-[11px] text-slate-500 font-medium">
                 {isArabic ? "الفلاتر:" : "Filters:"}
               </span>
               
               {selectedAudience && (
                 <span
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${getAudienceClasses(selectedAudience)}`}
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border ${getAudienceClasses(selectedAudience)}`}
                 >
                   <span>{audienceConfig[selectedAudience].icon}</span>
                   <span>{isArabic ? audienceConfig[selectedAudience].ar : audienceConfig[selectedAudience].en}</span>
@@ -1070,7 +1064,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
               )}
 
               {selectedProvider && erpProviders.length > 0 && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
                       strokeLinecap="round"
@@ -1102,30 +1096,30 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
       </div>
 
       {/* Guidance: outside sticky header so it scrolls away and stays compact on desktop */}
-      <div className="max-w-[1120px] mx-auto w-full px-4 sm:px-5 lg:px-5 pt-2 pb-3 md:pt-1 md:pb-2">
-        <div className="rounded-lg border border-teal-100 bg-teal-50/60 px-3 py-2.5 md:py-2 md:px-3">
-          <p className="text-sm text-slate-800 leading-snug md:text-xs md:leading-relaxed">
+      <div className="max-w-[1120px] mx-auto w-full px-4 sm:px-5 lg:px-5 pt-1.5 pb-2 md:pt-1 md:pb-1.5">
+        <div className="rounded-md border border-teal-100/80 bg-teal-50/50 px-2.5 py-2 md:px-3 md:py-1.5">
+          <p className="text-xs text-slate-700 leading-relaxed">
             <span className="font-semibold block md:inline">{t.choosingHelpTitle}</span>
             <span className="hidden md:inline">&nbsp;</span>
-            <span className="text-slate-600 block mt-1 md:mt-0 md:inline md:font-normal">{t.choosingHelpBody}</span>
+            <span className="text-slate-600 block mt-0.5 md:mt-0 md:inline md:font-normal">{t.choosingHelpBody}</span>
           </p>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="max-w-[1120px] mx-auto w-full px-4 sm:px-5 lg:px-5 pt-4 pb-10 md:pt-5 md:pb-12">
+      <div className="max-w-[1120px] mx-auto w-full px-4 sm:px-5 lg:px-5 pt-3 pb-8 md:pt-4 md:pb-10">
         {/* Pricing Cards */}
         {filteredPlans.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="bg-white rounded-2xl border border-slate-200 p-10 max-w-md mx-auto shadow-sm">
-              <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-3xl">🔍</span>
+          <div className="text-center py-12">
+            <div className="bg-white rounded-xl border border-slate-200 p-6 max-w-sm mx-auto shadow-sm">
+              <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <span className="text-2xl">🔍</span>
               </div>
-              <h3 className="text-lg font-bold text-slate-900 mb-2">{t.noPlansAvailable}</h3>
-              <p className="text-slate-500 text-sm mb-6">{t.noPlansDescription}</p>
+              <h3 className="text-base font-semibold text-slate-900 mb-1.5">{t.noPlansAvailable}</h3>
+              <p className="text-slate-500 text-xs mb-4 leading-relaxed">{t.noPlansDescription}</p>
               <button
                 onClick={clearFilters}
-                className="px-6 py-2.5 bg-[#429874] text-white rounded-xl text-sm font-semibold hover:bg-[#357a5d] transition-colors shadow-md"
+                className="px-4 py-2 bg-[#429874] text-white rounded-lg text-xs font-semibold hover:bg-[#357a5d] transition-colors shadow-sm"
               >
                 {t.viewAllPackages}
               </button>
@@ -1137,51 +1131,51 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
           <div
             className={
               plansByProvider.freePlans.length > 0
-                ? "space-y-8 lg:space-y-0 lg:grid lg:grid-cols-[minmax(0,285px)_minmax(0,1fr)] lg:gap-5 lg:items-start"
-                : "space-y-10"
+                ? "space-y-6 lg:space-y-0 lg:grid lg:grid-cols-[minmax(0,252px)_minmax(0,1fr)] lg:gap-4 lg:items-start"
+                : "space-y-8"
             }
           >
             {plansByProvider.freePlans.length > 0 && (
-              <aside className="lg:sticky lg:top-24 lg:self-start">
-                <section className="space-y-5 rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4 sm:p-5">
+              <aside className="lg:sticky lg:top-20 lg:self-start">
+                <section className="space-y-3 rounded-lg border border-slate-200 bg-white p-3">
                   {renderSectionHeader(t.freePlansTitle, plansByProvider.freePlans.length)}
-                  <div className="rounded-xl bg-white/80 p-2 sm:p-3 border border-emerald-100/70">
+                  <div className="rounded-md bg-white p-1 border border-slate-100">
                     {renderPlanCardsGrid(plansByProvider.freePlans)}
                   </div>
                 </section>
               </aside>
             )}
 
-            <div className="space-y-10">
+            <div className="space-y-6">
               {plansByProvider.sectionsWithPlans.map((section) => (
                 <section
                   key={section.id}
-                  className="space-y-5 rounded-2xl border border-slate-200/80 bg-white/70 backdrop-blur-[1px] p-4 sm:p-5 shadow-sm"
+                  className="space-y-3 border-t border-slate-200 pt-4 first:border-t-0 first:pt-0"
                 >
                   {renderSectionHeader(section.title, section.plans.length)}
-                  <div className="rounded-xl bg-white p-2 sm:p-3 border border-slate-100">
+                  <div className="rounded-lg bg-white p-1.5">
                     {renderPlanCardsGrid(section.plans)}
                   </div>
                 </section>
               ))}
 
               {plansByProvider.plansWithoutProvider.length > 0 && (
-                <section className="space-y-5 rounded-2xl border border-slate-200/80 bg-white/70 p-4 sm:p-5 shadow-sm">
+                <section className="space-y-3 border-t border-slate-200 pt-4">
                   {renderSectionHeader(t.generalPlans, plansByProvider.plansWithoutProvider.length)}
-                  <div className="rounded-xl bg-white p-2 sm:p-3 border border-slate-100">
+                  <div className="rounded-lg bg-white p-1.5">
                     {renderPlanCardsGrid(plansByProvider.plansWithoutProvider)}
                   </div>
                 </section>
               )}
 
               {plansByProvider.emptyProviderSections.length > 0 && (
-                <section className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 sm:p-5">
+                <section className="space-y-3 border-t border-slate-200 pt-4">
                   {renderSectionHeader(t.vendorsWithoutPlansTitle, plansByProvider.emptyProviderSections.length, true)}
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                     {plansByProvider.emptyProviderSections.map((provider) => (
-                      <div key={provider.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                        <p className="font-semibold text-slate-800 mb-1.5">{provider.name}</p>
-                        <p className="text-sm text-slate-500 leading-relaxed">{t.noPlansCurrently}</p>
+                      <div key={provider.id} className="rounded-md border border-slate-200 bg-white p-3">
+                        <p className="text-sm font-medium text-slate-800 mb-1">{provider.name}</p>
+                        <p className="text-xs text-slate-500 leading-relaxed">{t.noPlansCurrently}</p>
                       </div>
                     ))}
                   </div>
