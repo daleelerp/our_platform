@@ -204,7 +204,7 @@ function PricingCard({
       )}
 
       {/* Card Content */}
-        <div className={`p-6 flex flex-col h-full ${plan.is_popular || isFree || isPaymentPending || isCurrentPlan || isOwnedPlan ? "pt-8" : ""}`}>
+        <div className={`p-5 flex flex-col h-full ${plan.is_popular || isFree || isPaymentPending || isCurrentPlan || isOwnedPlan ? "pt-7" : ""}`}>
         {/* Top Section - Fixed Height */}
         <div className="space-y-4">
           {/* Audience Badge */}
@@ -229,7 +229,7 @@ function PricingCard({
 
           {/* Plan Title & Description */}
           <div>
-            <h3 className="text-xl font-bold text-slate-900 mb-2">
+            <h3 className="text-lg font-bold text-slate-900 mb-2">
               {isArabic ? plan.display_name_ar : plan.display_name_en}
             </h3>
             <p className="text-slate-500 text-sm leading-relaxed min-h-[40px]">
@@ -240,7 +240,7 @@ function PricingCard({
           {/* Price Section */}
           <div className="pb-4 border-b border-slate-100">
             <div className="flex items-baseline gap-2">
-              <span className="text-4xl font-bold text-slate-900">{price.display}</span>
+              <span className="text-3xl font-bold text-slate-900">{price.display}</span>
               {price.sub && <span className="text-sm text-slate-500 font-medium">{price.sub}</span>}
             </div>
 
@@ -276,7 +276,7 @@ function PricingCard({
         {/* CTA: buy / buy again / owned badge */}
         <div className="py-4">
           {isFree ? (
-            <div className="w-full py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 bg-slate-100 text-slate-600 border-2 border-dashed border-slate-300">
+            <div className="w-full py-2.5 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 bg-slate-100 text-slate-600 border-2 border-dashed border-slate-300">
               <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
@@ -299,7 +299,7 @@ function PricingCard({
               type="button"
               onClick={() => handleSubscribe(plan.id)}
               disabled={isLoading && selectedPlan === plan.id}
-              className="w-full py-3 px-4 rounded-xl font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2 bg-teal-600 text-white hover:bg-teal-700 shadow-lg hover:shadow-xl hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+              className="w-full py-2.5 px-4 rounded-xl font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2 bg-teal-600 text-white hover:bg-teal-700 shadow-lg hover:shadow-xl hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
             >
               {isLoading && selectedPlan === plan.id ? (
                 <>
@@ -315,7 +315,7 @@ function PricingCard({
             </button>
           ) : isCurrentPlan ? (
             <div className="space-y-3">
-              <div className="w-full py-3 px-4 rounded-xl font-bold text-sm flex flex-col items-center justify-center gap-1 bg-teal-50 text-teal-900 border-2 border-teal-200">
+              <div className="w-full py-2.5 px-4 rounded-xl font-bold text-sm flex flex-col items-center justify-center gap-1 bg-teal-50 text-teal-900 border-2 border-teal-200">
                 <div className="flex items-center justify-center gap-2">
                   <svg className="w-5 h-5 text-teal-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -325,13 +325,13 @@ function PricingCard({
               </div>
               <Link
                 href={`/paths?planId=${plan.id}`}
-                className="block w-full py-3 px-4 text-center rounded-xl text-sm font-semibold bg-white border-2 border-[#429874] text-[#429874] hover:bg-[#429874]/5 transition-colors"
+                className="block w-full py-2.5 px-4 text-center rounded-xl text-sm font-semibold bg-white border-2 border-[#429874] text-[#429874] hover:bg-[#429874]/5 transition-colors"
               >
                 {t.viewPathsCta}
               </Link>
             </div>
           ) : isOwnedPlan ? (
-            <div className="w-full py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 bg-slate-100 text-slate-600 border-2 border-dashed border-slate-300">
+            <div className="w-full py-2.5 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 bg-slate-100 text-slate-600 border-2 border-dashed border-slate-300">
               <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
@@ -341,7 +341,7 @@ function PricingCard({
             <button
               onClick={() => handleSubscribe(plan.id)}
               disabled={isLoading && selectedPlan === plan.id}
-              className={`w-full py-3 px-4 rounded-xl font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2 ${
+              className={`w-full py-2.5 px-4 rounded-xl font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2 ${
                 isPremium
                   ? "bg-gradient-to-r from-[#429874] to-[#357a5d] text-white hover:from-[#357a5d] hover:to-[#285c46] shadow-lg hover:shadow-xl hover:-translate-y-0.5"
                   : isTeam
@@ -692,7 +692,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
 
   const renderPlanCardsGrid = (plansToRender: SubscriptionPlan[]) => (
     <div
-      className={`grid gap-6 ${
+      className={`grid gap-5 ${
         plansToRender.length === 1
           ? "grid-cols-1 max-w-md mx-auto"
           : plansToRender.length === 2
@@ -791,7 +791,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
 
   const renderSectionHeader = (title: string, plansCount?: number, muted = false) => (
     <div className="flex items-center gap-3">
-      <h2 className={`text-lg md:text-xl font-bold ${muted ? "text-slate-700" : "text-slate-900"}`}>{title}</h2>
+      <h2 className={`text-base md:text-lg font-bold ${muted ? "text-slate-700" : "text-slate-900"}`}>{title}</h2>
       {typeof plansCount === "number" && (
         <span
           className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold border ${
@@ -816,9 +816,9 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
   if (embedded) {
     const embeddedPlans = plans.filter((p) => p.is_active).sort((a, b) => a.sort_order - b.sort_order);
     return (
-      <div className="max-w-[1240px] mx-auto w-full">
+      <div className="max-w-[1120px] mx-auto w-full">
         <div
-          className={`grid gap-6 ${
+          className={`grid gap-5 ${
             embeddedPlans.length === 1
               ? "grid-cols-1 max-w-md mx-auto"
               : embeddedPlans.length === 2
@@ -874,7 +874,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
       {/* Compact Sticky Header */}
       <div className="bg-white/95 backdrop-blur-md border-b border-slate-200 relative z-20 md:sticky md:top-0">
-        <div className="max-w-[1240px] mx-auto w-full px-4 sm:px-6 lg:px-6">
+        <div className="max-w-[1120px] mx-auto w-full px-4 sm:px-5 lg:px-5">
           {subscribeNotice && (
             <div
               className={`mt-3 mb-2 rounded-xl px-4 py-3 text-sm border ${
@@ -904,7 +904,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
           <div className="py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-slate-900">{t.title}</h1>
+                <h1 className="text-lg sm:text-xl font-bold text-slate-900">{t.title}</h1>
                 <p className="text-xs text-slate-500 mt-0.5 hidden sm:block">{t.subtitle}</p>
               </div>
               {!hasRecurringPlans && (
@@ -1102,7 +1102,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
       </div>
 
       {/* Guidance: outside sticky header so it scrolls away and stays compact on desktop */}
-      <div className="max-w-[1240px] mx-auto w-full px-4 sm:px-6 lg:px-6 pt-2 pb-3 md:pt-1 md:pb-2">
+      <div className="max-w-[1120px] mx-auto w-full px-4 sm:px-5 lg:px-5 pt-2 pb-3 md:pt-1 md:pb-2">
         <div className="rounded-lg border border-teal-100 bg-teal-50/60 px-3 py-2.5 md:py-2 md:px-3">
           <p className="text-sm text-slate-800 leading-snug md:text-xs md:leading-relaxed">
             <span className="font-semibold block md:inline">{t.choosingHelpTitle}</span>
@@ -1113,7 +1113,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
       </div>
 
       {/* Main Content */}
-      <div className="max-w-[1240px] mx-auto w-full px-4 sm:px-6 lg:px-6 pt-4 pb-10 md:pt-5 md:pb-12">
+      <div className="max-w-[1120px] mx-auto w-full px-4 sm:px-5 lg:px-5 pt-4 pb-10 md:pt-5 md:pb-12">
         {/* Pricing Cards */}
         {filteredPlans.length === 0 ? (
           <div className="text-center py-16">
@@ -1121,7 +1121,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
               <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-3xl">🔍</span>
               </div>
-              <h3 className="text-xl font-bold text-slate-900 mb-2">{t.noPlansAvailable}</h3>
+              <h3 className="text-lg font-bold text-slate-900 mb-2">{t.noPlansAvailable}</h3>
               <p className="text-slate-500 text-sm mb-6">{t.noPlansDescription}</p>
               <button
                 onClick={clearFilters}
@@ -1137,7 +1137,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
           <div
             className={
               plansByProvider.freePlans.length > 0
-                ? "space-y-8 lg:space-y-0 lg:grid lg:grid-cols-[minmax(0,330px)_minmax(0,1fr)] lg:gap-6 lg:items-start"
+                ? "space-y-8 lg:space-y-0 lg:grid lg:grid-cols-[minmax(0,285px)_minmax(0,1fr)] lg:gap-5 lg:items-start"
                 : "space-y-10"
             }
           >
