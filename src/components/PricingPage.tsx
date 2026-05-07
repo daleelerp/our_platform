@@ -497,6 +497,8 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
     resumePendingCheckoutLink: isArabic ? "فتح عملية الدفع المعلقة ←" : "Resume pending checkout →",
     resumePendingCheckout: isArabic ? "متابعة الدفع المعلق" : "Resume pending checkout",
     dismissNotice: isArabic ? "إغلاق" : "Dismiss",
+    vendorPlansTitle: isArabic ? "خطط" : "Plans",
+    generalPlans: isArabic ? "خطط عامة" : "General Plans",
   };
 
   useEffect(() => {
@@ -659,6 +661,11 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
     return en || "";
   };
 
+  const getPlanProviderIds = (plan: SubscriptionPlan): string[] => {
+    const ids = (plan as any).erp_provider_ids;
+    return Array.isArray(ids) ? ids.filter((id) => typeof id === "string") : [];
+  };
+
   // Filter plans by audience
   const filteredPlans = plans
     .filter((p) => p.is_active)
@@ -678,6 +685,95 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
   };
 
   const hasActiveFilters = selectedAudience !== null || selectedProvider !== null;
+
+  const renderPlanCardsGrid = (plansToRender: SubscriptionPlan[]) => (
+    <div
+      className={`grid gap-6 ${
+        plansToRender.length === 1
+          ? "grid-cols-1 max-w-md mx-auto"
+          : plansToRender.length === 2
+          ? "grid-cols-1 md:grid-cols-2 max-w-3xl mx-auto"
+          : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+      }`}
+    >
+      {plansToRender.map((plan) => {
+        const price = getPlanPrice(plan);
+        const isPremium = plan.name === "premium";
+        const isTeam = plan.name === "team";
+        const isOneTime = isOneTimePlan(plan);
+        const isFree = isFreePlan(plan);
+        const isPaymentPending = pendingPaymentPlanIds.includes(plan.id);
+        const isCurrentPlan = subscription?.plan_id === plan.id;
+        const isOwnedPlan = ownedPaidPlanIds.includes(plan.id);
+        const blockedByForeignPending = pendingPayment.blocksCheckoutForPlan(plan.id);
+
+        const allPlanFeatures = Object.entries(featuresByCategory).flatMap(([_, categoryFeatures]) =>
+          categoryFeatures.filter((f) => planHasFeature(plan, f.key))
+        );
+
+        return (
+          <PricingCard
+            key={plan.id}
+            plan={plan}
+            price={price}
+            isPremium={isPremium}
+            isTeam={isTeam}
+            isOneTime={isOneTime || false}
+            isFree={isFree}
+            isLoading={isLoading}
+            selectedPlan={selectedPlan}
+            allPlanFeatures={allPlanFeatures}
+            isArabic={isArabic}
+            t={t}
+            getFeatureName={getFeatureName}
+            handleSubscribe={handleSubscribe}
+            isCurrentPlan={isCurrentPlan}
+            isOwnedPlan={isOwnedPlan}
+            isPaymentPending={isPaymentPending}
+            blockedByForeignPending={blockedByForeignPending}
+            resumeCheckoutHref={pendingPayment.resumeCheckoutHref}
+          />
+        );
+      })}
+    </div>
+  );
+
+  const plansByProvider = (() => {
+    const grouped = new Map<string, SubscriptionPlan[]>();
+    const plansWithoutProvider: SubscriptionPlan[] = [];
+
+    for (const plan of filteredPlans) {
+      const providerIds = getPlanProviderIds(plan);
+      if (providerIds.length === 0) {
+        plansWithoutProvider.push(plan);
+        continue;
+      }
+
+      for (const providerId of providerIds) {
+        const list = grouped.get(providerId) || [];
+        list.push(plan);
+        grouped.set(providerId, list);
+      }
+    }
+
+    const sections = erpProviders
+      .map((provider) => ({
+        id: provider.id,
+        title: `${t.vendorPlansTitle} ${getText(provider.name, provider.name_ar)}`,
+        plans: grouped.get(provider.id) || [],
+      }))
+      .filter((section) => section.plans.length > 0);
+
+    if (plansWithoutProvider.length > 0) {
+      sections.push({
+        id: "general",
+        title: t.generalPlans,
+        plans: plansWithoutProvider,
+      });
+    }
+
+    return sections;
+  })();
 
   if (embedded) {
     const embeddedPlans = plans.filter((p) => p.is_active).sort((a, b) => a.sort_order - b.sort_order);
@@ -997,56 +1093,22 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
               </button>
             </div>
           </div>
-        ) : (
-          <div
-            className={`grid gap-6 ${
-              filteredPlans.length === 1
-                ? "grid-cols-1 max-w-md mx-auto"
-                : filteredPlans.length === 2
-                ? "grid-cols-1 md:grid-cols-2 max-w-3xl mx-auto"
-                : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
-            }`}
-          >
-            {filteredPlans.map((plan) => {
-              const price = getPlanPrice(plan);
-              const isPremium = plan.name === "premium";
-              const isTeam = plan.name === "team";
-              const isOneTime = isOneTimePlan(plan);
-              const isFree = isFreePlan(plan);
-              const isPaymentPending = pendingPaymentPlanIds.includes(plan.id);
-              const isCurrentPlan = subscription?.plan_id === plan.id;
-              const isOwnedPlan = ownedPaidPlanIds.includes(plan.id);
-              const blockedByForeignPending = pendingPayment.blocksCheckoutForPlan(plan.id);
-
-              const allPlanFeatures = Object.entries(featuresByCategory).flatMap(([_, categoryFeatures]) =>
-                categoryFeatures.filter((f) => planHasFeature(plan, f.key))
-              );
-
-              return (
-                <PricingCard
-                  key={plan.id}
-                  plan={plan}
-                  price={price}
-                  isPremium={isPremium}
-                  isTeam={isTeam}
-                  isOneTime={isOneTime || false}
-                  isFree={isFree}
-                  isLoading={isLoading}
-                  selectedPlan={selectedPlan}
-                  allPlanFeatures={allPlanFeatures}
-                  isArabic={isArabic}
-                  t={t}
-                  getFeatureName={getFeatureName}
-                  handleSubscribe={handleSubscribe}
-                  isCurrentPlan={isCurrentPlan}
-                  isOwnedPlan={isOwnedPlan}
-                  isPaymentPending={isPaymentPending}
-                  blockedByForeignPending={blockedByForeignPending}
-                  resumeCheckoutHref={pendingPayment.resumeCheckoutHref}
-                />
-              );
-            })}
+        ) : selectedProvider ? (
+          renderPlanCardsGrid(filteredPlans)
+        ) : plansByProvider.length > 0 ? (
+          <div className="space-y-10">
+            {plansByProvider.map((section) => (
+              <section key={section.id} className="space-y-5">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-lg md:text-xl font-bold text-slate-900">{section.title}</h2>
+                  <div className="h-px bg-gradient-to-r from-[#429874]/50 via-slate-200 to-transparent flex-1" />
+                </div>
+                {renderPlanCardsGrid(section.plans)}
+              </section>
+            ))}
           </div>
+        ) : (
+          renderPlanCardsGrid(filteredPlans)
         )}
       </div>
     </div>
