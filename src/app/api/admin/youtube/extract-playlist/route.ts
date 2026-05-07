@@ -9,7 +9,30 @@ import {
   PlaylistItem,
 } from "@/lib/youtube/youtubeService";
 
-// Helper function to insert videos in batches
+const PLAYLIST_SLOT_MIGRATION_HINT =
+  "video_content is missing the 'playlist_slot' / 'source_youtube_playlist_id' columns. " +
+  "Run docs/sql/migrations/add_video_playlist_slot.sql in Supabase, then either wait for the schema cache to refresh or run NOTIFY pgrst, 'reload schema';";
+
+// PostgREST returns code PGRST204 with a message like
+//   "Could not find the 'playlist_slot' column of 'video_content' in the schema cache"
+// when the column literally doesn't exist (or the schema cache is stale).
+function isPlaylistSlotSchemaError(err: any): boolean {
+  if (!err) return false;
+  const msg = String(err.message || err.hint || "").toLowerCase();
+  return (
+    err.code === "PGRST204" ||
+    msg.includes("playlist_slot") ||
+    msg.includes("source_youtube_playlist_id")
+  );
+}
+
+function stripPlaylistSlotColumns<T extends Record<string, any>>(row: T): T {
+  const { playlist_slot, source_youtube_playlist_id, ...rest } = row;
+  void playlist_slot;
+  void source_youtube_playlist_id;
+  return rest as T;
+}
+
 async function insertVideosInBatches(
   supabase: ReturnType<typeof getAdminSupabaseClient>,
   videos: any[],
@@ -17,30 +40,47 @@ async function insertVideosInBatches(
 ) {
   const results: any[] = [];
   const errors: any[] = [];
+  // Once we discover the new columns aren't in the schema, drop them from every
+  // subsequent batch so the rest of the import still succeeds.
+  let dropPlaylistColumns = false;
 
   for (let i = 0; i < videos.length; i += batchSize) {
-    const batch = videos.slice(i, i + batchSize);
+    const rawBatch = videos.slice(i, i + batchSize);
     const batchNumber = Math.floor(i / batchSize) + 1;
     const totalBatches = Math.ceil(videos.length / batchSize);
-    
-    console.log(`Inserting batch ${batchNumber}/${totalBatches} (${batch.length} videos)...`);
+
+    console.log(`Inserting batch ${batchNumber}/${totalBatches} (${rawBatch.length} videos)...`);
+
+    const buildPayload = () =>
+      dropPlaylistColumns ? rawBatch.map(stripPlaylistSlotColumns) : rawBatch;
 
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from("video_content")
-        .insert(batch)
+        .insert(buildPayload())
         .select();
+
+      if (error && !dropPlaylistColumns && isPlaylistSlotSchemaError(error)) {
+        console.warn(
+          `Batch ${batchNumber} hit missing playlist_slot/source_youtube_playlist_id columns — retrying without them. ${PLAYLIST_SLOT_MIGRATION_HINT}`
+        );
+        dropPlaylistColumns = true;
+        ({ data, error } = await supabase
+          .from("video_content")
+          .insert(buildPayload())
+          .select());
+      }
 
       if (error) {
         console.error(`Batch ${batchNumber} error:`, error.message);
-        errors.push({ batch: batchNumber, error: error.message, videos: batch });
+        errors.push({ batch: batchNumber, error: error.message, videos: rawBatch });
       } else if (data) {
         results.push(...data);
         console.log(`Batch ${batchNumber} success: ${data.length} videos inserted`);
       }
     } catch (err: any) {
       console.error(`Batch ${batchNumber} exception:`, err.message);
-      errors.push({ batch: batchNumber, error: err.message, videos: batch });
+      errors.push({ batch: batchNumber, error: err.message, videos: rawBatch });
     }
 
     // Small delay between batches to avoid rate limiting
@@ -49,7 +89,7 @@ async function insertVideosInBatches(
     }
   }
 
-  return { results, errors };
+  return { results, errors, droppedPlaylistColumns: dropPlaylistColumns };
 }
 
 export async function POST(request: NextRequest) {
@@ -180,21 +220,37 @@ export async function POST(request: NextRequest) {
     console.log(`${existingVideoIds.size} videos already exist`);
 
     // Each playlist is its own block (playlist_slot); video_order is only within that playlist.
-    const { data: maxSlotRow } = await supabase
-      .from("video_content")
-      .select("playlist_slot")
-      .eq("milestone_id", milestone_id)
-      .order("playlist_slot", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    // If the column doesn't exist yet (migration not applied), fall back to slot 0 and skip the field on insert.
+    let hasPlaylistSlotColumns = true;
+    let nextPlaylistSlot = 0;
+    {
+      const { data: maxSlotRow, error: maxSlotErr } = await supabase
+        .from("video_content")
+        .select("playlist_slot")
+        .eq("milestone_id", milestone_id)
+        .order("playlist_slot", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-    const nextPlaylistSlot =
-      typeof maxSlotRow?.playlist_slot === "number"
-        ? maxSlotRow.playlist_slot + 1
-        : 0;
+      if (maxSlotErr) {
+        if (isPlaylistSlotSchemaError(maxSlotErr)) {
+          hasPlaylistSlotColumns = false;
+          console.warn(
+            `Skipping playlist_slot bookkeeping — ${PLAYLIST_SLOT_MIGRATION_HINT}`
+          );
+        } else {
+          console.warn(
+            "Could not determine next playlist slot:",
+            maxSlotErr.message
+          );
+        }
+      } else if (typeof maxSlotRow?.playlist_slot === "number") {
+        nextPlaylistSlot = maxSlotRow.playlist_slot + 1;
+      }
+    }
 
     console.log(
-      `Playlist slot ${nextPlaylistSlot}, YouTube playlist ${playlistId} for milestone ${milestone_id}`
+      `Playlist slot ${nextPlaylistSlot}, YouTube playlist ${playlistId} for milestone ${milestone_id} (hasPlaylistSlotColumns=${hasPlaylistSlotColumns})`
     );
 
     // Prepare videos for insertion
@@ -222,22 +278,14 @@ export async function POST(request: NextRequest) {
       const publishedAt = details?.publishedAt || item.publishedAt;
       const isEmbeddable = details?.isEmbeddable ?? true;
 
-      // ✅ FIXED: Always populate required 'title' field
-      // Use primary_language to determine display preference
-      return {
+      // Always populate required 'title' field; primary_language drives display.
+      const baseRow: Record<string, any> = {
         youtube_video_id: videoId,
         youtube_url: `https://www.youtube.com/watch?v=${videoId}`,
-        
-        // Always set the main title (required field)
         title: title,
-        // Set Arabic title if language is Arabic
         title_ar: language === "ar" ? title : null,
-        
-        // Always set the main description
         description: description,
-        // Set Arabic description if language is Arabic
         description_ar: language === "ar" ? description : null,
-        
         channel_name: channelName,
         channel_id: channelId,
         thumbnail_url: thumbnailUrl,
@@ -246,13 +294,18 @@ export async function POST(request: NextRequest) {
         like_count: likeCount,
         published_at: publishedAt,
         milestone_id: milestone_id,
-        playlist_slot: nextPlaylistSlot,
-        source_youtube_playlist_id: playlistId,
         video_order: item.position ?? index,
-        primary_language: language,  // This controls display preference
+        primary_language: language,
         is_embedded_allowed: isEmbeddable,
         is_active: true,
       };
+
+      if (hasPlaylistSlotColumns) {
+        baseRow.playlist_slot = nextPlaylistSlot;
+        baseRow.source_youtube_playlist_id = playlistId;
+      }
+
+      return baseRow;
     })
     .filter((video): video is NonNullable<typeof video> => video !== null);
 
@@ -270,7 +323,11 @@ export async function POST(request: NextRequest) {
 
     // Insert videos in batches
     console.log("Inserting videos in batches...");
-    const { results: insertedVideos, errors: insertErrors } = await insertVideosInBatches(
+    const {
+      results: insertedVideos,
+      errors: insertErrors,
+      droppedPlaylistColumns,
+    } = await insertVideosInBatches(
       supabase,
       videosToInsert,
       10 // Insert 10 videos at a time
@@ -278,6 +335,7 @@ export async function POST(request: NextRequest) {
 
     const insertedCount = insertedVideos.length;
     const failedCount = insertErrors.reduce((acc, e) => acc + e.videos.length, 0);
+    const playlistSlotMissing = !hasPlaylistSlotColumns || droppedPlaylistColumns;
 
     console.log(`Successfully inserted ${insertedCount} videos`);
     if (failedCount > 0) {
@@ -287,11 +345,14 @@ export async function POST(request: NextRequest) {
     // Return response
     if (insertErrors.length > 0 && insertedCount === 0) {
       // All batches failed
+      const firstError = insertErrors[0].error;
+      const isSchemaError = isPlaylistSlotSchemaError({ message: firstError });
       return NextResponse.json(
-        { 
-          error: `Failed to save videos: ${insertErrors[0].error}`,
+        {
+          error: `Failed to save videos: ${firstError}`,
+          hint: isSchemaError ? PLAYLIST_SLOT_MIGRATION_HINT : undefined,
           partial: false,
-          failed_count: failedCount
+          failed_count: failedCount,
         },
         { status: 500 }
       );
@@ -299,14 +360,15 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: insertErrors.length > 0 
+      message: insertErrors.length > 0
         ? `Extracted ${insertedCount} videos (${failedCount} failed)`
         : `Successfully extracted ${insertedCount} videos`,
       inserted_count: insertedCount,
       skipped_count: existingVideoIds.size,
       failed_count: failedCount,
       videos: insertedVideos,
-      errors: insertErrors.length > 0 ? insertErrors.map(e => e.error) : undefined,
+      errors: insertErrors.length > 0 ? insertErrors.map((e) => e.error) : undefined,
+      warning: playlistSlotMissing ? PLAYLIST_SLOT_MIGRATION_HINT : undefined,
     });
 
   } catch (error: any) {

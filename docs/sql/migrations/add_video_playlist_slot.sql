@@ -11,3 +11,8 @@ COMMENT ON COLUMN video_content.playlist_slot IS
   '0-based block index: each extracted playlist gets the next slot; sort with video_order inside the slot.';
 COMMENT ON COLUMN video_content.source_youtube_playlist_id IS
   'YouTube playlist ID (PL…) when videos were imported from a playlist URL.';
+
+-- Force PostgREST to reload its schema cache so REST clients see the new columns
+-- without waiting for the periodic refresh. Without this, inserts fail with:
+--   "Could not find the 'playlist_slot' column of 'video_content' in the schema cache".
+NOTIFY pgrst, 'reload schema';

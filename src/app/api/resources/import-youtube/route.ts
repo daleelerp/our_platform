@@ -10,6 +10,30 @@ import {
   PlaylistItem,
 } from "@/lib/youtube/youtubeService";
 
+const PLAYLIST_SLOT_MIGRATION_HINT =
+  "video_content is missing the 'playlist_slot' / 'source_youtube_playlist_id' columns. " +
+  "Run docs/sql/migrations/add_video_playlist_slot.sql in Supabase, then either wait for the schema cache to refresh or run NOTIFY pgrst, 'reload schema';";
+
+// PostgREST returns code PGRST204 with a message like
+//   "Could not find the 'playlist_slot' column of 'video_content' in the schema cache"
+// when the column literally doesn't exist (or the schema cache is stale).
+function isPlaylistSlotSchemaError(err: any): boolean {
+  if (!err) return false;
+  const msg = String(err.message || err.hint || "").toLowerCase();
+  return (
+    err.code === "PGRST204" ||
+    msg.includes("playlist_slot") ||
+    msg.includes("source_youtube_playlist_id")
+  );
+}
+
+function stripPlaylistSlotColumns<T extends Record<string, any>>(row: T): T {
+  const { playlist_slot, source_youtube_playlist_id, ...rest } = row;
+  void playlist_slot;
+  void source_youtube_playlist_id;
+  return rest as T;
+}
+
 /**
  * Extract YouTube playlist videos and save to video_content table
  */
@@ -93,18 +117,35 @@ export async function POST(request: NextRequest) {
       existingVideos?.map((v) => v.youtube_video_id) || []
     );
 
-    const { data: maxSlotRow } = await supabase
-      .from("video_content")
-      .select("playlist_slot")
-      .eq("milestone_id", milestone_id)
-      .order("playlist_slot", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    // If the migration hasn't been applied yet, gracefully fall back to slot 0
+    // and skip these columns when inserting rather than failing the whole import.
+    let hasPlaylistSlotColumns = true;
+    let nextPlaylistSlot = 0;
+    {
+      const { data: maxSlotRow, error: maxSlotErr } = await supabase
+        .from("video_content")
+        .select("playlist_slot")
+        .eq("milestone_id", milestone_id)
+        .order("playlist_slot", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-    const nextPlaylistSlot =
-      typeof maxSlotRow?.playlist_slot === "number"
-        ? maxSlotRow.playlist_slot + 1
-        : 0;
+      if (maxSlotErr) {
+        if (isPlaylistSlotSchemaError(maxSlotErr)) {
+          hasPlaylistSlotColumns = false;
+          console.warn(
+            `Skipping playlist_slot bookkeeping — ${PLAYLIST_SLOT_MIGRATION_HINT}`
+          );
+        } else {
+          console.warn(
+            "Could not determine next playlist slot:",
+            maxSlotErr.message
+          );
+        }
+      } else if (typeof maxSlotRow?.playlist_slot === "number") {
+        nextPlaylistSlot = maxSlotRow.playlist_slot + 1;
+      }
+    }
 
     // Prepare videos for insertion
     const videosToInsert = playlistItems
@@ -131,7 +172,7 @@ export async function POST(request: NextRequest) {
         const publishedAt = details?.publishedAt || item.publishedAt;
         const isEmbeddable = details?.isEmbeddable ?? true;
 
-        return {
+        const baseRow: Record<string, any> = {
           youtube_video_id: videoId,
           youtube_url: `https://www.youtube.com/watch?v=${videoId}`,
           title: language === "ar" ? null : title,
@@ -146,13 +187,18 @@ export async function POST(request: NextRequest) {
           like_count: likeCount,
           published_at: publishedAt,
           milestone_id: milestone_id,
-          playlist_slot: nextPlaylistSlot,
-          source_youtube_playlist_id: playlistId,
           video_order: item.position ?? index,
           primary_language: language,
           is_embedded_allowed: isEmbeddable,
           is_active: true,
         };
+
+        if (hasPlaylistSlotColumns) {
+          baseRow.playlist_slot = nextPlaylistSlot;
+          baseRow.source_youtube_playlist_id = playlistId;
+        }
+
+        return baseRow;
       })
       .filter((video): video is NonNullable<typeof video> => video !== null);
 
@@ -166,19 +212,40 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Insert videos into video_content table
-    const { data: insertedVideos, error: insertError } = await supabase
+    // Insert videos into video_content table.
+    // If the schema cache is missing the new columns, retry once without them so
+    // the import still succeeds on databases where the migration hasn't run.
+    let droppedPlaylistColumns = false;
+    let { data: insertedVideos, error: insertError } = await supabase
       .from("video_content")
       .insert(videosToInsert)
       .select();
 
+    if (insertError && isPlaylistSlotSchemaError(insertError)) {
+      console.warn(
+        `Insert hit missing playlist_slot/source_youtube_playlist_id columns — retrying without them. ${PLAYLIST_SLOT_MIGRATION_HINT}`
+      );
+      droppedPlaylistColumns = true;
+      const stripped = videosToInsert.map(stripPlaylistSlotColumns);
+      ({ data: insertedVideos, error: insertError } = await supabase
+        .from("video_content")
+        .insert(stripped)
+        .select());
+    }
+
     if (insertError) {
       console.error("Error inserting videos:", insertError);
+      const isSchemaError = isPlaylistSlotSchemaError(insertError);
       return NextResponse.json(
-        { error: `Failed to save videos: ${insertError.message}` },
+        {
+          error: `Failed to save videos: ${insertError.message}`,
+          hint: isSchemaError ? PLAYLIST_SLOT_MIGRATION_HINT : undefined,
+        },
         { status: 500 }
       );
     }
+
+    const playlistSlotMissing = !hasPlaylistSlotColumns || droppedPlaylistColumns;
 
     return NextResponse.json({
       success: true,
@@ -186,6 +253,7 @@ export async function POST(request: NextRequest) {
       inserted_count: insertedVideos?.length || 0,
       skipped_count: playlistItems.length - (insertedVideos?.length || 0),
       videos: insertedVideos,
+      warning: playlistSlotMissing ? PLAYLIST_SLOT_MIGRATION_HINT : undefined,
     });
   } catch (error: any) {
     console.error("Error extracting YouTube playlist:", error);

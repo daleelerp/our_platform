@@ -53,7 +53,11 @@ export default function PlaylistExtractor({
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to extract playlist");
+        throw new Error(
+          data.hint
+            ? `${data.error} — ${data.hint}`
+            : data.error || "Failed to extract playlist"
+        );
       }
 
       setResult({
@@ -63,6 +67,11 @@ export default function PlaylistExtractor({
 
       // Clear input on success
       setPlaylistUrl("");
+
+      // Surface migration warning even on partial success so admins know to fix it
+      if (data.warning) {
+        setError(data.warning);
+      }
 
       // Notify parent component
       if (data.videos && data.videos.length > 0) {
