@@ -816,7 +816,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
   if (embedded) {
     const embeddedPlans = plans.filter((p) => p.is_active).sort((a, b) => a.sort_order - b.sort_order);
     return (
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-[1240px] mx-auto w-full">
         <div
           className={`grid gap-6 ${
             embeddedPlans.length === 1
@@ -874,7 +874,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
       {/* Compact Sticky Header */}
       <div className="bg-white/95 backdrop-blur-md border-b border-slate-200 relative z-20 md:sticky md:top-0">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+        <div className="max-w-[1240px] mx-auto w-full px-4 sm:px-6 lg:px-6">
           {subscribeNotice && (
             <div
               className={`mt-3 mb-2 rounded-xl px-4 py-3 text-sm border ${
@@ -1102,7 +1102,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
       </div>
 
       {/* Guidance: outside sticky header so it scrolls away and stays compact on desktop */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-2 pb-3 md:pt-1 md:pb-2">
+      <div className="max-w-[1240px] mx-auto w-full px-4 sm:px-6 lg:px-6 pt-2 pb-3 md:pt-1 md:pb-2">
         <div className="rounded-lg border border-teal-100 bg-teal-50/60 px-3 py-2.5 md:py-2 md:px-3">
           <p className="text-sm text-slate-800 leading-snug md:text-xs md:leading-relaxed">
             <span className="font-semibold block md:inline">{t.choosingHelpTitle}</span>
@@ -1113,7 +1113,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
       </div>
 
       {/* Main Content */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-4 pb-10 md:pt-5 md:pb-12">
+      <div className="max-w-[1240px] mx-auto w-full px-4 sm:px-6 lg:px-6 pt-4 pb-10 md:pt-5 md:pb-12">
         {/* Pricing Cards */}
         {filteredPlans.length === 0 ? (
           <div className="text-center py-16">
