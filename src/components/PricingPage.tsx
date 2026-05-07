@@ -1134,50 +1134,60 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
         ) : selectedProvider ? (
           renderPlanCardsGrid(filteredPlans)
         ) : (
-          <div className="space-y-10">
+          <div
+            className={
+              plansByProvider.freePlans.length > 0
+                ? "space-y-8 lg:space-y-0 lg:grid lg:grid-cols-[minmax(0,330px)_minmax(0,1fr)] lg:gap-6 lg:items-start"
+                : "space-y-10"
+            }
+          >
             {plansByProvider.freePlans.length > 0 && (
-              <section className="space-y-5 rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4 sm:p-5">
-                {renderSectionHeader(t.freePlansTitle, plansByProvider.freePlans.length)}
-                <div className="rounded-xl bg-white/80 p-2 sm:p-3 border border-emerald-100/70">
-                  {renderPlanCardsGrid(plansByProvider.freePlans)}
-                </div>
-              </section>
+              <aside className="lg:sticky lg:top-24 lg:self-start">
+                <section className="space-y-5 rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4 sm:p-5">
+                  {renderSectionHeader(t.freePlansTitle, plansByProvider.freePlans.length)}
+                  <div className="rounded-xl bg-white/80 p-2 sm:p-3 border border-emerald-100/70">
+                    {renderPlanCardsGrid(plansByProvider.freePlans)}
+                  </div>
+                </section>
+              </aside>
             )}
 
-            {plansByProvider.sectionsWithPlans.map((section) => (
-              <section
-                key={section.id}
-                className="space-y-5 rounded-2xl border border-slate-200/80 bg-white/70 backdrop-blur-[1px] p-4 sm:p-5 shadow-sm"
-              >
-                {renderSectionHeader(section.title, section.plans.length)}
-                <div className="rounded-xl bg-white p-2 sm:p-3 border border-slate-100">
-                  {renderPlanCardsGrid(section.plans)}
-                </div>
-              </section>
-            ))}
+            <div className="space-y-10">
+              {plansByProvider.sectionsWithPlans.map((section) => (
+                <section
+                  key={section.id}
+                  className="space-y-5 rounded-2xl border border-slate-200/80 bg-white/70 backdrop-blur-[1px] p-4 sm:p-5 shadow-sm"
+                >
+                  {renderSectionHeader(section.title, section.plans.length)}
+                  <div className="rounded-xl bg-white p-2 sm:p-3 border border-slate-100">
+                    {renderPlanCardsGrid(section.plans)}
+                  </div>
+                </section>
+              ))}
 
-            {plansByProvider.plansWithoutProvider.length > 0 && (
-              <section className="space-y-5 rounded-2xl border border-slate-200/80 bg-white/70 p-4 sm:p-5 shadow-sm">
-                {renderSectionHeader(t.generalPlans, plansByProvider.plansWithoutProvider.length)}
-                <div className="rounded-xl bg-white p-2 sm:p-3 border border-slate-100">
-                  {renderPlanCardsGrid(plansByProvider.plansWithoutProvider)}
-                </div>
-              </section>
-            )}
+              {plansByProvider.plansWithoutProvider.length > 0 && (
+                <section className="space-y-5 rounded-2xl border border-slate-200/80 bg-white/70 p-4 sm:p-5 shadow-sm">
+                  {renderSectionHeader(t.generalPlans, plansByProvider.plansWithoutProvider.length)}
+                  <div className="rounded-xl bg-white p-2 sm:p-3 border border-slate-100">
+                    {renderPlanCardsGrid(plansByProvider.plansWithoutProvider)}
+                  </div>
+                </section>
+              )}
 
-            {plansByProvider.emptyProviderSections.length > 0 && (
-              <section className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 sm:p-5">
-                {renderSectionHeader(t.vendorsWithoutPlansTitle, plansByProvider.emptyProviderSections.length, true)}
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {plansByProvider.emptyProviderSections.map((provider) => (
-                    <div key={provider.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                      <p className="font-semibold text-slate-800 mb-1.5">{provider.name}</p>
-                      <p className="text-sm text-slate-500 leading-relaxed">{t.noPlansCurrently}</p>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
+              {plansByProvider.emptyProviderSections.length > 0 && (
+                <section className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 sm:p-5">
+                  {renderSectionHeader(t.vendorsWithoutPlansTitle, plansByProvider.emptyProviderSections.length, true)}
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {plansByProvider.emptyProviderSections.map((provider) => (
+                      <div key={provider.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                        <p className="font-semibold text-slate-800 mb-1.5">{provider.name}</p>
+                        <p className="text-sm text-slate-500 leading-relaxed">{t.noPlansCurrently}</p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+            </div>
           </div>
         )}
       </div>
