@@ -694,7 +694,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
     <div
       className={`grid gap-4 ${
         plansToRender.length === 1
-          ? `grid-cols-1 w-full max-w-[17.25rem] sm:max-w-xs ${isArabic ? "ms-auto" : "me-auto"}`
+          ? `grid-cols-1 w-full max-w-[17.25rem] sm:max-w-xs ${isArabic ? "ml-auto" : "mr-auto"}`
           : plansToRender.length === 2
           ? "grid-cols-1 md:grid-cols-2 max-w-3xl mx-auto"
           : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
@@ -814,7 +814,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
         <div
           className={`grid gap-4 ${
             embeddedPlans.length === 1
-              ? `grid-cols-1 w-full max-w-[17.25rem] sm:max-w-xs ${isArabic ? "ms-auto" : "me-auto"}`
+              ? `grid-cols-1 w-full max-w-[17.25rem] sm:max-w-xs ${isArabic ? "ml-auto" : "mr-auto"}`
               : embeddedPlans.length === 2
               ? "grid-cols-1 md:grid-cols-2 max-w-3xl mx-auto"
               : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
