@@ -502,6 +502,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
     freePlansTitle: isArabic ? "الخطة المجانية" : "Free Plan",
     vendorsWithoutPlansTitle: isArabic ? "مزودون بدون خطط" : "Vendors Without Plans",
     noPlansCurrently: isArabic ? "لا يوجد خطط في الوقت الحالي" : "No plans available right now",
+    plansCount: isArabic ? "خطة" : "plans",
   };
 
   useEffect(() => {
@@ -787,6 +788,30 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
       emptyProviderSections,
     };
   })();
+
+  const renderSectionHeader = (title: string, plansCount?: number, muted = false) => (
+    <div className="flex items-center gap-3">
+      <h2 className={`text-lg md:text-xl font-bold ${muted ? "text-slate-700" : "text-slate-900"}`}>{title}</h2>
+      {typeof plansCount === "number" && (
+        <span
+          className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold border ${
+            muted
+              ? "bg-slate-100 text-slate-600 border-slate-200"
+              : "bg-[#429874]/10 text-[#2f6f55] border-[#429874]/20"
+          }`}
+        >
+          {plansCount} {t.plansCount}
+        </span>
+      )}
+      <div
+        className={`h-px flex-1 ${
+          muted
+            ? "bg-gradient-to-r from-slate-300 via-slate-200 to-transparent"
+            : "bg-gradient-to-r from-[#429874]/50 via-slate-200 to-transparent"
+        }`}
+      />
+    </div>
+  );
 
   if (embedded) {
     const embeddedPlans = plans.filter((p) => p.is_active).sort((a, b) => a.sort_order - b.sort_order);
@@ -1111,46 +1136,43 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
         ) : (
           <div className="space-y-10">
             {plansByProvider.freePlans.length > 0 && (
-              <section className="space-y-5">
-                <div className="flex items-center gap-3">
-                  <h2 className="text-lg md:text-xl font-bold text-slate-900">{t.freePlansTitle}</h2>
-                  <div className="h-px bg-gradient-to-r from-[#429874]/50 via-slate-200 to-transparent flex-1" />
+              <section className="space-y-5 rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4 sm:p-5">
+                {renderSectionHeader(t.freePlansTitle, plansByProvider.freePlans.length)}
+                <div className="rounded-xl bg-white/80 p-2 sm:p-3 border border-emerald-100/70">
+                  {renderPlanCardsGrid(plansByProvider.freePlans)}
                 </div>
-                {renderPlanCardsGrid(plansByProvider.freePlans)}
               </section>
             )}
 
             {plansByProvider.sectionsWithPlans.map((section) => (
-              <section key={section.id} className="space-y-5">
-                <div className="flex items-center gap-3">
-                  <h2 className="text-lg md:text-xl font-bold text-slate-900">{section.title}</h2>
-                  <div className="h-px bg-gradient-to-r from-[#429874]/50 via-slate-200 to-transparent flex-1" />
+              <section
+                key={section.id}
+                className="space-y-5 rounded-2xl border border-slate-200/80 bg-white/70 backdrop-blur-[1px] p-4 sm:p-5 shadow-sm"
+              >
+                {renderSectionHeader(section.title, section.plans.length)}
+                <div className="rounded-xl bg-white p-2 sm:p-3 border border-slate-100">
+                  {renderPlanCardsGrid(section.plans)}
                 </div>
-                {renderPlanCardsGrid(section.plans)}
               </section>
             ))}
 
             {plansByProvider.plansWithoutProvider.length > 0 && (
-              <section className="space-y-5">
-                <div className="flex items-center gap-3">
-                  <h2 className="text-lg md:text-xl font-bold text-slate-900">{t.generalPlans}</h2>
-                  <div className="h-px bg-gradient-to-r from-[#429874]/50 via-slate-200 to-transparent flex-1" />
+              <section className="space-y-5 rounded-2xl border border-slate-200/80 bg-white/70 p-4 sm:p-5 shadow-sm">
+                {renderSectionHeader(t.generalPlans, plansByProvider.plansWithoutProvider.length)}
+                <div className="rounded-xl bg-white p-2 sm:p-3 border border-slate-100">
+                  {renderPlanCardsGrid(plansByProvider.plansWithoutProvider)}
                 </div>
-                {renderPlanCardsGrid(plansByProvider.plansWithoutProvider)}
               </section>
             )}
 
             {plansByProvider.emptyProviderSections.length > 0 && (
-              <section className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <h2 className="text-lg md:text-xl font-bold text-slate-900">{t.vendorsWithoutPlansTitle}</h2>
-                  <div className="h-px bg-gradient-to-r from-slate-300 via-slate-200 to-transparent flex-1" />
-                </div>
+              <section className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 sm:p-5">
+                {renderSectionHeader(t.vendorsWithoutPlansTitle, plansByProvider.emptyProviderSections.length, true)}
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {plansByProvider.emptyProviderSections.map((provider) => (
-                    <div key={provider.id} className="rounded-xl border border-slate-200 bg-white p-4">
-                      <p className="font-semibold text-slate-800 mb-1">{provider.name}</p>
-                      <p className="text-sm text-slate-500">{t.noPlansCurrently}</p>
+                    <div key={provider.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                      <p className="font-semibold text-slate-800 mb-1.5">{provider.name}</p>
+                      <p className="text-sm text-slate-500 leading-relaxed">{t.noPlansCurrently}</p>
                     </div>
                   ))}
                 </div>
