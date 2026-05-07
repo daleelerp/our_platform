@@ -499,6 +499,9 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
     dismissNotice: isArabic ? "إغلاق" : "Dismiss",
     vendorPlansTitle: isArabic ? "خطط" : "Plans",
     generalPlans: isArabic ? "خطط عامة" : "General Plans",
+    freePlansTitle: isArabic ? "الخطة المجانية" : "Free Plan",
+    vendorsWithoutPlansTitle: isArabic ? "مزودون بدون خطط" : "Vendors Without Plans",
+    noPlansCurrently: isArabic ? "لا يوجد خطط في الوقت الحالي" : "No plans available right now",
   };
 
   useEffect(() => {
@@ -741,8 +744,14 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
   const plansByProvider = (() => {
     const grouped = new Map<string, SubscriptionPlan[]>();
     const plansWithoutProvider: SubscriptionPlan[] = [];
+    const freePlans: SubscriptionPlan[] = [];
 
     for (const plan of filteredPlans) {
+      if (isFreePlan(plan)) {
+        freePlans.push(plan);
+        continue;
+      }
+
       const providerIds = getPlanProviderIds(plan);
       if (providerIds.length === 0) {
         plansWithoutProvider.push(plan);
@@ -756,7 +765,7 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
       }
     }
 
-    const sections = erpProviders
+    const sectionsWithPlans = erpProviders
       .map((provider) => ({
         id: provider.id,
         title: `${t.vendorPlansTitle} ${getText(provider.name, provider.name_ar)}`,
@@ -764,15 +773,19 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
       }))
       .filter((section) => section.plans.length > 0);
 
-    if (plansWithoutProvider.length > 0) {
-      sections.push({
-        id: "general",
-        title: t.generalPlans,
-        plans: plansWithoutProvider,
-      });
-    }
+    const emptyProviderSections = erpProviders
+      .filter((provider) => (grouped.get(provider.id) || []).length === 0)
+      .map((provider) => ({
+        id: provider.id,
+        name: getText(provider.name, provider.name_ar),
+      }));
 
-    return sections;
+    return {
+      freePlans,
+      sectionsWithPlans,
+      plansWithoutProvider,
+      emptyProviderSections,
+    };
   })();
 
   if (embedded) {
@@ -1095,9 +1108,19 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
           </div>
         ) : selectedProvider ? (
           renderPlanCardsGrid(filteredPlans)
-        ) : plansByProvider.length > 0 ? (
+        ) : (
           <div className="space-y-10">
-            {plansByProvider.map((section) => (
+            {plansByProvider.freePlans.length > 0 && (
+              <section className="space-y-5">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-lg md:text-xl font-bold text-slate-900">{t.freePlansTitle}</h2>
+                  <div className="h-px bg-gradient-to-r from-[#429874]/50 via-slate-200 to-transparent flex-1" />
+                </div>
+                {renderPlanCardsGrid(plansByProvider.freePlans)}
+              </section>
+            )}
+
+            {plansByProvider.sectionsWithPlans.map((section) => (
               <section key={section.id} className="space-y-5">
                 <div className="flex items-center gap-3">
                   <h2 className="text-lg md:text-xl font-bold text-slate-900">{section.title}</h2>
@@ -1106,9 +1129,34 @@ export function PricingPage({ plans, features, erpProviders = [], selectedProvid
                 {renderPlanCardsGrid(section.plans)}
               </section>
             ))}
+
+            {plansByProvider.plansWithoutProvider.length > 0 && (
+              <section className="space-y-5">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-lg md:text-xl font-bold text-slate-900">{t.generalPlans}</h2>
+                  <div className="h-px bg-gradient-to-r from-[#429874]/50 via-slate-200 to-transparent flex-1" />
+                </div>
+                {renderPlanCardsGrid(plansByProvider.plansWithoutProvider)}
+              </section>
+            )}
+
+            {plansByProvider.emptyProviderSections.length > 0 && (
+              <section className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-lg md:text-xl font-bold text-slate-900">{t.vendorsWithoutPlansTitle}</h2>
+                  <div className="h-px bg-gradient-to-r from-slate-300 via-slate-200 to-transparent flex-1" />
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {plansByProvider.emptyProviderSections.map((provider) => (
+                    <div key={provider.id} className="rounded-xl border border-slate-200 bg-white p-4">
+                      <p className="font-semibold text-slate-800 mb-1">{provider.name}</p>
+                      <p className="text-sm text-slate-500">{t.noPlansCurrently}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
           </div>
-        ) : (
-          renderPlanCardsGrid(filteredPlans)
         )}
       </div>
     </div>
