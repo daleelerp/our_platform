@@ -19,6 +19,7 @@ type FeedbackReport = {
   reviews: Array<{
     id: string;
     user_id: string;
+    user_email: string | null;
     plan_id: string;
     purchase_id: string;
     plan_name: string;
@@ -126,23 +127,45 @@ export default function AdminAnalyticsPage() {
               ) : (
                 <div className="space-y-2">
                   {report.reviews.map((item) => (
-                    <div key={item.id} className="rounded-lg border border-slate-200 p-3">
-                      <div className="mb-1 flex items-center justify-between text-xs text-slate-500">
-                        <span>Plan: {item.plan_name}</span>
-                        <span>User: {item.user_id.slice(0, 8)}...</span>
+                    <div key={item.id} className="rounded-lg border border-slate-200 p-4">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <p className="break-all text-sm font-semibold text-slate-900">
+                            {item.user_email ?? `User ${item.user_id.slice(0, 8)}…`}
+                          </p>
+                          <p className="mt-0.5 text-xs text-slate-500">{item.plan_name}</p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-700">
+                          <span className="whitespace-nowrap">
+                            Plan {item.rating_plan ?? item.rating}/5
+                          </span>
+                          <span className="whitespace-nowrap">
+                            Content {item.rating_content ?? item.rating}/5
+                          </span>
+                          <span className="text-xs text-slate-400 whitespace-nowrap">
+                            {new Date(item.created_at).toLocaleString()}
+                          </span>
+                        </div>
                       </div>
-                      <div className="mb-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
-                        <span>
-                          Plan: {item.rating_plan ?? item.rating}/5 · Content:{" "}
-                          {item.rating_content ?? item.rating}/5
-                        </span>
-                        {item.category && <span>Category: {item.category}</span>}
-                        <span>{new Date(item.created_at).toLocaleDateString()}</span>
-                      </div>
-                      {item.opinion && <p className="text-sm text-slate-800">{item.opinion}</p>}
-                      {item.suggestion && (
-                        <p className="mt-1 text-sm text-slate-600">Suggestion: {item.suggestion}</p>
-                      )}
+                      {(item.opinion?.trim() || item.suggestion?.trim()) ? (
+                        <div className="mt-3 rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-800 whitespace-pre-wrap">
+                          {item.opinion?.trim() ? (
+                            <p>
+                              <span className="font-medium text-slate-600">Note: </span>
+                              {item.opinion}
+                            </p>
+                          ) : null}
+                          {item.suggestion?.trim() ? (
+                            <p className={item.opinion?.trim() ? "mt-2" : ""}>
+                              <span className="font-medium text-slate-600">Suggestion: </span>
+                              {item.suggestion}
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : null}
+                      {item.category ? (
+                        <p className="mt-2 text-xs text-slate-500">Category: {item.category}</p>
+                      ) : null}
                     </div>
                   ))}
                 </div>

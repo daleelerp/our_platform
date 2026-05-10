@@ -1,6 +1,28 @@
 import { NextResponse } from "next/server";
 import { getAdminSession } from "@/utils/admin-auth";
 import { getAdminSupabaseClient } from "@/utils/admin-supabase";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+async function fetchEmailsForUserIds(
+  supabase: SupabaseClient,
+  userIds: string[]
+): Promise<Map<string, string>> {
+  const unique = [...new Set(userIds)].filter(Boolean);
+  const map = new Map<string, string>();
+  await Promise.all(
+    unique.map(async (id) => {
+      try {
+        const { data, error } = await supabase.auth.admin.getUserById(id);
+        if (!error && data?.user?.email) {
+          map.set(id, data.user.email);
+        }
+      } catch {
+        /* ignore */
+      }
+    })
+  );
+  return map;
+}
 
 export async function GET() {
   try {
@@ -110,6 +132,12 @@ export async function GET() {
       .order("created_at", { ascending: false })
       .limit(2000);
 
+    const reviewsList = allReviewsRows ?? [];
+    const emailByUserId = await fetchEmailsForUserIds(
+      supabase,
+      reviewsList.map((r: { user_id?: string }) => String(r.user_id ?? ""))
+    );
+
     return NextResponse.json({
       metrics: {
         total_requests: totalRequests ?? 0,
@@ -117,12 +145,14 @@ export async function GET() {
         response_rate: responseRate,
       },
       average_rating_by_plan: averageRatingByPlan,
-      reviews: (allReviewsRows ?? []).map((row: any) => {
+      reviews: reviewsList.map((row: any) => {
         const planRelation = row.subscription_plans;
         const planObj = Array.isArray(planRelation) ? planRelation[0] : planRelation;
+        const uid = String(row.user_id ?? "");
         return {
           id: row.id,
           user_id: row.user_id,
+          user_email: emailByUserId.get(uid) ?? null,
           plan_id: row.plan_id,
           purchase_id: row.purchase_id,
           rating: row.rating,
