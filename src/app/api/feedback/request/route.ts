@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { isUserInFeedbackRollout } from "@/lib/studentFeedback";
 
-const DEFAULT_ROLLOUT_PERCENT = 20;
+const DEFAULT_ROLLOUT_PERCENT = 100;
 const DEFAULT_SNOOZE_DAYS = 2;
 const MAX_PROMPT_ATTEMPTS = 2;
 
