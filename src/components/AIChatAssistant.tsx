@@ -100,7 +100,7 @@ export function AIChatAssistant({ initialMessage: _initialMessage }: Props) {
   const [isCheckingSubscription, setIsCheckingSubscription] = useState(true);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const isArabic = language === "ar";
 
@@ -246,6 +246,15 @@ export function AIChatAssistant({ initialMessage: _initialMessage }: Props) {
     }
   }, [isOpen]);
 
+  // Auto-resize input as message grows.
+  useEffect(() => {
+    const input = inputRef.current;
+    if (!input) return;
+    input.style.height = "auto";
+    const maxHeight = 120;
+    input.style.height = `${Math.min(input.scrollHeight, maxHeight)}px`;
+  }, [inputValue]);
+
   const isUnlimited = dailyLimit === -1;
   const effectiveLimit = isUnlimited ? Number.MAX_SAFE_INTEGER : dailyLimit;
   const canSendMessage = dailyMessagesUsed < effectiveLimit;
@@ -264,12 +273,20 @@ export function AIChatAssistant({ initialMessage: _initialMessage }: Props) {
 
     try {
       // Try to update existing record
-      const { data: existing } = await supabase
+      const { data: existing, error: existingError } = await supabase
         .from("subscription_usage")
         .select("*")
         .eq("user_id", user.id)
         .gte("period_start", today.toISOString())
-        .single();
+        .maybeSingle();
+
+      if (
+        existingError &&
+        existingError.code !== "PGRST116" &&
+        !existingError.message?.includes("406")
+      ) {
+        throw existingError;
+      }
 
       if (existing) {
         await supabase
@@ -358,6 +375,13 @@ export function AIChatAssistant({ initialMessage: _initialMessage }: Props) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     sendMessage(inputValue);
+  };
+
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage(inputValue);
+    }
   };
 
   const handleSuggestionClick = (suggestion: string) => {
@@ -511,15 +535,16 @@ export function AIChatAssistant({ initialMessage: _initialMessage }: Props) {
 
           {/* Input */}
           <form onSubmit={handleSubmit} className="p-3 border-t border-slate-200 bg-white flex-shrink-0">
-            <div className="flex gap-2">
-              <input
+            <div className="flex gap-2 items-end">
+              <textarea
                 ref={inputRef}
-                type="text"
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleInputKeyDown}
                 placeholder={t.placeholder}
                 disabled={isLoading || !canSendMessage}
-                className="flex-1 px-4 py-2 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent disabled:opacity-50 disabled:bg-slate-50"
+                rows={1}
+                className="flex-1 px-4 py-2 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent disabled:opacity-50 disabled:bg-slate-50 resize-none overflow-y-auto leading-6"
               />
               <button
                 type="submit"

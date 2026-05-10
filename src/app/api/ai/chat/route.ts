@@ -18,6 +18,10 @@ type UserContext = {
   language: "en" | "ar";
 };
 
+function hasArabicText(text: string): boolean {
+  return /[\u0600-\u06FF]/.test(text);
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -26,8 +30,13 @@ export async function POST(request: NextRequest) {
       userContext: UserContext;
     };
 
-    // Default language if not provided
-    const language = userContext?.language || "en";
+    // Resolve response language:
+    // 1) explicit user context, 2) infer from latest user message content.
+    const lastUserMessage = [...(messages || [])]
+      .reverse()
+      .find((message) => message.role === "user")?.content || "";
+    const inferredLanguage = hasArabicText(lastUserMessage) ? "ar" : "en";
+    const language = userContext?.language || inferredLanguage;
 
     // If no API key, return a helpful message immediately
     if (!GROQ_API_KEY) {
@@ -168,8 +177,15 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     console.error("Chat API error:", error);
+    const fallbackLanguage = hasArabicText(
+      String((error as { message?: string })?.message || "")
+    )
+      ? "ar"
+      : "en";
     return NextResponse.json({
-      message: "Sorry, an unexpected error occurred. Please try again.",
+      message: fallbackLanguage === "ar"
+        ? "عذراً، حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى."
+        : "Sorry, an unexpected error occurred. Please try again.",
       error: "server_error",
       details: error?.message || "Unknown error"
     });
@@ -213,7 +229,7 @@ ${enrolledList}
 ${pathsList}
 
 إرشادات:
-1. أجب دائماً بالعربية
+1. أجب دائماً بالعربية فقط، ولا تستخدم الإنجليزية إلا إذا طلب المستخدم ذلك صراحة.
 2. كن ودوداً ومشجعاً
 3. قدم نصائح عملية ومحددة
 4. إذا سأل عن مسار معين، اشرح له ما سيتعلمه والوظائف المتاحة بعده
