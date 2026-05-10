@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, type ReactNode } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
@@ -65,6 +65,98 @@ function readSessionUsageFloor(userId: string | undefined): number {
   } catch {
     return 0;
   }
+}
+
+/** Break dense assistant text so questions / sentences start on new lines when the model omits newlines. */
+function preprocessAssistantText(raw: string): string {
+  return raw
+    .replace(/\r\n/g, "\n")
+    .trim()
+    .replace(/([؟?])\s+(?=[\u0600-\u06FFA-Za-z])/g, "$1\n\n");
+}
+
+const BULLET_LINE = /^\s*[-*•]\s+(.+)$/;
+const NUMBERED_LINE = /^\s*([0-9\u0660-\u0669]{1,3})[.)]\s*(.+)$/;
+
+function AssistantMessageBody({ content }: { content: string }) {
+  const text = preprocessAssistantText(content);
+  const rawLines = text.split("\n");
+  const blocks: ReactNode[] = [];
+  let i = 0;
+  let key = 0;
+
+  while (i < rawLines.length) {
+    const trimmed = rawLines[i].trim();
+    if (trimmed === "") {
+      i++;
+      continue;
+    }
+
+    const bulletMatch = trimmed.match(BULLET_LINE);
+    if (bulletMatch) {
+      const items: string[] = [];
+      while (i < rawLines.length) {
+        const t = rawLines[i].trim();
+        const m = t.match(BULLET_LINE);
+        if (!m) break;
+        items.push(m[1]);
+        i++;
+      }
+      blocks.push(
+        <ul
+          key={`ul-${key++}`}
+          className="my-1.5 list-disc space-y-1 ps-4 marker:text-teal-600"
+        >
+          {items.map((item, j) => (
+            <li key={j} className="leading-relaxed">
+              {item}
+            </li>
+          ))}
+        </ul>
+      );
+      continue;
+    }
+
+    const numMatch = trimmed.match(NUMBERED_LINE);
+    if (numMatch) {
+      const items: string[] = [];
+      while (i < rawLines.length) {
+        const t = rawLines[i].trim();
+        const m = t.match(NUMBERED_LINE);
+        if (!m) break;
+        items.push(m[2]);
+        i++;
+      }
+      blocks.push(
+        <ol
+          key={`ol-${key++}`}
+          className="my-1.5 list-decimal space-y-1 ps-4 marker:font-medium marker:text-teal-600"
+        >
+          {items.map((item, j) => (
+            <li key={j} className="leading-relaxed">
+              {item}
+            </li>
+          ))}
+        </ol>
+      );
+      continue;
+    }
+
+    blocks.push(
+      <p key={`p-${key++}`} className="mb-2 leading-relaxed last:mb-0">
+        {trimmed}
+      </p>
+    );
+    i++;
+  }
+
+  if (blocks.length === 0) {
+    return (
+      <p className="text-sm whitespace-pre-wrap leading-relaxed text-slate-800">{content}</p>
+    );
+  }
+
+  return <div className="space-y-0.5 text-sm">{blocks}</div>;
 }
 
 /** Sum ai_requests across plans; any plan with -1 means unlimited. */
@@ -547,9 +639,13 @@ export function AIChatAssistant({ initialMessage: _initialMessage }: Props) {
                       : "bg-white text-slate-800 shadow-sm border border-slate-200 rounded-bl-md"
                   }`}
                 >
-                  <p className={`text-sm whitespace-pre-wrap ${message.role === "user" ? "text-white" : "text-slate-800"}`}>
-                    {message.content}
-                  </p>
+                  {message.role === "user" ? (
+                    <p className="text-sm whitespace-pre-wrap leading-relaxed text-white">{message.content}</p>
+                  ) : (
+                    <div dir="auto" className="text-slate-800">
+                      <AssistantMessageBody content={message.content} />
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
