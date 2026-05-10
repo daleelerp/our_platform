@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 import { recordDiscountUsageAfterSuccessfulPayment } from "@/lib/discountUsage";
+import { ensureFeedbackRequestForPurchase } from "@/lib/studentFeedback";
 
 // Use service role key for webhook (no user context)
 const supabase = createClient(
@@ -141,6 +142,13 @@ export async function POST(request: NextRequest) {
         });
 
         await recordDiscountUsageAfterSuccessfulPayment(supabase, subscription);
+        await ensureFeedbackRequestForPurchase({
+          userId: subscription.user_id,
+          planId: subscription.plan_id,
+          purchaseId: subscription.id,
+          purchaseTime: activationPayload.started_at,
+          client: supabase,
+        });
 
       } else if (normalizedStatus === "PENDING" || normalizedStatus === "PROCESSING") {
         // Payment pending - keep subscription in pending state
@@ -250,6 +258,13 @@ export async function POST(request: NextRequest) {
         });
 
         await recordDiscountUsageAfterSuccessfulPayment(supabase, subscription);
+        await ensureFeedbackRequestForPurchase({
+          userId: subscription.user_id,
+          planId: subscription.plan_id,
+          purchaseId: subscription.id,
+          purchaseTime: new Date().toISOString(),
+          client: supabase,
+        });
 
       } else if (status === "PENDING") {
         // Payment pending - keep subscription in pending state

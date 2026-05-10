@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { extractKashierPaymentStatus, getKashierApiBaseUrl } from "@/lib/kashier";
 import { recordDiscountUsageAfterSuccessfulPayment } from "@/lib/discountUsage";
+import { ensureFeedbackRequestForPurchase } from "@/lib/studentFeedback";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -131,11 +132,10 @@ export async function cancelPendingSubscriptionAfterPaymentFailure(params: {
 
 async function finalizePaidSubscriptionInDb(params: {
   sessionId: string;
-  merchantOrderId?: string | null;
   paymentData: unknown | null;
   parsedUserIdFromOrder: ReturnType<typeof normalizeMerchantUserId>;
 }): Promise<KashierVerifyJson> {
-  const { sessionId, merchantOrderId, paymentData, parsedUserIdFromOrder } = params;
+  const { sessionId, paymentData, parsedUserIdFromOrder } = params;
 
   let { data: subscription } = await supabase
     .from("user_subscriptions")
@@ -234,6 +234,13 @@ async function finalizePaidSubscriptionInDb(params: {
     });
 
     await recordDiscountUsageAfterSuccessfulPayment(supabase, subscription);
+    await ensureFeedbackRequestForPurchase({
+      userId: subscription.user_id,
+      planId: subscription.plan_id,
+      purchaseId: subscription.id,
+      purchaseTime: activationPayload.started_at,
+      client: supabase,
+    });
 
     console.log(`✅ Subscription(s) for session ${sessionId} finalized as paid`);
   }
@@ -282,7 +289,6 @@ export async function verifyKashierSessionAndSyncDb(params: {
       });
       return finalizePaidSubscriptionInDb({
         sessionId,
-        merchantOrderId,
         paymentData: null,
         parsedUserIdFromOrder,
       });
@@ -340,7 +346,6 @@ export async function verifyKashierSessionAndSyncDb(params: {
   if (paid) {
     return finalizePaidSubscriptionInDb({
       sessionId,
-      merchantOrderId,
       paymentData,
       parsedUserIdFromOrder,
     });

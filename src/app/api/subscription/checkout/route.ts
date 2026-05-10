@@ -4,6 +4,7 @@ import { createClient } from "@/utils/supabase/server";
 import { getKashierApiBaseUrl } from "@/lib/kashier";
 import { recordDiscountUsageAfterSuccessfulPayment } from "@/lib/discountUsage";
 import { createClient as createServiceRoleClient } from "@supabase/supabase-js";
+import { ensureFeedbackRequestForPurchase } from "@/lib/studentFeedback";
 
 // Kashier Payment Sessions API configuration
 const KASHIER_API_KEY = process.env.KASHIER_API_KEY;
@@ -337,6 +338,15 @@ export async function POST(request: NextRequest) {
 
       if (discountApplied && subscription) {
         await recordDiscountUsageAfterSuccessfulPayment(adminSupabase, subscription);
+      }
+      if (subscription) {
+        await ensureFeedbackRequestForPurchase({
+          userId: subscription.user_id,
+          planId: subscription.plan_id,
+          purchaseId: subscription.id,
+          purchaseTime: subscription.started_at,
+          client: adminSupabase,
+        });
       }
 
       return NextResponse.json({
