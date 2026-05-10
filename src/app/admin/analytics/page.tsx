@@ -11,7 +11,9 @@ type FeedbackReport = {
   };
   average_rating_by_plan: Array<{
     plan_name: string;
-    average_rating: number;
+    average_rating_plan: number | null;
+    average_rating_content: number | null;
+    average_rating_combined: number | null;
     responses: number;
   }>;
   reviews: Array<{
@@ -21,6 +23,8 @@ type FeedbackReport = {
     purchase_id: string;
     plan_name: string;
     rating: number;
+    rating_plan: number | null;
+    rating_content: number | null;
     opinion: string | null;
     suggestion: string | null;
     category: string | null;
@@ -102,11 +106,12 @@ export default function AdminAnalyticsPage() {
                   {report.average_rating_by_plan.map((item) => (
                     <div
                       key={item.plan_name}
-                      className="flex items-center justify-between rounded-lg border border-slate-200 px-4 py-3"
+                      className="flex flex-col gap-1 rounded-lg border border-slate-200 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
                     >
                       <p className="text-sm font-medium text-slate-800">{item.plan_name}</p>
                       <p className="text-sm text-slate-600">
-                        {item.average_rating}/5 ({item.responses} responses)
+                        Plan avg: {item.average_rating_plan ?? "—"}/5 · Content avg:{" "}
+                        {item.average_rating_content ?? "—"}/5 ({item.responses} responses)
                       </p>
                     </div>
                   ))}
@@ -126,8 +131,11 @@ export default function AdminAnalyticsPage() {
                         <span>Plan: {item.plan_name}</span>
                         <span>User: {item.user_id.slice(0, 8)}...</span>
                       </div>
-                      <div className="mb-1 flex items-center justify-between text-xs text-slate-500">
-                        <span>Rating: {item.rating}/5</span>
+                      <div className="mb-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+                        <span>
+                          Plan: {item.rating_plan ?? item.rating}/5 · Content:{" "}
+                          {item.rating_content ?? item.rating}/5
+                        </span>
                         {item.category && <span>Category: {item.category}</span>}
                         <span>{new Date(item.created_at).toLocaleDateString()}</span>
                       </div>

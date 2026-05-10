@@ -15,14 +15,23 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const requestId = String(body?.requestId ?? "");
-    const rating = Number(body?.rating);
+    const ratingPlan = Number(body?.rating_plan ?? body?.rating);
+    const ratingContent = Number(body?.rating_content);
     const opinion = String(body?.opinion ?? "").trim();
     const suggestion = String(body?.suggestion ?? "").trim();
     const category = String(body?.category ?? "").trim();
 
-    if (!requestId || !Number.isInteger(rating) || rating < 1 || rating > 5 || !opinion) {
+    const planOk =
+      Number.isInteger(ratingPlan) && ratingPlan >= 1 && ratingPlan <= 5;
+    const contentOk =
+      Number.isInteger(ratingContent) && ratingContent >= 1 && ratingContent <= 5;
+
+    if (!requestId || !planOk || !contentOk) {
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
     }
+
+    /** Legacy single column used by older analytics; keep populated for compatibility. */
+    const legacyRating = Math.round((ratingPlan + ratingContent) / 2);
 
     const { data: feedbackRequest, error: requestError } = await supabase
       .from("student_feedback_requests")
@@ -43,8 +52,10 @@ export async function POST(request: NextRequest) {
       purchase_id: feedbackRequest.purchase_id,
       user_id: user.id,
       plan_id: feedbackRequest.plan_id,
-      rating,
-      opinion,
+      rating: legacyRating,
+      rating_plan: ratingPlan,
+      rating_content: ratingContent,
+      opinion: opinion || null,
       suggestion: suggestion || null,
       category: category || null,
     };

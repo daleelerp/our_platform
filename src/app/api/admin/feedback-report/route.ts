@@ -28,33 +28,85 @@ export async function GET() {
 
     const { data: avgByPlanRows } = await supabase
       .from("student_feedback_reviews")
-      .select("plan_id, rating, subscription_plans(display_name_en, name)");
+      .select(
+        "plan_id, rating, rating_plan, rating_content, subscription_plans(display_name_en, name)"
+      );
 
-    const avgByPlanMap = new Map<string, { planName: string; total: number; count: number }>();
+    type PlanAgg = {
+      planName: string;
+      sumPlan: number;
+      sumContent: number;
+      countPlan: number;
+      countContent: number;
+    };
+    const avgByPlanMap = new Map<string, PlanAgg>();
     for (const row of avgByPlanRows || []) {
       const planId = String((row as any).plan_id ?? "");
       if (!planId) continue;
       const planRelation = (row as any).subscription_plans;
       const planObj = Array.isArray(planRelation) ? planRelation[0] : planRelation;
       const planName = planObj?.display_name_en || planObj?.name || "Unknown Plan";
-      const rating = Number((row as any).rating ?? 0);
-      if (!Number.isFinite(rating) || rating <= 0) continue;
 
-      const existing = avgByPlanMap.get(planId) ?? { planName, total: 0, count: 0 };
-      existing.total += rating;
-      existing.count += 1;
+      const rp = Number((row as any).rating_plan);
+      const rc = Number((row as any).rating_content);
+      const legacy = Number((row as any).rating ?? 0);
+
+      const legacyOk = Number.isFinite(legacy) && legacy >= 1 && legacy <= 5;
+      const planScore =
+        Number.isFinite(rp) && rp >= 1 && rp <= 5 ? rp : legacyOk ? legacy : null;
+      const contentScore =
+        Number.isFinite(rc) && rc >= 1 && rc <= 5 ? rc : legacyOk ? legacy : null;
+
+      const existing = avgByPlanMap.get(planId) ?? {
+        planName,
+        sumPlan: 0,
+        sumContent: 0,
+        countPlan: 0,
+        countContent: 0,
+      };
+
+      if (planScore !== null) {
+        existing.sumPlan += planScore;
+        existing.countPlan += 1;
+      }
+      if (contentScore !== null) {
+        existing.sumContent += contentScore;
+        existing.countContent += 1;
+      }
+
       avgByPlanMap.set(planId, existing);
     }
 
     const averageRatingByPlan = Array.from(avgByPlanMap.values()).map((entry) => ({
       plan_name: entry.planName,
-      average_rating: Number((entry.total / Math.max(1, entry.count)).toFixed(2)),
-      responses: entry.count,
+      average_rating_plan:
+        entry.countPlan > 0
+          ? Number((entry.sumPlan / entry.countPlan).toFixed(2))
+          : null,
+      average_rating_content:
+        entry.countContent > 0
+          ? Number((entry.sumContent / entry.countContent).toFixed(2))
+          : null,
+      /** Combined legacy metric (average of plan + content when both exist). */
+      average_rating_combined:
+        entry.countPlan > 0 && entry.countContent > 0
+          ? Number(
+              (
+                (entry.sumPlan / entry.countPlan + entry.sumContent / entry.countContent) /
+                2
+              ).toFixed(2)
+            )
+          : entry.countPlan > 0
+            ? Number((entry.sumPlan / entry.countPlan).toFixed(2))
+            : null,
+      responses: Math.max(entry.countPlan, entry.countContent),
     }));
 
     const { data: allReviewsRows } = await supabase
       .from("student_feedback_reviews")
-      .select("id, user_id, plan_id, purchase_id, rating, opinion, suggestion, category, created_at, subscription_plans(display_name_en, name)")
+      .select(
+        "id, user_id, plan_id, purchase_id, rating, rating_plan, rating_content, opinion, suggestion, category, created_at, subscription_plans(display_name_en, name)"
+      )
       .order("created_at", { ascending: false })
       .limit(2000);
 
@@ -74,6 +126,8 @@ export async function GET() {
           plan_id: row.plan_id,
           purchase_id: row.purchase_id,
           rating: row.rating,
+          rating_plan: row.rating_plan ?? null,
+          rating_content: row.rating_content ?? null,
           opinion: row.opinion,
           suggestion: row.suggestion,
           category: row.category,

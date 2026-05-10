@@ -43,7 +43,7 @@ export async function GET() {
     }
 
     const nowIso = new Date().toISOString();
-    const { data: request, error } = await supabase
+    const { data: requestRow, error } = await supabase
       .from("student_feedback_requests")
       .select("id, purchase_id, plan_id, scheduled_at, status, prompt_attempts")
       .eq("user_id", user.id)
@@ -57,24 +57,38 @@ export async function GET() {
     if (error) {
       return NextResponse.json({ error: "Failed to load feedback request" }, { status: 500 });
     }
-    if (!request) {
+    if (!requestRow) {
       return NextResponse.json({ request: null, rollout: true });
     }
 
-    if ((request.prompt_attempts ?? 0) >= MAX_PROMPT_ATTEMPTS) {
+    if ((requestRow.prompt_attempts ?? 0) >= MAX_PROMPT_ATTEMPTS) {
       await supabase
         .from("student_feedback_requests")
         .update({ status: "expired" })
-        .eq("id", request.id);
+        .eq("id", requestRow.id);
       return NextResponse.json({ request: null, rollout: true });
     }
 
-    if (request.status !== "shown") {
+    if (requestRow.status !== "shown") {
       await supabase
         .from("student_feedback_requests")
         .update({ shown_at: nowIso, status: "shown" })
-        .eq("id", request.id);
+        .eq("id", requestRow.id);
     }
+
+    const { data: planRow } = await supabase
+      .from("subscription_plans")
+      .select("display_name_en, display_name_ar, name")
+      .eq("id", requestRow.plan_id)
+      .maybeSingle();
+
+    const request = {
+      id: requestRow.id,
+      purchase_id: requestRow.purchase_id,
+      plan_id: requestRow.plan_id,
+      plan_name_en: planRow?.display_name_en ?? planRow?.name ?? null,
+      plan_name_ar: planRow?.display_name_ar ?? null,
+    };
 
     return NextResponse.json({ request, rollout: true });
   } catch (error) {

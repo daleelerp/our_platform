@@ -26,7 +26,9 @@ CREATE TABLE IF NOT EXISTS student_feedback_reviews (
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     plan_id UUID NOT NULL REFERENCES subscription_plans(id) ON DELETE CASCADE,
     rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
-    opinion TEXT NOT NULL,
+    rating_plan SMALLINT CHECK (rating_plan IS NULL OR rating_plan BETWEEN 1 AND 5),
+    rating_content SMALLINT CHECK (rating_content IS NULL OR rating_content BETWEEN 1 AND 5),
+    opinion TEXT,
     suggestion TEXT,
     category VARCHAR(20)
       CHECK (category IS NULL OR category IN ('content', 'pricing', 'ux', 'support', 'other')),
