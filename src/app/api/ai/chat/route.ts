@@ -36,7 +36,8 @@ export async function POST(request: NextRequest) {
       .reverse()
       .find((message) => message.role === "user")?.content || "";
     const inferredLanguage = hasArabicText(lastUserMessage) ? "ar" : "en";
-    const language = userContext?.language || inferredLanguage;
+    const language =
+      inferredLanguage === "ar" || userContext?.language === "ar" ? "ar" : "en";
 
     // If no API key, return a helpful message immediately
     if (!GROQ_API_KEY) {
@@ -117,7 +118,7 @@ export async function POST(request: NextRequest) {
 
     // Build system prompt
     const systemPrompt = buildSystemPrompt(
-      userContext || { language: "en" },
+      { ...(userContext || { language: "en" }), language },
       userProfile,
       userPreferences,
       enrolledPaths,

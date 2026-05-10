@@ -38,6 +38,10 @@ function normalizeAiRequests(lim: unknown): number | undefined {
   return undefined;
 }
 
+function hasArabicText(text: string): boolean {
+  return /[\u0600-\u06FF]/.test(text);
+}
+
 /** Sum ai_requests across plans; any plan with -1 means unlimited. */
 function aggregateAiDailyLimit(
   subscriptions: { subscription_plans?: Record<string, unknown> | Record<string, unknown>[] | null }[]
@@ -304,7 +308,6 @@ export function AIChatAssistant({ initialMessage: _initialMessage }: Props) {
           });
       }
 
-      setDailyMessagesUsed(prev => prev + 1);
     } catch (error) {
       console.log("Usage tracking error:", error);
     }
@@ -312,19 +315,25 @@ export function AIChatAssistant({ initialMessage: _initialMessage }: Props) {
 
   const sendMessage = async (content: string) => {
     if (!content.trim() || isLoading || !canSendMessage) return;
+    const trimmedContent = content.trim();
+    const messageLanguage = hasArabicText(trimmedContent) ? "ar" : language;
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: content.trim(),
+      content: trimmedContent,
       timestamp: new Date()
     };
 
     setMessages(prev => [...prev, userMessage]);
     setInputValue("");
     setIsLoading(true);
+    if (!isUnlimited) {
+      // Optimistic UI update so the quota decreases immediately.
+      setDailyMessagesUsed(prev => prev + 1);
+    }
 
-    // Increment usage
+    // Track usage in DB (UI already updated optimistically).
     await incrementUsage();
 
     try {
@@ -339,7 +348,7 @@ export function AIChatAssistant({ initialMessage: _initialMessage }: Props) {
           userContext: {
             name: userProfile?.full_name,
             experienceLevel: userProfile?.experience_level,
-            language
+            language: messageLanguage
           }
         })
       });
