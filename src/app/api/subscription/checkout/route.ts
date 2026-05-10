@@ -208,26 +208,35 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Handle free plan
+    // Handle free plan — insert a dedicated row per plan (never upsert on user_id alone),
+    // otherwise paid rows get overwritten and users only ever see one feedback prompt.
     if (plan.name === "free") {
       const { data: freeSub, error: subError } = await supabase
         .from("user_subscriptions")
-        .upsert(
-          {
-            user_id: user.id,
-            plan_id: planId,
-            status: "active",
-            billing_cycle: "monthly",
-            started_at: new Date().toISOString(),
-            current_period_start: new Date().toISOString(),
-          },
-          { onConflict: "user_id" }
-        )
+        .insert({
+          user_id: user.id,
+          plan_id: planId,
+          status: "active",
+          billing_cycle: "monthly",
+          started_at: new Date().toISOString(),
+          current_period_start: new Date().toISOString(),
+        })
         .select("id, user_id, plan_id, started_at")
-        .maybeSingle();
+        .single();
 
       if (subError) {
         console.error("Subscription error:", subError);
+        const code = (subError as { code?: string }).code;
+        if (code === "23505") {
+          return NextResponse.json(
+            {
+              error: "subscription_unique_user_id",
+              message:
+                "Database still enforces one subscription per user. Run docs/sql/allow_multiple_user_subscriptions.sql in Supabase, then retry activating the free plan alongside paid plans.",
+            },
+            { status: 409 }
+          );
+        }
         return NextResponse.json(
           { error: "Failed to activate plan" },
           { status: 500 }
