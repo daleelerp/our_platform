@@ -210,7 +210,7 @@ export async function POST(request: NextRequest) {
 
     // Handle free plan
     if (plan.name === "free") {
-      const { error: subError } = await supabase
+      const { data: freeSub, error: subError } = await supabase
         .from("user_subscriptions")
         .upsert(
           {
@@ -222,7 +222,9 @@ export async function POST(request: NextRequest) {
             current_period_start: new Date().toISOString(),
           },
           { onConflict: "user_id" }
-        );
+        )
+        .select("id, user_id, plan_id, started_at")
+        .maybeSingle();
 
       if (subError) {
         console.error("Subscription error:", subError);
@@ -230,6 +232,16 @@ export async function POST(request: NextRequest) {
           { error: "Failed to activate plan" },
           { status: 500 }
         );
+      }
+
+      if (freeSub) {
+        await ensureFeedbackRequestForPurchase({
+          userId: freeSub.user_id,
+          planId: freeSub.plan_id,
+          purchaseId: freeSub.id,
+          purchaseTime: freeSub.started_at,
+          client: adminSupabase,
+        });
       }
 
       return NextResponse.json({

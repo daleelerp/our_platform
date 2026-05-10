@@ -56,6 +56,49 @@ export async function ensureFeedbackRequestForPurchase(params: {
   );
 }
 
+const FEEDBACK_ELIGIBLE_SUBSCRIPTION_STATUSES = [
+  "active",
+  "trial",
+  "paused",
+  "expired",
+] as const;
+
+/**
+ * Ensures every eligible user_subscriptions row has a matching feedback request row.
+ * Covers free plans (often missed at checkout), older purchases, and multi-plan accounts.
+ */
+export async function syncFeedbackRequestsForUserSubscriptions(
+  userId: string
+): Promise<void> {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return;
+  }
+
+  const client = serviceRoleClient;
+
+  const { data: subs, error } = await client
+    .from("user_subscriptions")
+    .select("id, plan_id, created_at, started_at, status")
+    .eq("user_id", userId)
+    .in("status", [...FEEDBACK_ELIGIBLE_SUBSCRIPTION_STATUSES]);
+
+  if (error) {
+    console.error("[syncFeedbackRequestsForUserSubscriptions]", error);
+    return;
+  }
+  if (!subs?.length) return;
+
+  for (const sub of subs) {
+    const purchaseTime = sub.started_at ?? sub.created_at ?? null;
+    await ensureFeedbackRequestForPurchase({
+      userId,
+      planId: sub.plan_id,
+      purchaseId: sub.id,
+      purchaseTime,
+    });
+  }
+}
+
 export function isUserInFeedbackRollout(
   userId: string,
   rolloutPercent: number

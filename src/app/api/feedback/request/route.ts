@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
-import { isUserInFeedbackRollout } from "@/lib/studentFeedback";
+import {
+  isUserInFeedbackRollout,
+  syncFeedbackRequestsForUserSubscriptions,
+} from "@/lib/studentFeedback";
 
 const DEFAULT_ROLLOUT_PERCENT = 100;
 const DEFAULT_SNOOZE_DAYS = 2;
@@ -31,6 +34,12 @@ export async function GET() {
     const rolloutPercent = getRolloutPercent();
     if (!isUserInFeedbackRollout(user.id, rolloutPercent)) {
       return NextResponse.json({ request: null, rollout: false });
+    }
+
+    try {
+      await syncFeedbackRequestsForUserSubscriptions(user.id);
+    } catch (syncErr) {
+      console.error("Feedback subscription sync error:", syncErr);
     }
 
     const nowIso = new Date().toISOString();

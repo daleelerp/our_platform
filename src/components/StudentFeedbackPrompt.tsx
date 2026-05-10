@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAppStore } from "@/store/useAppStore";
 
 type FeedbackRequest = {
@@ -30,6 +30,21 @@ export function StudentFeedbackPrompt() {
 
   const isValid = useMemo(() => rating >= 1 && rating <= 5 && opinion.trim().length > 0, [rating, opinion]);
 
+  const loadFeedbackRequest = useCallback(async (): Promise<FeedbackRequest | null> => {
+    const res = await fetch("/api/feedback/request", { cache: "no-store" });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json?.request ?? null;
+  }, []);
+
+  const resetForm = () => {
+    setRating(0);
+    setOpinion("");
+    setSuggestion("");
+    setCategory("");
+    setError(null);
+  };
+
   useEffect(() => {
     let active = true;
     if (!user) {
@@ -41,30 +56,22 @@ export function StudentFeedbackPrompt() {
     }
 
     setLoading(true);
-    const loadRequest = async () => {
+    void (async () => {
       try {
-        const res = await fetch("/api/feedback/request", { cache: "no-store" });
-        const json = await res.json();
+        const next = await loadFeedbackRequest();
         if (!active) return;
-        setRequest(json?.request ?? null);
+        setRequest(next);
       } catch {
         if (!active) return;
         setRequest(null);
       } finally {
         if (active) setLoading(false);
       }
-    };
-    void loadRequest();
+    })();
     return () => {
       active = false;
     };
-  }, [user?.id]);
-
-  const closePrompt = () => {
-    setRequest(null);
-    setError(null);
-    setSubmitting(false);
-  };
+  }, [user?.id, loadFeedbackRequest]);
 
   const handleDismiss = async () => {
     if (!request || submitting) return;
@@ -79,7 +86,9 @@ export function StudentFeedbackPrompt() {
           action: "skip",
         }),
       });
-      closePrompt();
+      resetForm();
+      const next = await loadFeedbackRequest();
+      setRequest(next);
     } catch {
       setError("Failed to update feedback request. Please try again.");
     } finally {
@@ -106,7 +115,9 @@ export function StudentFeedbackPrompt() {
       if (!res.ok) {
         throw new Error("Feedback submission failed");
       }
-      closePrompt();
+      resetForm();
+      const next = await loadFeedbackRequest();
+      setRequest(next);
     } catch {
       setError("Failed to submit feedback. Please try again.");
     } finally {
