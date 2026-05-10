@@ -42,6 +42,31 @@ function hasArabicText(text: string): boolean {
   return /[\u0600-\u06FF]/.test(text);
 }
 
+function calendarDayKey(d = new Date()): string {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x.toISOString().slice(0, 10);
+}
+
+function storageMessageKey(userId: string | undefined) {
+  return `daleel-ai-chat-messages:${userId ?? "guest"}`;
+}
+
+function storageUsageKey(userId: string | undefined, day: string) {
+  return `daleel-ai-usage:${userId ?? "guest"}:${day}`;
+}
+
+function readSessionUsageFloor(userId: string | undefined): number {
+  if (typeof window === "undefined") return 0;
+  try {
+    const raw = sessionStorage.getItem(storageUsageKey(userId, calendarDayKey()));
+    const n = Number(raw);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  } catch {
+    return 0;
+  }
+}
+
 /** Sum ai_requests across plans; any plan with -1 means unlimited. */
 function aggregateAiDailyLimit(
   subscriptions: { subscription_plans?: Record<string, unknown> | Record<string, unknown>[] | null }[]
@@ -102,7 +127,9 @@ export function AIChatAssistant({ initialMessage: _initialMessage }: Props) {
   /** At least one paid subscription row (aggregated limits apply). */
   const [hasPaidPlan, setHasPaidPlan] = useState(false);
   const [isCheckingSubscription, setIsCheckingSubscription] = useState(true);
-  
+  /** Restored from sessionStorage — avoids clearing chat/quota on remount or reopen. */
+  const [chatHydrated, setChatHydrated] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -195,13 +222,15 @@ export function AIChatAssistant({ initialMessage: _initialMessage }: Props) {
             .maybeSingle();
 
           // If table doesn't exist, ignore error
+          const sessionFloor = readSessionUsageFloor(user?.id);
           if (usageError && (usageError.code === "PGRST116" || usageError?.message?.includes("406"))) {
             console.debug("Usage table not available");
-            setDailyMessagesUsed(0);
+            setDailyMessagesUsed((prev) => Math.max(prev, sessionFloor));
           } else if (usage) {
-            setDailyMessagesUsed(usage.ai_requests || 0);
+            const dbCount = usage.ai_requests || 0;
+            setDailyMessagesUsed((prev) => Math.max(prev, dbCount, sessionFloor));
           } else {
-            setDailyMessagesUsed(0);
+            setDailyMessagesUsed((prev) => Math.max(prev, sessionFloor));
           }
         } catch (error: unknown) {
           const err = error as { code?: string; message?: string };
@@ -209,14 +238,16 @@ export function AIChatAssistant({ initialMessage: _initialMessage }: Props) {
           if (err?.code === "PGRST116" || err?.message?.includes("406")) {
             console.debug("Usage table not available");
           }
-          setDailyMessagesUsed(0);
+          const sessionFloor = readSessionUsageFloor(user?.id);
+          setDailyMessagesUsed((prev) => Math.max(prev, sessionFloor));
         }
       } catch (error) {
         // General error
         console.debug("Subscription check error:", error);
         setHasPaidPlan(false);
         setDailyLimit(FREE_DAILY_LIMIT);
-        setDailyMessagesUsed(0);
+        const sessionFloor = readSessionUsageFloor(user?.id);
+        setDailyMessagesUsed((prev) => Math.max(prev, sessionFloor));
       }
       
       setIsCheckingSubscription(false);
@@ -225,14 +256,79 @@ export function AIChatAssistant({ initialMessage: _initialMessage }: Props) {
     checkSubscription();
   }, [user]);
 
+  // Restore chat + session usage from sessionStorage (survives close/reopen and layout remounts).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const uid = user?.id;
+      const raw = sessionStorage.getItem(storageMessageKey(uid));
+      if (raw) {
+        const parsed = JSON.parse(raw) as Array<{
+          id: string;
+          role: string;
+          content: string;
+          timestamp: string;
+        }>;
+        const restored: Message[] = parsed.map((m) => ({
+          id: m.id,
+          role: m.role as "user" | "assistant",
+          content: m.content,
+          timestamp: new Date(m.timestamp),
+        }));
+        setMessages(restored);
+        if (restored.length > 0) setHasGreeted(true);
+      }
+      const floor = readSessionUsageFloor(uid);
+      if (floor > 0) {
+        setDailyMessagesUsed((prev) => Math.max(prev, floor));
+      }
+    } catch {
+      /* ignore corrupt storage */
+    } finally {
+      setChatHydrated(true);
+    }
+  }, [user?.id]);
+
+  // Persist messages whenever they change (after hydrate).
+  useEffect(() => {
+    if (!chatHydrated || typeof window === "undefined") return;
+    try {
+      sessionStorage.setItem(
+        storageMessageKey(user?.id),
+        JSON.stringify(
+          messages.map((m) => ({
+            ...m,
+            timestamp: m.timestamp.toISOString(),
+          }))
+        )
+      );
+    } catch {
+      /* quota / private mode */
+    }
+  }, [messages, user?.id, chatHydrated]);
+
+  // Persist today's usage count for merge after reload/remount.
+  useEffect(() => {
+    if (!chatHydrated || typeof window === "undefined") return;
+    try {
+      sessionStorage.setItem(
+        storageUsageKey(user?.id, calendarDayKey()),
+        String(dailyMessagesUsed)
+      );
+    } catch {
+      /* ignore */
+    }
+  }, [dailyMessagesUsed, user?.id, chatHydrated]);
+
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Send greeting when chat opens for the first time
+  // Send greeting when chat opens for the first time (after storage restore).
   useEffect(() => {
-    if (isOpen && !hasGreeted) {
+    if (!chatHydrated) return;
+    if (isOpen && !hasGreeted && messages.length === 0) {
       setMessages([{
         id: "greeting",
         role: "assistant",
@@ -241,7 +337,7 @@ export function AIChatAssistant({ initialMessage: _initialMessage }: Props) {
       }]);
       setHasGreeted(true);
     }
-  }, [isOpen, hasGreeted, t.greeting]);
+  }, [isOpen, hasGreeted, messages.length, chatHydrated, t.greeting]);
 
   // Focus input when chat opens
   useEffect(() => {
@@ -325,7 +421,8 @@ export function AIChatAssistant({ initialMessage: _initialMessage }: Props) {
       timestamp: new Date()
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    const historyForApi = [...messages, userMessage];
+    setMessages(historyForApi);
     setInputValue("");
     setIsLoading(true);
     if (!isUnlimited) {
@@ -341,7 +438,7 @@ export function AIChatAssistant({ initialMessage: _initialMessage }: Props) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: [...messages, userMessage].map(m => ({
+          messages: historyForApi.map(m => ({
             role: m.role,
             content: m.content
           })),
