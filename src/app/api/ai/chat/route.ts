@@ -22,6 +22,16 @@ function hasArabicText(text: string): boolean {
   return /[\u0600-\u06FF]/.test(text);
 }
 
+/** Strip stray non-Arabic scripts the model sometimes hallucinates (e.g. Cyrillic) while keeping Latin acronyms when mixed in line. */
+function sanitizeArabicAssistantOutput(text: string): string {
+  return text
+    .replace(/[\u0400-\u04FF\u0500-\u052F]+/g, "")
+    .replace(/[\u0590-\u05FF]+/g, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -140,7 +150,7 @@ export async function POST(request: NextRequest) {
           { role: "system", content: systemPrompt },
           ...messages
         ],
-        temperature: 0.7,
+        temperature: language === "ar" ? 0.55 : 0.7,
         max_tokens: 1000,
       }),
     });
@@ -169,7 +179,10 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const assistantMessage = data.choices[0].message.content;
+    let assistantMessage = data.choices[0].message.content as string;
+    if (language === "ar") {
+      assistantMessage = sanitizeArabicAssistantOutput(assistantMessage);
+    }
 
     return NextResponse.json({
       message: assistantMessage,
@@ -216,6 +229,7 @@ function buildSystemPrompt(
 
   if (isArabic) {
     return `أنت "دليل" - مساعد ذكي متخصص في مساعدة المحترفين في منطقة الشرق الأوسط على تعلم أنظمة ERP.
+لكل رد بالعربي: استخدم اللهجة المصرية العامية بشكل طبيعي وودود (زي ما المصري بيكلم زميله)، من غير مبالغة في السوقية ومن غير إهانة أو تهكم. لو المصطلح تقني لازم يفضل واضح، شرحه بلهجة مصرية بسيطة حواليه.
 
 معلومات المستخدم:
 - الاسم: ${userProfile?.full_name || userContext?.name || "زائر"}
@@ -230,18 +244,19 @@ ${enrolledList}
 ${pathsList}
 
 إرشادات:
-1. أجب دائماً بالعربية فقط، ولا تستخدم الإنجليزية إلا إذا طلب المستخدم ذلك صراحة.
-2. كن ودوداً ومشجعاً
-3. قدم نصائح عملية ومحددة
-4. إذا سأل عن مسار معين، اشرح له ما سيتعلمه والوظائف المتاحة بعده
-5. شجعه على البدء إذا كان متردداً
-6. إذا كان مسجلاً في مسار، ساعده على الاستمرار
-7. لا تخترع معلومات - إذا لم تعرف شيئاً، قل ذلك
-8. اقترح مسارات من القائمة المتاحة فقط
-9. اجعل ردودك قصيرة ومفيدة (3-5 جمل)
-10. نظّم الشكل للقراءة: افصل بين الفقرات بسطر فارغ؛ استخدم نقاطاً أو ترقيمًا (1. 2. أو - ) عند أكثر من نقطة؛ ضع كل سؤال توجيهي في سطر مستقل بعد سطر فارغ.
+1. أجب باللهجة المصرية العامية حصراً (مش فصحى رسمية ولا لهجات تانية). الإنجليزية ممنوعة إلا لو المستخدم طلبها صراحة، أو لاختصار تقني لازم زي SAP أو ERP.
+2. لا تخلط لغات أو حروف أجنبية: ممنوع تماماً استخدام الحروف السيريلية (الروسية وما شابهها) أو العبرية أو الصينية أو أي أبجدية غير العربية. استثناء وحيد: اختصارات تقنية معروفة قصيرة جداً عند الضرورة (مثل SAP أو ERP) باللاتينية فقط.
+3. كن ودوداً ومشجعاً
+4. قدم نصائح عملية ومحددة
+5. إذا سأل عن مسار معين، اشرح له ما سيتعلمه والوظائف المتاحة بعده
+6. شجعه على البدء إذا كان متردداً
+7. إذا كان مسجلاً في مسار، ساعده على الاستمرار
+8. لا تخترع معلومات - إذا لم تعرف شيئاً، قل ذلك
+9. اقترح مسارات من القائمة المتاحة فقط
+10. اجعل ردودك قصيرة ومفيدة (3-5 جمل)
+11. نظّم الشكل للقراءة: افصل بين الفقرات بسطر فارغ؛ استخدم نقاطاً أو ترقيمًا (1. 2. أو - ) عند أكثر من نقطة؛ ضع كل سؤال توجيهي في سطر مستقل بعد سطر فارغ.
 
-أسلوبك: محترف لكن ودود، مثل مرشد مهني خبير يريد مساعدتك على النجاح.`;
+أسلوبك: زميل شاطر في الشغل بيتكلم مصري واضح ومشجّع، عايز يفهمك الدنيا من غير تعقيد.`;
   }
 
   return `You are "Daleel" - an intelligent assistant specialized in helping MENA professionals learn ERP systems.

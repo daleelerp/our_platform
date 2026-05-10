@@ -232,7 +232,7 @@ export function AIChatAssistant({ initialMessage: _initialMessage }: Props) {
     placeholder: isArabic ? "اكتب سؤالك هنا..." : "Type your question here...",
     send: isArabic ? "إرسال" : "Send",
     greeting: isArabic 
-      ? `مرحباً${userProfile?.full_name ? ` ${userProfile.full_name}` : ""}! 👋 أنا دليل، مساعدك الذكي لتعلم أنظمة ERP. كيف يمكنني مساعدتك اليوم؟`
+      ? `أهلًا${userProfile?.full_name ? ` يا ${userProfile.full_name}` : ""}! 👋 أنا دليل، مساعدك على أنظمة الـERP. تحب أبدأ منين النهاردة؟`
       : `Hello${userProfile?.full_name ? ` ${userProfile.full_name}` : ""}! 👋 I'm Daleel, your AI assistant for learning ERP systems. How can I help you today?`,
     suggestions: isArabic ? [
       "ما هو أفضل مسار للمبتدئين؟",
