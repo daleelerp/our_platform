@@ -9,6 +9,15 @@ export type FeedbackRequestStatus =
 
 const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
 
+/** Hours after purchase before the review modal may appear. Set to 0 in .env for immediate testing. */
+function getScheduleDelayMs(): number {
+  const raw = process.env.FEEDBACK_SCHEDULE_DELAY_HOURS;
+  if (raw === undefined || raw === "") return TWO_DAYS_MS;
+  const h = Number(raw);
+  if (!Number.isFinite(h) || h < 0) return TWO_DAYS_MS;
+  return h * 60 * 60 * 1000;
+}
+
 const serviceRoleClient = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -18,9 +27,9 @@ function getFeedbackClient(client?: SupabaseClient): SupabaseClient {
   return client ?? serviceRoleClient;
 }
 
-function plusTwoDays(isoTimestamp?: string | null): string {
+function scheduleFeedbackAt(isoTimestamp?: string | null): string {
   const base = isoTimestamp ? new Date(isoTimestamp).getTime() : Date.now();
-  return new Date(base + TWO_DAYS_MS).toISOString();
+  return new Date(base + getScheduleDelayMs()).toISOString();
 }
 
 export async function ensureFeedbackRequestForPurchase(params: {
@@ -37,7 +46,7 @@ export async function ensureFeedbackRequestForPurchase(params: {
       user_id: params.userId,
       plan_id: params.planId,
       purchase_id: params.purchaseId,
-      scheduled_at: plusTwoDays(params.purchaseTime),
+      scheduled_at: scheduleFeedbackAt(params.purchaseTime),
       status: "scheduled" as FeedbackRequestStatus,
     },
     {

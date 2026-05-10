@@ -6,7 +6,6 @@ import { useAppStore } from "@/store/useAppStore";
 import { useSubscription } from "@/hooks/useSubscription";
 // Subscription system removed - using free plan only
 import Link from "next/link";
-import { StudentFeedbackPrompt } from "@/components/StudentFeedbackPrompt";
 
 type Profile = {
   id: string;
@@ -264,7 +263,6 @@ export function DashboardContent({
 
   return (
     <main className="min-h-screen bg-slate-50">
-      <StudentFeedbackPrompt />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">

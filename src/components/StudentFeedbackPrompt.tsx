@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useAppStore } from "@/store/useAppStore";
 
 type FeedbackRequest = {
   id: string;
@@ -17,6 +18,7 @@ const categories = [
 ];
 
 export function StudentFeedbackPrompt() {
+  const user = useAppStore((s) => s.user);
   const [request, setRequest] = useState<FeedbackRequest | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -30,6 +32,15 @@ export function StudentFeedbackPrompt() {
 
   useEffect(() => {
     let active = true;
+    if (!user) {
+      setRequest(null);
+      setLoading(false);
+      return () => {
+        active = false;
+      };
+    }
+
+    setLoading(true);
     const loadRequest = async () => {
       try {
         const res = await fetch("/api/feedback/request", { cache: "no-store" });
@@ -47,7 +58,7 @@ export function StudentFeedbackPrompt() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [user?.id]);
 
   const closePrompt = () => {
     setRequest(null);
@@ -106,7 +117,7 @@ export function StudentFeedbackPrompt() {
   if (loading || !request) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/45 p-4">
       <div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-2xl">
         <h3 className="text-lg font-semibold text-slate-900">Quick feedback</h3>
         <p className="mt-1 text-sm text-slate-600">
