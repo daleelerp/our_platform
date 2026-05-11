@@ -9,7 +9,7 @@ export type FeedbackRequestStatus =
 
 const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
 
-/** Hours after purchase before the review modal may appear. Set to 0 in .env for immediate testing. */
+/** Hours after purchase before the review modal may appear (production default: 48). Optional override via FEEDBACK_SCHEDULE_DELAY_HOURS for non-prod environments. */
 function getScheduleDelayMs(): number {
   const raw = process.env.FEEDBACK_SCHEDULE_DELAY_HOURS;
   if (raw === undefined || raw === "") return TWO_DAYS_MS;

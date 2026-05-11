@@ -44,25 +44,6 @@ export async function GET() {
 
     const nowIso = new Date().toISOString();
 
-    /**
-     * Extra plans often have scheduled_at in the future (purchase + delay). After the user
-     * submits feedback for one plan, unblock remaining queued prompts so the next modal can show.
-     */
-    const { count: submittedFeedbackCount } = await supabase
-      .from("student_feedback_requests")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .eq("status", "submitted");
-
-    if ((submittedFeedbackCount ?? 0) > 0) {
-      await supabase
-        .from("student_feedback_requests")
-        .update({ scheduled_at: nowIso })
-        .eq("user_id", user.id)
-        .in("status", ["scheduled", "shown"])
-        .gt("scheduled_at", nowIso);
-    }
-
     const { data: requestRow, error } = await supabase
       .from("student_feedback_requests")
       .select("id, purchase_id, plan_id, scheduled_at, status, prompt_attempts")
@@ -71,7 +52,6 @@ export async function GET() {
       .or(`snoozed_until.is.null,snoozed_until.lte.${nowIso}`)
       .in("status", ["scheduled", "shown"])
       .order("scheduled_at", { ascending: true })
-      .order("created_at", { ascending: true })
       .limit(1)
       .maybeSingle();
 
