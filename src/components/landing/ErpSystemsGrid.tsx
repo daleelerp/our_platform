@@ -125,8 +125,16 @@ export function ErpSystemsGrid({
                 >
                   {t("erpGrid.startNow")}
                 </Link>
+              ) : providerSlug ? (
+                <Link
+                  href={plansHref}
+                  className="block w-full text-center py-3 rounded-xl bg-[#f0f9f6] text-[#357a5d] font-semibold border border-[#a9dbc7] hover:bg-[#d4ede3] transition"
+                >
+                  {language === "ar" ? "عرض الخطط" : "View plans"}
+                </Link>
               ) : (
                 <button
+                  type="button"
                   onClick={() => {
                     const waitlistSection = document.getElementById("early-access");
                     if (waitlistSection) {
