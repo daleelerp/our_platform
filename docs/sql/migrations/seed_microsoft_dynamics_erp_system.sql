@@ -1,5 +1,5 @@
--- Homepage ERP card for Microsoft Dynamics (matches erp_providers slug: microsoft-dynamics)
--- Run in Supabase SQL editor if the tile is missing on https://www.daleel.site/
+-- Microsoft Dynamics on homepage: Active now (matches technical plans on /plans)
+-- Run in Supabase SQL editor, then hard-refresh https://www.daleel.site/
 
 INSERT INTO erp_systems (
   name,
@@ -13,9 +13,9 @@ INSERT INTO erp_systems (
 SELECT
   'Microsoft Dynamics 365',
   'Microsoft',
-  'Dynamics 365 Finance, Supply Chain, and Business Central — technical and functional career paths.',
-  'داينمكس 365 — المالية وسلسلة التوريد وBusiness Central، مسارات تقنية ووظيفية.',
-  false,
+  'Cloud-based ERP and CRM platform with deep Office integration',
+  'منصة ERP وCRM سحابية مع تكامل عميق مع Office',
+  true,
   5,
   true
 WHERE NOT EXISTS (
@@ -23,3 +23,8 @@ WHERE NOT EXISTS (
   WHERE lower(name) LIKE '%dynamics%'
      OR lower(vendor) LIKE '%microsoft%'
 );
+
+UPDATE erp_systems
+SET is_active = true
+WHERE lower(name) LIKE '%dynamics%'
+   OR lower(vendor) LIKE '%microsoft%';

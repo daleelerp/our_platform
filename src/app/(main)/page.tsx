@@ -7,7 +7,7 @@ import { ErpSystemsGrid } from "@/components/landing/ErpSystemsGrid";
 import { HowItWorks } from "@/components/landing/HowItWorks";
 import { OraclePathsPreview } from "@/components/landing/OraclePathsPreview";
 import { EarlyAccessCTA } from "@/components/landing/EarlyAccessCTA";
-import { mergeHomepageErpSystems } from "@/lib/mergeHomepageErpSystems";
+import { dedupeErpSystemsByProviderSlug } from "@/lib/dedupeErpSystems";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -32,12 +32,7 @@ export default async function HomePage() {
       redirect("/dashboard");
     }
 
-    const [
-      { data: erpSystemsData },
-      { data: learningPathsData },
-      { data: erpProvidersData },
-      { data: activePlansData },
-    ] = await Promise.all([
+    const [{ data: erpSystemsData }, { data: learningPathsData }] = await Promise.all([
       supabase.from("erp_systems").select("*").order("priority_order"),
       supabase
         .from("learning_paths")
@@ -56,29 +51,10 @@ export default async function HomePage() {
       `
         )
         .eq("is_published", true),
-      supabase
-        .from("erp_providers")
-        .select("id, name, name_ar, slug, description, description_ar, logo_url, display_order")
-        .eq("is_active", true)
-        .order("display_order"),
-      supabase.from("subscription_plans").select("erp_provider_ids").eq("is_active", true),
     ]);
 
-    const providerIdsWithPlans = new Set<string>();
-    for (const plan of activePlansData || []) {
-      const ids = plan.erp_provider_ids;
-      if (Array.isArray(ids)) {
-        for (const id of ids) {
-          if (typeof id === "string") providerIdsWithPlans.add(id);
-        }
-      }
-    }
-
-    const systems = mergeHomepageErpSystems(
-      erpSystemsData || [],
-      erpProvidersData || [],
-      providerIdsWithPlans
-    );
+    // Active / coming soon comes only from Admin → ERP Systems (is_active), not from plans
+    const systems = dedupeErpSystemsByProviderSlug(erpSystemsData || []);
     erpSystems = systems;
 
     liveErpNames = [...new Set(systems.filter((s) => s.is_active).map((s) => s.name))];
