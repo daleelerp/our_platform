@@ -112,6 +112,7 @@ export function LearningInterface({
   const language = useAppStore((state) => state.language);
   const router = useRouter();
   const hasReloadedRef = useRef(false);
+  const sidebarScrollRef = useRef<HTMLDivElement>(null);
 
   const filteredVideos = useMemo(() => {
     const sorted = orderVideosForLearning(videos);
@@ -256,6 +257,14 @@ export function LearningInterface({
     return groupOrderedVideosForSidebar(ordered);
   }, [accessibleVideos]);
 
+  useEffect(() => {
+    if (!selectedVideo?.id || !sidebarScrollRef.current) return;
+    const item = sidebarScrollRef.current.querySelector(
+      `[data-video-item="${selectedVideo.id}"]`
+    );
+    item?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [selectedVideo?.id, accessibleVideoGroups]);
+
   // Get video progress map
   const videoProgressMap = new Map(
     videoProgress.map((vp) => [vp.video_id, vp])
@@ -383,7 +392,7 @@ export function LearningInterface({
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
-      <div className="bg-white border-b border-slate-200 relative z-10 md:sticky md:top-0">
+      <div className="bg-white border-b border-slate-200 relative z-40 md:sticky md:top-16">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -406,8 +415,11 @@ export function LearningInterface({
       <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Main column first on mobile so lesson intro + video appear before nav lists (desktop unchanged). */}
         <div className="grid lg:grid-cols-4 gap-6">
-          {/* Sidebar - Milestones & Content List */}
-          <div className="order-2 space-y-4 lg:order-none lg:col-span-1">
+          {/* Sidebar - Milestones & Content List (sticky + own scroll on desktop) */}
+          <div
+            ref={sidebarScrollRef}
+            className="order-2 space-y-4 lg:order-none lg:col-span-1 lg:sticky lg:top-32 lg:self-start lg:max-h-[calc(100dvh-8rem)] lg:overflow-y-auto lg:overscroll-y-contain lg:pr-1 scroll-smooth [scrollbar-width:thin]"
+          >
             {/* Milestones List */}
             <div className="bg-white rounded-xl border border-slate-200 p-4">
               <h3 className="font-semibold text-slate-900 mb-3">
@@ -460,6 +472,11 @@ export function LearningInterface({
             <div className="bg-white rounded-xl border border-slate-200 p-4">
               <h3 className="font-semibold text-slate-900 mb-3">
                 {language === "ar" ? "الفيديوهات" : "Videos"}
+                {accessibleVideos.length > 0 && (
+                  <span className="ml-1.5 font-normal text-slate-500">
+                    ({accessibleVideos.length})
+                  </span>
+                )}
               </h3>
               {videos.length > 0 ? (
                 <div className="space-y-3">
@@ -479,6 +496,8 @@ export function LearningInterface({
                           return (
                             <button
                               key={video.id}
+                              type="button"
+                              data-video-item={video.id}
                               onClick={() => {
                                 setSelectedVideo(video);
                                 setActiveTab("videos");
