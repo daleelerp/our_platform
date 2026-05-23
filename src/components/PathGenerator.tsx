@@ -22,7 +22,8 @@ export function PathGenerator() {
   const [focusArea, setFocusArea] = useState<"technical" | "functional" | "both">("both");
   const [budgetTier, setBudgetTier] = useState<BudgetTier>("free");
   const [estimatedBudget, setEstimatedBudget] = useState<number>(0);
-  const [oracleModule, setOracleModule] = useState<string>("");
+  const [erpSystem, setErpSystem] = useState<string>("Oracle ERP");
+  const [erpModule, setErpModule] = useState<string>("");
   const [careerGoals, setCareerGoals] = useState<string>("");
   const [timeCommitment, setTimeCommitment] = useState<number>(10);
 
@@ -43,7 +44,8 @@ export function PathGenerator() {
           focusArea,
           budgetTier,
           estimatedBudget: budgetTier !== "free" ? estimatedBudget : undefined,
-          oracleModule: oracleModule || undefined,
+          erpSystem,
+          erpModule: erpModule || undefined,
           careerGoals: careerGoals ? careerGoals.split(",").map((g) => g.trim()) : undefined,
           timeCommitment,
         }),
@@ -104,6 +106,30 @@ export function PathGenerator() {
         </h2>
 
         <div className="space-y-4">
+          {/* ERP System */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">
+              ERP System
+            </label>
+            <select
+              value={erpSystem}
+              onChange={(e) => setErpSystem(e.target.value)}
+              title="ERP System"
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#429874] focus:border-[#429874]"
+            >
+              <option value="Oracle ERP">Oracle ERP</option>
+              <option value="Oracle Fusion Cloud">Oracle Fusion Cloud</option>
+              <option value="SAP S/4HANA">SAP S/4HANA</option>
+              <option value="SAP ECC">SAP ECC</option>
+              <option value="Microsoft Dynamics 365">Microsoft Dynamics 365</option>
+              <option value="Microsoft Dynamics AX">Microsoft Dynamics AX / D365 F&O</option>
+              <option value="Odoo">Odoo</option>
+              <option value="Sage X3">Sage X3</option>
+              <option value="NetSuite">NetSuite (Oracle)</option>
+              <option value="Infor CloudSuite">Infor CloudSuite</option>
+            </select>
+          </div>
+
           {/* Experience Level */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -170,16 +196,17 @@ export function PathGenerator() {
             </div>
           )}
 
-          {/* Oracle Module (Optional) */}
+          {/* Module / Area (Optional) */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
-              Oracle Module (Optional)
+              Module / Area (Optional)
             </label>
             <input
               type="text"
-              value={oracleModule}
-              onChange={(e) => setOracleModule(e.target.value)}
-              placeholder="e.g., Financials, SCM, HCM"
+              value={erpModule}
+              onChange={(e) => setErpModule(e.target.value)}
+              placeholder="e.g., Financials, SCM, HCM, Payroll"
+              title="Module or Area"
               className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#429874] focus:border-[#429874]"
             />
           </div>

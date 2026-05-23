@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminSession } from "@/utils/admin-auth";
 import { getAdminSupabaseClient } from "@/utils/admin-supabase";
-import { GeneratedPath } from "@/services/pathGenerator";
+import { GeneratedPath, GeneratedQuizQuestion } from "@/services/pathGenerator";
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,9 +15,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { path: generatedPath, pathId } = body as {
+    const { path: generatedPath, pathId, planId } = body as {
       path: GeneratedPath;
       pathId?: string;
+      planId?: string;
     };
 
     if (!generatedPath) {
@@ -28,20 +29,6 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = getAdminSupabaseClient();
-
-    // Get or create Oracle ERP system
-    const { data: oracleSystem } = await supabase
-      .from("erp_systems")
-      .select("id")
-      .eq("name", "Oracle ERP")
-      .single();
-
-    if (!oracleSystem) {
-      return NextResponse.json(
-        { error: "Oracle ERP system not found in database" },
-        { status: 500 }
-      );
-    }
 
     // Create or update the learning path
     const slug = generateSlug(generatedPath.path.title);
@@ -143,8 +130,9 @@ export async function POST(request: NextRequest) {
 
       if (!milestoneData) continue;
 
-      // Create quiz/exam if checkpoint type is quiz
+      // Create quiz and questions if checkpoint type is quiz
       if (milestone.checkpoint.type === "quiz") {
+        const questions: GeneratedQuizQuestion[] = milestone.quiz_questions || [];
         const { data: quiz } = await supabase
           .from("quizzes")
           .insert({
@@ -157,12 +145,27 @@ export async function POST(request: NextRequest) {
             passing_score: 70.0,
             is_required: true,
             difficulty_level: milestone.difficulty_level,
+            question_count: questions.length,
+            total_points: questions.reduce((sum, q) => sum + q.points, 0),
           })
           .select()
           .single();
 
-        if (quiz) {
-          console.log(`Created quiz for milestone ${milestone.milestone_number}`);
+        if (quiz && questions.length > 0) {
+          const questionRows = questions.map((q, idx) => ({
+            quiz_id: quiz.id,
+            question_type: q.question_type,
+            question_text: q.question_text,
+            question_text_ar: q.question_text_ar,
+            options: q.options,
+            correct_answers: [q.correct_answer_index],
+            explanation: q.explanation,
+            explanation_ar: q.explanation_ar,
+            difficulty_level: q.difficulty_level,
+            points: q.points,
+            question_order: idx + 1,
+          }));
+          await supabase.from("quiz_questions").insert(questionRows);
         }
       }
 
@@ -272,6 +275,25 @@ export async function POST(request: NextRequest) {
               selection_reason_ar: resource.selection_reason_ar,
             });
         }
+      }
+    }
+
+    // Link path to plan if planId provided
+    if (planId && path?.id) {
+      const { data: existingLink } = await supabase
+        .from("plan_paths")
+        .select("id")
+        .eq("plan_id", planId)
+        .eq("learning_path_id", path.id)
+        .single();
+
+      if (!existingLink) {
+        await supabase.from("plan_paths").insert({
+          plan_id: planId,
+          learning_path_id: path.id,
+          is_featured: false,
+          sort_order: 0,
+        });
       }
     }
 

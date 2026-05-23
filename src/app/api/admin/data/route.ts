@@ -11,19 +11,38 @@ async function enrichUserSubscriptionsRows(
 
   const userIds = [...new Set(rows.map((r) => r.user_id).filter(Boolean) as string[])];
   const emailById = new Map<string, string>();
+  const phoneById = new Map<string, string>();
 
-  await Promise.all(
-    userIds.map(async (uid) => {
-      try {
-        const { data, error } = await supabase.auth.admin.getUserById(uid);
-        if (!error && data?.user?.email) {
-          emailById.set(uid, data.user.email);
+  const [, profilesRes] = await Promise.all([
+    Promise.all(
+      userIds.map(async (uid) => {
+        try {
+          const { data, error } = await supabase.auth.admin.getUserById(uid);
+          if (!error && data?.user?.email) {
+            emailById.set(uid, data.user.email);
+          }
+        } catch {
+          // ignore per-user lookup failures
         }
-      } catch {
-        // ignore per-user lookup failures
-      }
-    })
-  );
+      })
+    ),
+    supabase
+      .from("user_profiles")
+      .select("id, phone_number")
+      .in("id", userIds),
+  ]);
+
+  for (const p of profilesRes.data ?? []) {
+    if (p.phone_number) phoneById.set(p.id as string, p.phone_number as string);
+  }
+
+  // Build flag: cancelled/failed rows where the same user+plan also has an active row
+  const activeKeys = new Set<string>();
+  for (const row of rows) {
+    if (String(row.status ?? "").toLowerCase() === "active") {
+      activeKeys.add(`${row.user_id}::${row.plan_id}`);
+    }
+  }
 
   return rows.map((row) => {
     const plan = row.subscription_plans as
@@ -34,10 +53,18 @@ async function enrichUserSubscriptionsRows(
       (plan && (plan.display_name_en || plan.display_name_ar || plan.name)) || "";
     const rest = { ...(row as Record<string, unknown>) };
     delete rest.subscription_plans;
+
+    const status = String(row.status ?? "").toLowerCase();
+    const isCancelledOrFailed = status === "cancelled" || status === "failed";
+    const key = `${row.user_id}::${row.plan_id}`;
+    const resubFlag = isCancelledOrFailed && activeKeys.has(key);
+
     return {
       ...rest,
       plan_display_name: planDisplay,
       user_email: emailById.get(row.user_id as string) ?? "—",
+      user_phone: phoneById.get(row.user_id as string) ?? "",
+      resub_flag: resubFlag,
     };
   });
 }

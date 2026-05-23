@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminSession } from "@/utils/admin-auth";
 import { getAdminSupabaseClient } from "@/utils/admin-supabase";
-import { generatePersonalizedPath, PathGenerationRequest } from "@/services/pathGenerator";
+import { generatePersonalizedPath, PathGenerationRequest, GeneratedQuizQuestion } from "@/services/pathGenerator";
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,7 +22,9 @@ export async function POST(request: NextRequest) {
       focusArea,
       budgetTier,
       estimatedBudget,
-      oracleModule,
+      erpSystem,
+      erpModule,
+      oracleModule, // legacy field name support
       careerGoals,
       timeCommitment,
     } = body;
@@ -48,7 +50,8 @@ export async function POST(request: NextRequest) {
         budgetTier: budgetTier as any,
         estimatedBudget,
       },
-      oracleModule,
+      erpSystem: erpSystem || "Oracle ERP",
+      oracleModule: erpModule || oracleModule,
       careerGoals,
       timeCommitment,
     };
@@ -93,18 +96,6 @@ async function saveGeneratedPathToDatabase(
   request: PathGenerationRequest
 ) {
   try {
-    // First, get or create Oracle ERP system
-    const { data: oracleSystem } = await supabase
-      .from("erp_systems")
-      .select("id")
-      .eq("name", "Oracle ERP")
-      .single();
-
-    if (!oracleSystem) {
-      console.error("Oracle ERP system not found in database");
-      return null;
-    }
-
     // Create the learning path
     const slug = generateSlug(generatedPath.path.title);
     
@@ -166,8 +157,9 @@ async function saveGeneratedPathToDatabase(
       
       if (!milestoneData) continue;
 
-      // Create quiz/exam if checkpoint type is quiz
+      // Create quiz and questions if checkpoint type is quiz
       if (milestone.checkpoint.type === "quiz") {
+        const questions: GeneratedQuizQuestion[] = milestone.quiz_questions || [];
         const { data: quiz } = await supabase
           .from("quizzes")
           .insert({
@@ -180,12 +172,27 @@ async function saveGeneratedPathToDatabase(
             passing_score: 70.0,
             is_required: true,
             difficulty_level: milestone.difficulty_level,
+            question_count: questions.length,
+            total_points: questions.reduce((sum, q) => sum + q.points, 0),
           })
           .select()
           .single();
 
-        if (quiz) {
-          console.log(`Created quiz for milestone ${milestone.milestone_number}`);
+        if (quiz && questions.length > 0) {
+          const questionRows = questions.map((q, idx) => ({
+            quiz_id: quiz.id,
+            question_type: q.question_type,
+            question_text: q.question_text,
+            question_text_ar: q.question_text_ar,
+            options: q.options,
+            correct_answers: [q.correct_answer_index],
+            explanation: q.explanation,
+            explanation_ar: q.explanation_ar,
+            difficulty_level: q.difficulty_level,
+            points: q.points,
+            question_order: idx + 1,
+          }));
+          await supabase.from("quiz_questions").insert(questionRows);
         }
       }
 

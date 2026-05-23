@@ -36,7 +36,7 @@ function datetimeLocalInputToIso(localVal: string): string | null {
 type Column = {
   key: string;
   label: string;
-  type?: "text" | "select" | "checkbox" | "number" | "textarea" | "array" | "datetime";
+  type?: "text" | "select" | "checkbox" | "number" | "textarea" | "array" | "datetime" | "flag";
   options?: { value: string; label: string }[];
   readOnly?: boolean;
   hidden?: boolean;
@@ -85,6 +85,11 @@ type AdminCrudTableProps = {
   createDefaultsFromItems?: (
     items: Record<string, unknown>[]
   ) => Partial<Record<string, unknown>>;
+  /** Filter buttons rendered next to the search bar. Filters rows by the given column key. */
+  filterBy?: {
+    key: string;
+    options: Array<{ value: string; label: string }>;
+  };
 };
 
 export function AdminCrudTable({
@@ -101,6 +106,7 @@ export function AdminCrudTable({
   afterColumnSlots,
   autoFillApply,
   createDefaultsFromItems,
+  filterBy,
 }: AdminCrudTableProps) {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -111,6 +117,7 @@ export function AdminCrudTable({
     defaultValues
   );
   const [search, setSearch] = useState("");
+  const [activeFilter, setActiveFilter] = useState<string>("all");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
@@ -389,7 +396,7 @@ export function AdminCrudTable({
       )}
 
       <div className="mb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        <div className="flex-1 flex items-center gap-2">
+        <div className="flex-1 flex flex-wrap items-center gap-2">
           <input
             type="text"
             value={search}
@@ -397,6 +404,49 @@ export function AdminCrudTable({
             placeholder="Search..."
             className="w-full md:max-w-xs px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
           />
+          {filterBy && (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setActiveFilter("all")}
+                className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${
+                  activeFilter === "all"
+                    ? "bg-slate-700 text-white border-slate-700"
+                    : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
+                }`}
+              >
+                All
+                <span className="ml-1 font-semibold">
+                  ({items.length})
+                </span>
+              </button>
+              {filterBy.options.map((opt) => {
+                const count = items.filter(
+                  (item) => String(item[filterBy.key]).toLowerCase() === opt.value.toLowerCase()
+                ).length;
+                const isActive = activeFilter === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setActiveFilter(opt.value)}
+                    className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${
+                      isActive
+                        ? opt.value === "active"
+                          ? "bg-teal-600 text-white border-teal-600"
+                          : opt.value === "cancelled"
+                          ? "bg-red-500 text-white border-red-500"
+                          : "bg-slate-700 text-white border-slate-700"
+                        : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50"
+                    }`}
+                  >
+                    {opt.label}
+                    <span className="ml-1 font-semibold">({count})</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
           <span className="text-xs text-slate-500 whitespace-nowrap">
             {loading ? "Loading..." : `Total: ${items.length}`}
           </span>
@@ -432,6 +482,9 @@ export function AdminCrudTable({
           <tbody>
             {items
               .filter((item) => {
+                if (filterBy && activeFilter !== "all") {
+                  if (String(item[filterBy.key]).toLowerCase() !== activeFilter.toLowerCase()) return false;
+                }
                 if (!search.trim()) return true;
                 const lower = search.toLowerCase();
                 return visibleColumns.some((col) => {
@@ -451,7 +504,13 @@ export function AdminCrudTable({
               >
                 {visibleColumns.map((col) => (
                   <td key={col.key} className="px-4 py-2 align-top">
-                    {col.type === "checkbox" ? (
+                    {col.type === "flag" ? (
+                      item[col.key] ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-300">
+                          ⚑ Re-sub
+                        </span>
+                      ) : null
+                    ) : col.type === "checkbox" ? (
                       <span className="inline-flex h-5 w-5 items-center justify-center rounded border border-slate-300 bg-white">
                         {item[col.key] ? "✓" : ""}
                       </span>

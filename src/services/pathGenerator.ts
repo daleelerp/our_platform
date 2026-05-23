@@ -1,6 +1,6 @@
 /**
  * Personalized Learning Path Generator
- * Generates Oracle ERP learning paths with budget-based content tiers
+ * Generates ERP learning paths with budget-based content tiers
  */
 
 import { LearningPath, PathMilestone, LearningResource } from "@/types/learning";
@@ -17,7 +17,8 @@ export type PathGenerationRequest = {
     budgetTier: BudgetTier;
     estimatedBudget?: number; // in EGP
   };
-  oracleModule?: string; // e.g., "Financials", "SCM", "HCM"
+  erpSystem?: string; // e.g., "Oracle ERP", "SAP S/4HANA", "Microsoft Dynamics 365"
+  oracleModule?: string; // module/area within the ERP system
   careerGoals?: string[];
   timeCommitment?: number; // hours per week
 };
@@ -70,6 +71,7 @@ export type GeneratedMilestone = {
     description: string;
     description_ar: string;
   };
+  quiz_questions?: GeneratedQuizQuestion[];
 };
 
 export type GeneratedResource = {
@@ -90,8 +92,42 @@ export type GeneratedResource = {
   selection_reason_ar?: string;
 };
 
+export type GeneratedQuizQuestion = {
+  question_text: string;
+  question_text_ar: string;
+  question_type: "multiple_choice" | "true_false";
+  options: string[];
+  options_ar: string[];
+  correct_answer_index: number;
+  explanation: string;
+  explanation_ar: string;
+  difficulty_level: "beginner" | "intermediate" | "advanced" | "expert";
+  points: number;
+};
+
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+
+/**
+ * Generate a search-based URL for a resource — avoids AI hallucinating specific URLs
+ */
+function generateResourceSearchUrl(title: string, platform: string, erpSystem: string): string {
+  const searchQuery = encodeURIComponent(`${title} ${erpSystem}`);
+  const titleQuery = encodeURIComponent(title);
+  const p = platform.toLowerCase();
+
+  if (p.includes("youtube")) return `https://www.youtube.com/results?search_query=${searchQuery}`;
+  if (p.includes("udemy")) return `https://www.udemy.com/courses/search/?q=${titleQuery}`;
+  if (p.includes("coursera")) return `https://www.coursera.org/search?query=${titleQuery}`;
+  if (p.includes("linkedin")) return `https://www.linkedin.com/learning/search?keywords=${titleQuery}`;
+  if (p.includes("oracle university")) return `https://education.oracle.com/search#q=${titleQuery}`;
+  if (p.includes("oracle doc")) return `https://docs.oracle.com/search/?q=${titleQuery}`;
+  if (p.includes("medium")) return `https://medium.com/search?q=${searchQuery}`;
+  if (p.includes("skillshare")) return `https://www.skillshare.com/search?query=${titleQuery}`;
+  if (p.includes("sap")) return `https://learning.sap.com/search?query=${titleQuery}`;
+  if (p.includes("microsoft") || p.includes("dynamics")) return `https://learn.microsoft.com/en-us/search/?terms=${titleQuery}`;
+  return `https://www.google.com/search?q=${searchQuery}`;
+}
 
 /**
  * Generate a personalized learning path using AI
@@ -101,13 +137,12 @@ export async function generatePersonalizedPath(
 ): Promise<GeneratedPath> {
   const { userPreferences } = request;
   const language = userPreferences.language;
+  const erpSystem = request.erpSystem || "Oracle ERP";
 
-  // Build the prompt for AI
-  const prompt = buildPathGenerationPrompt(request);
+  const prompt = buildPathGenerationPrompt(request, erpSystem);
 
   if (!GROQ_API_KEY) {
-    // Fallback to template-based generation
-    return generateTemplatePath(request);
+    return generateTemplatePath(request, erpSystem);
   }
 
   try {
@@ -123,8 +158,8 @@ export async function generatePersonalizedPath(
           {
             role: "system",
             content: language === "ar"
-              ? "أنت خبير في أنظمة Oracle ERP. مهمتك هي إنشاء مسارات تعليمية مخصصة مع موارد مناسبة حسب الميزانية. أجب بـ JSON فقط."
-              : "You are an Oracle ERP expert. Your task is to create personalized learning paths with budget-appropriate resources. Respond with JSON only."
+              ? `أنت خبير في أنظمة ${erpSystem}. مهمتك هي إنشاء مسارات تعليمية مخصصة مع موارد مناسبة حسب الميزانية. أجب بـ JSON فقط.`
+              : `You are an ERP learning expert specializing in ${erpSystem}. Create personalized learning paths with budget-appropriate resources. Respond with JSON only.`
           },
           {
             role: "user",
@@ -132,77 +167,87 @@ export async function generatePersonalizedPath(
           }
         ],
         temperature: 0.7,
-        max_tokens: 4000,
+        max_tokens: 8000,
         response_format: { type: "json_object" }
       }),
     });
 
     if (!response.ok) {
       console.error("Groq API error:", await response.text());
-      return generateTemplatePath(request);
+      return generateTemplatePath(request, erpSystem);
     }
 
     const data = await response.json();
     const aiResponse = JSON.parse(data.choices[0].message.content);
 
-    // Enhance with course search results
-    const enhancedPath = await enhancePathWithCourseData(aiResponse, request);
-
+    const enhancedPath = await enhancePathWithSearchUrls(aiResponse, request, erpSystem);
     return enhancedPath;
   } catch (error) {
     console.error("Path generation error:", error);
-    return generateTemplatePath(request);
+    return generateTemplatePath(request, erpSystem);
   }
 }
 
 /**
  * Build the prompt for AI path generation
  */
-function buildPathGenerationPrompt(request: PathGenerationRequest): string {
+function buildPathGenerationPrompt(request: PathGenerationRequest, erpSystem: string): string {
   const { userPreferences, oracleModule, careerGoals, timeCommitment } = request;
   const isArabic = userPreferences.language === "ar";
 
   const budgetRanges = {
-    free: "0 EGP - YouTube videos, Oracle Documentation, free tutorials",
+    free: "0 EGP - YouTube videos, official documentation, free tutorials",
     basic: "1-2000 EGP - Udemy courses, SkillShare, affordable online courses",
-    premium: "2001-10000 EGP - Coursera specializations, official Oracle training, premium platforms"
+    premium: "2001-10000 EGP - Coursera specializations, official vendor training, premium platforms"
   };
 
+  const milestoneCount = userPreferences.budgetTier === "free" ? "3-4" : userPreferences.budgetTier === "basic" ? "4-6" : "6-8";
+
+  // Resource schema used in both prompts — url intentionally omitted (generated automatically)
+  const resourceSchema = `{
+          "title": "...",
+          "title_ar": "...",
+          "resource_type": "video|article|course|documentation|tutorial",
+          "platform": "...",
+          "platform_ar": "...",
+          "is_free": true,
+          "price_egp": 0,
+          "estimated_duration_minutes": 60,
+          "difficulty_level": "...",
+          "language": "en|ar|both",
+          "selection_reason": "...",
+          "selection_reason_ar": "..."
+        }`;
+
   return isArabic
-    ? `أنشئ مسار تعليمي مخصص لتعلم Oracle ERP بالتفاصيل التالية:
+    ? `أنشئ مسار تعليمي مخصص لتعلم ${erpSystem} بالتفاصيل التالية:
 
 المستخدم:
 - مستوى الخبرة: ${userPreferences.experienceLevel}
-- اللغة المفضلة: ${userPreferences.language === "ar" ? "العربية" : "الإنجليزية"}
+- اللغة المفضلة: العربية
 - التركيز: ${userPreferences.focusArea || "كلا"}
 - الميزانية: ${userPreferences.budgetTier} (${budgetRanges[userPreferences.budgetTier]})
-${oracleModule ? `- الوحدة المستهدفة: ${oracleModule}` : ""}
+${oracleModule ? `- المجال/الوحدة المستهدفة: ${oracleModule}` : ""}
 ${careerGoals ? `- الأهداف المهنية: ${careerGoals.join(", ")}` : ""}
 ${timeCommitment ? `- الوقت المتاح: ${timeCommitment} ساعة/أسبوع` : ""}
 
 المتطلبات:
-1. أنشئ مساراً كاملاً مع ${userPreferences.budgetTier === "free" ? "3-4" : userPreferences.budgetTier === "basic" ? "4-6" : "6-8"} معالم رئيسية
+1. أنشئ مساراً كاملاً مع ${milestoneCount} معالم رئيسية
 2. كل معلم يجب أن يحتوي على:
    - عنوان واضح (عربي وإنجليزي)
    - وصف تفصيلي
    - أهداف التعلم
    - المهارات المكتسبة
-   - موارد متنوعة: مقالات (articles)، دورات/قوائم تشغيل (courses/playlists)، فيديوهات (videos)، وثائق (documentation)
-   - امتحان/اختبار (quiz/exam) كنقطة فحص
+   - موارد متنوعة: مقالات، دورات، فيديوهات، وثائق
+   - امتحان (quiz) كنقطة فحص
    - موارد مناسبة للميزانية (${userPreferences.budgetTier})
 3. يجب أن ينتهي المسار بمشروع عملي شامل
-4. أضف توصيات للمحفظة المهنية
 
-الموارد حسب الميزانية:
-- Free: YouTube videos, Oracle Docs articles, Medium articles, Oracle Forums
-- Basic: Udemy courses/playlists (500-2000 EGP), SkillShare, affordable courses
-- Premium: Coursera specializations (2000-5000 EGP), Oracle University (5000-10000 EGP), LinkedIn Learning
-
-ملاحظات مهمة:
-- يجب تضمين مقالات (articles) في كل معلم
-- يجب تضمين دورات أو قوائم تشغيل (courses/playlists) في المعالم الرئيسية
-- كل معلم يجب أن يحتوي على امتحان (quiz) كنقطة فحص
-- استخدم resource_type: "article" للمقالات، "course" للدورات/قوائم التشغيل، "video" للفيديوهات
+تعليمات الموارد:
+- لا تضع URLs أو روابط — سيتم توليدها تلقائياً
+- ركز على اسم المنصة ونوع المحتوى والوصف
+- المنصات المجانية: YouTube, ${erpSystem} Documentation, Medium
+- المنصات المدفوعة: Udemy, Coursera, LinkedIn Learning, SkillShare
 
 أرجع JSON بالشكل التالي:
 {
@@ -212,17 +257,12 @@ ${timeCommitment ? `- الوقت المتاح: ${timeCommitment} ساعة/أسب
     "description": "...",
     "description_ar": "...",
     "difficulty_level": "...",
-    "estimated_duration_hours": ...,
+    "estimated_duration_hours": 0,
     "target_audience": "...",
-    "prerequisites": [...],
-    "learning_outcomes": [...],
-    "career_outcomes": [...],
-    "budget_breakdown": {
-      "free": ...,
-      "basic": ...,
-      "premium": ...,
-      "total": ...
-    }
+    "prerequisites": [],
+    "learning_outcomes": [],
+    "career_outcomes": [],
+    "budget_breakdown": { "free": 0, "basic": 0, "premium": 0, "total": 0 }
   },
   "milestones": [
     {
@@ -231,34 +271,28 @@ ${timeCommitment ? `- الوقت المتاح: ${timeCommitment} ساعة/أسب
       "title_ar": "...",
       "description": "...",
       "description_ar": "...",
-      "estimated_hours": ...,
+      "estimated_hours": 0,
       "difficulty_level": "...",
-      "learning_objectives": [...],
-      "learning_objectives_ar": [...],
-      "skills_gained": [...],
-      "skills_gained_ar": [...],
-      "resources": [
+      "learning_objectives": [],
+      "learning_objectives_ar": [],
+      "skills_gained": [],
+      "skills_gained_ar": [],
+      "resources": [${resourceSchema}],
+      "checkpoint": { "type": "quiz", "description": "...", "description_ar": "..." },
+      "quiz_questions": [
         {
-          "title": "...",
-          "title_ar": "...",
-          "url": "...",
-          "resource_type": "...",
-          "platform": "...",
-          "platform_ar": "...",
-          "is_free": true/false,
-          "price_egp": ...,
-          "estimated_duration_minutes": ...,
+          "question_text": "...",
+          "question_text_ar": "...",
+          "question_type": "multiple_choice",
+          "options": ["A", "B", "C", "D"],
+          "options_ar": ["أ", "ب", "ج", "د"],
+          "correct_answer_index": 0,
+          "explanation": "...",
+          "explanation_ar": "...",
           "difficulty_level": "...",
-          "language": "...",
-          "selection_reason": "...",
-          "selection_reason_ar": "..."
+          "points": 10
         }
-      ],
-      "checkpoint": {
-        "type": "...",
-        "description": "...",
-        "description_ar": "..."
-      }
+      ]
     }
   ],
   "finalProject": {
@@ -266,44 +300,40 @@ ${timeCommitment ? `- الوقت المتاح: ${timeCommitment} ساعة/أسب
     "title_ar": "...",
     "description": "...",
     "description_ar": "...",
-    "deliverables": [...],
-    "portfolio_recommendations": [...]
+    "deliverables": [],
+    "portfolio_recommendations": []
   }
-}`
-    : `Create a personalized Oracle ERP learning path with the following details:
+}
+
+مهم: أنشئ بالضبط 5 أسئلة (quiz_questions) لكل معلم. يجب أن تكون الأسئلة متعلقة مباشرة بموضوع المعلم. قدم ترجمات عربية دقيقة لجميع الحقول.`
+    : `Create a personalized ${erpSystem} learning path with the following details:
 
 User Profile:
 - Experience Level: ${userPreferences.experienceLevel}
 - Preferred Language: ${userPreferences.language}
 - Focus Area: ${userPreferences.focusArea || "both"}
 - Budget Tier: ${userPreferences.budgetTier} (${budgetRanges[userPreferences.budgetTier]})
-${oracleModule ? `- Target Module: ${oracleModule}` : ""}
+${oracleModule ? `- Target Module/Area: ${oracleModule}` : ""}
 ${careerGoals ? `- Career Goals: ${careerGoals.join(", ")}` : ""}
 ${timeCommitment ? `- Time Available: ${timeCommitment} hours/week` : ""}
 
 Requirements:
-1. Create a complete path with ${userPreferences.budgetTier === "free" ? "3-4" : userPreferences.budgetTier === "basic" ? "4-6" : "6-8"} major milestones
+1. Create a complete path with ${milestoneCount} major milestones
 2. Each milestone must include:
    - Clear title (English and Arabic)
    - Detailed description
    - Learning objectives
    - Skills gained
-   - Diverse resources: articles, courses/playlists, videos, documentation
-   - Exam/quiz as checkpoint
+   - Diverse resources: articles, courses, videos, documentation
+   - Quiz as checkpoint
    - Budget-appropriate resources (${userPreferences.budgetTier})
 3. Path must end with a comprehensive practical project
-4. Add portfolio recommendations
 
-Resources by Budget:
-- Free: YouTube videos, Oracle Docs articles, Medium articles, Oracle Forums
-- Basic: Udemy courses/playlists (500-2000 EGP), SkillShare, affordable courses
-- Premium: Coursera specializations (2000-5000 EGP), Oracle University (5000-10000 EGP), LinkedIn Learning
-
-Important Notes:
-- Must include articles in each milestone
-- Must include courses or playlists in major milestones
-- Each milestone must have a quiz/exam as checkpoint
-- Use resource_type: "article" for articles, "course" for courses/playlists, "video" for videos
+Resource Instructions:
+- Do NOT include URLs or links — they will be generated automatically
+- Focus on platform name, content type, and description
+- Free platforms: YouTube, ${erpSystem} Documentation, Medium
+- Paid platforms: Udemy, Coursera, LinkedIn Learning, SkillShare
 
 Return JSON in this format:
 {
@@ -313,17 +343,12 @@ Return JSON in this format:
     "description": "...",
     "description_ar": "...",
     "difficulty_level": "...",
-    "estimated_duration_hours": ...,
+    "estimated_duration_hours": 0,
     "target_audience": "...",
-    "prerequisites": [...],
-    "learning_outcomes": [...],
-    "career_outcomes": [...],
-    "budget_breakdown": {
-      "free": ...,
-      "basic": ...,
-      "premium": ...,
-      "total": ...
-    }
+    "prerequisites": [],
+    "learning_outcomes": [],
+    "career_outcomes": [],
+    "budget_breakdown": { "free": 0, "basic": 0, "premium": 0, "total": 0 }
   },
   "milestones": [
     {
@@ -332,34 +357,28 @@ Return JSON in this format:
       "title_ar": "...",
       "description": "...",
       "description_ar": "...",
-      "estimated_hours": ...,
+      "estimated_hours": 0,
       "difficulty_level": "...",
-      "learning_objectives": [...],
-      "learning_objectives_ar": [...],
-      "skills_gained": [...],
-      "skills_gained_ar": [...],
-      "resources": [
+      "learning_objectives": [],
+      "learning_objectives_ar": [],
+      "skills_gained": [],
+      "skills_gained_ar": [],
+      "resources": [${resourceSchema}],
+      "checkpoint": { "type": "quiz", "description": "...", "description_ar": "..." },
+      "quiz_questions": [
         {
-          "title": "...",
-          "title_ar": "...",
-          "url": "...",
-          "resource_type": "...",
-          "platform": "...",
-          "platform_ar": "...",
-          "is_free": true/false,
-          "price_egp": ...,
-          "estimated_duration_minutes": ...,
+          "question_text": "...",
+          "question_text_ar": "...",
+          "question_type": "multiple_choice",
+          "options": ["Option A", "Option B", "Option C", "Option D"],
+          "options_ar": ["الخيار أ", "الخيار ب", "الخيار ج", "الخيار د"],
+          "correct_answer_index": 0,
+          "explanation": "Why this is correct...",
+          "explanation_ar": "لماذا هذه الإجابة صحيحة...",
           "difficulty_level": "...",
-          "language": "...",
-          "selection_reason": "...",
-          "selection_reason_ar": "..."
+          "points": 10
         }
-      ],
-      "checkpoint": {
-        "type": "...",
-        "description": "...",
-        "description_ar": "..."
-      }
+      ]
     }
   ],
   "finalProject": {
@@ -367,36 +386,40 @@ Return JSON in this format:
     "title_ar": "...",
     "description": "...",
     "description_ar": "...",
-    "deliverables": [...],
-    "portfolio_recommendations": [...]
+    "deliverables": [],
+    "portfolio_recommendations": []
   }
-}`;
+}
+
+Important: Generate exactly 5 quiz_questions per milestone. Questions must directly test the milestone's learning objectives. Provide accurate Arabic translations for all _ar fields.`;
 }
 
 /**
- * Enhance AI-generated path with real course data from web search
+ * Replace all resource URLs with real search-based URLs (prevents hallucinated links)
  */
-async function enhancePathWithCourseData(
+async function enhancePathWithSearchUrls(
   aiPath: any,
-  request: PathGenerationRequest
+  request: PathGenerationRequest,
+  erpSystem: string
 ): Promise<GeneratedPath> {
-  // For each milestone, search for real courses/resources
   const enhancedMilestones = await Promise.all(
     aiPath.milestones.map(async (milestone: GeneratedMilestone) => {
       const enhancedResources = await Promise.all(
         milestone.resources.map(async (resource: GeneratedResource) => {
-          // If resource needs course data, search for it
-          if (resource.resource_type === "course" && !resource.url.includes("http")) {
+          // Try real course search for paid courses first
+          if (resource.resource_type === "course" && !resource.is_free) {
             const courseData = await searchCourseData(
               resource.title,
               request.userPreferences.budgetTier,
               request.userPreferences.language
             );
-            if (courseData) {
+            if (courseData?.url) {
               return { ...resource, ...courseData };
             }
           }
-          return resource;
+          // Generate a reliable search URL for all resources
+          const searchUrl = generateResourceSearchUrl(resource.title, resource.platform, erpSystem);
+          return { ...resource, url: searchUrl };
         })
       );
       return { ...milestone, resources: enhancedResources };
@@ -442,50 +465,27 @@ async function searchCourseData(
 /**
  * Generate a template-based path as fallback
  */
-function generateTemplatePath(request: PathGenerationRequest): GeneratedPath {
-  const isArabic = request.userPreferences.language === "ar";
-  const { experienceLevel, budgetTier, focusArea } = request.userPreferences;
+function generateTemplatePath(request: PathGenerationRequest, erpSystem: string): GeneratedPath {
+  const { experienceLevel } = request.userPreferences;
 
-  // Template paths based on experience level and focus
-  const templates = getPathTemplates(experienceLevel, focusArea || "both", budgetTier, isArabic);
-  
-  return templates;
-}
-
-/**
- * Get path templates for different scenarios
- */
-function getPathTemplates(
-  level: string,
-  focus: string,
-  budget: BudgetTier,
-  isArabic: boolean
-): GeneratedPath {
-  // This would contain pre-defined template paths
-  // For now, return a basic structure
   return {
     path: {
-      title: "Oracle ERP Fundamentals",
-      title_ar: "أساسيات Oracle ERP",
-      description: "A comprehensive learning path for Oracle ERP",
-      description_ar: "مسار تعليمي شامل لأنظمة Oracle ERP",
-      difficulty_level: level as any,
+      title: `${erpSystem} Fundamentals`,
+      title_ar: `أساسيات ${erpSystem}`,
+      description: `A comprehensive learning path for ${erpSystem}`,
+      description_ar: `مسار تعليمي شامل لنظام ${erpSystem}`,
+      difficulty_level: experienceLevel as any,
       estimated_duration_hours: 40,
-      target_audience: `${level} learners`,
+      target_audience: `${experienceLevel} learners`,
       prerequisites: [],
       learning_outcomes: [],
       career_outcomes: [],
-      budget_breakdown: {
-        free: 0,
-        basic: 0,
-        premium: 0,
-        total: 0
-      }
+      budget_breakdown: { free: 0, basic: 0, premium: 0, total: 0 }
     },
     milestones: [],
     finalProject: {
-      title: "Oracle ERP Implementation Project",
-      title_ar: "مشروع تطبيق Oracle ERP",
+      title: `${erpSystem} Implementation Project`,
+      title_ar: `مشروع تطبيق ${erpSystem}`,
       description: "Practical implementation project",
       description_ar: "مشروع تطبيق عملي",
       deliverables: [],
@@ -493,4 +493,3 @@ function getPathTemplates(
     }
   };
 }
-

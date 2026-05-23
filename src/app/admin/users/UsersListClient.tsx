@@ -209,145 +209,138 @@ export default function UsersListClient({ users, summaries }: Props) {
     );
   }, [downloadBlob, filteredEmails]);
 
+  function FilterSelect<T extends string>({
+    label,
+    value,
+    onChange,
+    options,
+  }: {
+    label: string;
+    value: T;
+    onChange: (v: T) => void;
+    options: { value: T; label: string }[];
+  }) {
+    return (
+      <div className="flex flex-col gap-0.5">
+        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">{label}</span>
+        <select
+          value={value}
+          onChange={(e) => onChange(e.target.value as T)}
+          title={label}
+          className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs text-slate-700 bg-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+        >
+          {options.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 bg-white rounded-xl shadow-sm p-4 border border-slate-100">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <div className="flex-1 flex items-center gap-2">
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search name, email, country, team, job title, or user ID..."
-              className="w-full md:max-w-xl px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-            />
-          </div>
-          <div className="flex flex-wrap items-center gap-3 text-sm">
-            <label className="flex items-center gap-2 text-slate-600">
-              <span className="text-slate-500 whitespace-nowrap">Account:</span>
-              <select
-                value={segmentFilter}
-                onChange={(e) => setSegmentFilter(e.target.value as SegmentFilter)}
-                className="px-2 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-              >
-                <option value="all">All</option>
-                <option value="team">In a team / org</option>
-                <option value="individual">Individual only</option>
-                <option value="paying">Paying (active / trial)</option>
-                <option value="free">Non-paying</option>
-              </select>
-            </label>
-            <label className="flex items-center gap-2 text-slate-600">
-              <span className="text-slate-500">Status:</span>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as "all" | "active" | "inactive")}
-                className="px-2 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-              >
-                <option value="all">All</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </label>
-            <span className="text-slate-400 text-xs md:ml-1">
-              Showing {filteredProfiles.length} of {users.length}
-            </span>
-          </div>
+      <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4 space-y-3">
+        {/* Search + count */}
+        <div className="flex items-center gap-3">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name, email, country, team, job title…"
+            className="flex-1 md:max-w-lg px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+          />
+          <span className="text-xs text-slate-400 whitespace-nowrap">
+            {filteredProfiles.length} / {users.length} users
+          </span>
         </div>
 
-        <div className="flex flex-col lg:flex-row lg:flex-wrap gap-3 pt-2 border-t border-slate-100 text-sm">
-          <label className="flex items-center gap-2 text-slate-600">
-            <span className="text-slate-500 whitespace-nowrap">Job title:</span>
-            <select
-              value={jobTitleFilter}
-              onChange={(e) => setJobTitleFilter(e.target.value as JobTitleFilter)}
-              className="px-2 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-            >
-              <option value="all">All</option>
-              <option value="with_title">Has job title</option>
-              <option value="without_title">No job title</option>
-            </select>
-          </label>
-          <label className="flex items-center gap-2 text-slate-600">
-            <span className="text-slate-500 whitespace-nowrap">Subscription:</span>
-            <select
-              value={planFilter}
-              onChange={(e) => setPlanFilter(e.target.value as PlanFilter)}
-              className="px-2 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 min-w-[180px]"
-            >
-              <option value="all">All</option>
-              <option value="no_subscription">No plan record</option>
-              <option value="paying">Active or trial</option>
-              <option value="any_subscription_record">Any plan record (incl. expired)</option>
-            </select>
-          </label>
-          <label className="flex items-center gap-2 text-slate-600">
-            <span className="text-slate-500 whitespace-nowrap">Learning:</span>
-            <select
-              value={performanceFilter}
-              onChange={(e) => setPerformanceFilter(e.target.value as PerformanceFilter)}
-              className="px-2 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 min-w-[200px]"
-            >
-              <option value="all">All</option>
-              <option value="not_enrolled">Not enrolled in paths</option>
-              <option value="enrolled">Enrolled in ≥1 path</option>
-              <option value="high_engagement">High engagement (score ≥ 40)</option>
-              <option value="low_engagement">Enrolled, lower engagement (&lt; 40)</option>
-            </select>
-          </label>
+        {/* Filters row */}
+        <div className="flex flex-wrap gap-3 pt-1 border-t border-slate-100">
+          <FilterSelect
+            label="Account status"
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={[
+              { value: "all", label: "All statuses" },
+              { value: "active", label: "Active" },
+              { value: "inactive", label: "Inactive" },
+            ]}
+          />
+          <FilterSelect
+            label="Account type"
+            value={segmentFilter}
+            onChange={setSegmentFilter}
+            options={[
+              { value: "all", label: "All types" },
+              { value: "team", label: "In a team / org" },
+              { value: "individual", label: "Individual" },
+              { value: "paying", label: "Paying" },
+              { value: "free", label: "Non-paying" },
+            ]}
+          />
+          <FilterSelect
+            label="Subscription"
+            value={planFilter}
+            onChange={setPlanFilter}
+            options={[
+              { value: "all", label: "Any" },
+              { value: "paying", label: "Active or trial" },
+              { value: "any_subscription_record", label: "Any record" },
+              { value: "no_subscription", label: "No record" },
+            ]}
+          />
+          <FilterSelect
+            label="Learning"
+            value={performanceFilter}
+            onChange={setPerformanceFilter}
+            options={[
+              { value: "all", label: "Any" },
+              { value: "enrolled", label: "Enrolled (≥1 path)" },
+              { value: "not_enrolled", label: "Not enrolled" },
+              { value: "high_engagement", label: "High engagement" },
+              { value: "low_engagement", label: "Low engagement" },
+            ]}
+          />
+          <FilterSelect
+            label="Job title"
+            value={jobTitleFilter}
+            onChange={setJobTitleFilter}
+            options={[
+              { value: "all", label: "Any" },
+              { value: "with_title", label: "Has title" },
+              { value: "without_title", label: "No title" },
+            ]}
+          />
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 pt-2 border-t border-slate-100">
-          <span className="text-xs font-medium text-slate-600">Email export (filtered list):</span>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => copyEmails("\n")}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-teal-600 text-white hover:bg-teal-700"
-            >
-              Copy emails (one per line)
-            </button>
-            <button
-              type="button"
-              onClick={() => copyEmails(", ")}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-300 text-slate-700 hover:bg-slate-50"
-            >
-              Copy comma-separated
-            </button>
-            <button
-              type="button"
-              onClick={downloadEmailsTxt}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-300 text-slate-700 hover:bg-slate-50"
-            >
-              Download .txt
-            </button>
-            <button
-              type="button"
-              onClick={downloadCsv}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-300 text-slate-700 hover:bg-slate-50"
-            >
-              Download CSV
-            </button>
-            <span className="text-xs text-slate-500">
-              {filteredEmails.length} with email
-              {copyFeedback ? <span className="text-teal-700 ml-2">{copyFeedback}</span> : null}
-            </span>
-          </div>
+        {/* Export row */}
+        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100">
+          <span className="text-xs text-slate-500 mr-1">Export {filteredEmails.length} emails:</span>
+          <button type="button" onClick={() => copyEmails("\n")}
+            className="px-2.5 py-1 rounded-lg text-xs font-medium bg-teal-600 text-white hover:bg-teal-700">
+            Copy (one per line)
+          </button>
+          <button type="button" onClick={() => copyEmails(", ")}
+            className="px-2.5 py-1 rounded-lg text-xs font-medium border border-slate-200 text-slate-600 hover:bg-slate-50">
+            Copy comma-separated
+          </button>
+          <button type="button" onClick={downloadEmailsTxt}
+            className="px-2.5 py-1 rounded-lg text-xs font-medium border border-slate-200 text-slate-600 hover:bg-slate-50">
+            .txt
+          </button>
+          <button type="button" onClick={downloadCsv}
+            className="px-2.5 py-1 rounded-lg text-xs font-medium border border-slate-200 text-slate-600 hover:bg-slate-50">
+            CSV
+          </button>
+          {copyFeedback && <span className="text-xs text-teal-700 ml-1">{copyFeedback}</span>}
         </div>
-
-        <p className="text-xs text-slate-500">
-          The table shows how each person is classified on Daleel (individual vs organization, paid vs
-          free, onboarding, and learning engagement). Filter by job title, subscription record, and
-          learning engagement, then copy or download addresses for campaigns. Use <strong>View all</strong>{" "}
-          for full path enrollments, payments, sessions, and the recent platform event log.
-        </p>
       </div>
 
       {filteredSummaries.length > 0 ? (
         <UsersDirectoryTable summaries={filteredSummaries} profiles={filteredProfiles} />
       ) : (
         <div className="bg-white rounded-xl shadow-sm p-12 text-center">
-          <p className="text-slate-500">No users match your filters.</p>
+          <p className="text-slate-500">No users match the current filters.</p>
         </div>
       )}
     </div>

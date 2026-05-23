@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export type AdminUserSummary = {
   userId: string;
   email: string | null;
+  phoneNumber: string | null;
   lastSignInAt: string | null;
   authCreatedAt: string | null;
   fullName: string | null;
@@ -179,6 +180,7 @@ export async function buildAdminUserSummaries(
     return {
       userId,
       email: auth?.email || null,
+      phoneNumber: (pr.phone_number as string) || null,
       lastSignInAt: auth?.last_sign_in_at ?? null,
       authCreatedAt: auth?.created_at ?? null,
       fullName: (pr.full_name as string) || null,
