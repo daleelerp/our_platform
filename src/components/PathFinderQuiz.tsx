@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
@@ -19,6 +19,7 @@ type Path = {
   difficulty_level: string | null;
   prerequisites: string[] | null;
   career_outcomes: string[] | null;
+  career_focus?: string | null;
   erp_module?: { erp_system_id?: string | null } | { erp_system_id?: string | null }[] | null;
 };
 
@@ -197,6 +198,7 @@ export function PathFinderQuiz({ paths, accessiblePaths, erpSystems, erpProvider
   const [showAllPaths, setShowAllPaths] = useState(false);
   const [recommendedPlans, setRecommendedPlans] = useState<SubscriptionPlan[] | null>(null);
   const accessiblePathIds = new Set((accessiblePaths || []).map((p) => p.id));
+  const autoAnalyzeRef = useRef(false);
 
   const currentQuestions = language === "ar" ? questions.ar : questions.en;
   
@@ -277,6 +279,25 @@ export function PathFinderQuiz({ paths, accessiblePaths, erpSystems, erpProvider
       setShowOnboardingSummary(true); // Show summary/edit view first
     }
   }, [savedPreferences, paths, userProfile]);
+
+  // Auto-trigger analysis when all questions were answered during onboarding
+  // and the user has selected an ERP. Uses a ref so it fires exactly once.
+  useEffect(() => {
+    if (
+      !showOnboardingSummary &&
+      !showSavedResults &&
+      totalSteps === 0 &&
+      Object.keys(answers).length > 0 &&
+      !!selectedErpId &&
+      !recommendations &&
+      !isAnalyzing &&
+      !autoAnalyzeRef.current
+    ) {
+      autoAnalyzeRef.current = true;
+      analyzeAndRecommend();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showOnboardingSummary, showSavedResults, totalSteps, selectedErpId, recommendations, isAnalyzing]);
 
   const inferProviderIdFromErp = (erpId: string): string | null => {
     const erp = erpSystems.find((s) => s.id === erpId);
@@ -434,7 +455,6 @@ export function PathFinderQuiz({ paths, accessiblePaths, erpSystems, erpProvider
         const data = await response.json();
         recs = data.recommendations;
         insight = data.insight;
-        console.log("AI Response:", data); // Debug log
       } else {
         // Fallback to basic recommendations
         recs = getBasicRecommendations(recommendationPool);
@@ -886,6 +906,23 @@ export function PathFinderQuiz({ paths, accessiblePaths, erpSystems, erpProvider
             </div>
           )}
 
+          {/* Empty state when AI found no matching paths */}
+          {recommendations && recommendations.length === 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center mb-6">
+              <p className="text-2xl mb-3">🔍</p>
+              <p className="text-amber-800 font-medium mb-1">
+                {language === "ar"
+                  ? "لم يتم العثور على مسارات مطابقة"
+                  : "No matching paths found"}
+              </p>
+              <p className="text-amber-700 text-sm">
+                {language === "ar"
+                  ? "جرب تغيير بعض إجاباتك أو اختر نظام ERP مختلفاً."
+                  : "Try adjusting your answers or selecting a different ERP system."}
+              </p>
+            </div>
+          )}
+
           {/* Best Match Paths - Secondary */}
           {recommendations && recommendations.length > 0 && (
             <div className="mb-8">
@@ -1144,11 +1181,36 @@ export function PathFinderQuiz({ paths, accessiblePaths, erpSystems, erpProvider
     );
   }
 
-  // If no questions left, go straight to recommendations
-  if (totalSteps === 0 && Object.keys(answers).length > 0 && selectedErpId) {
-    if (!recommendations && !isAnalyzing) {
-      analyzeAndRecommend();
+  // When all questions were pre-answered (onboarding) — show ERP selector or spinner
+  if (totalSteps === 0) {
+    if (!selectedErpId) {
+      return (
+        <main className="min-h-screen bg-gradient-to-br from-teal-50 to-slate-50 py-12">
+          <div className="max-w-2xl mx-auto px-4">
+            <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-8">
+              <h2 className="text-xl font-semibold text-slate-900 mb-3">
+                {language === "ar"
+                  ? "اختر نظام ERP للمتابعة"
+                  : "Select Your ERP to Continue"}
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {erpSystems.filter((s) => s.is_active).map((erp) => (
+                  <button
+                    key={erp.id}
+                    type="button"
+                    onClick={() => setSelectedErpId(erp.id)}
+                    className="p-3 rounded-xl border-2 border-slate-200 hover:border-teal-300 text-start transition-colors"
+                  >
+                    <div className="font-medium text-slate-900">{erp.name}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </main>
+      );
     }
+    // ERP selected — useEffect will trigger analyzeAndRecommend
     return (
       <main className="min-h-screen bg-gradient-to-br from-teal-50 to-slate-50 flex items-center justify-center">
         <div className="text-center">
@@ -1156,6 +1218,11 @@ export function PathFinderQuiz({ paths, accessiblePaths, erpSystems, erpProvider
           <h2 className="text-xl font-semibold text-slate-900 mb-2">
             {language === "ar" ? "جاري تحليل إجاباتك..." : "Analyzing your answers..."}
           </h2>
+          <p className="text-slate-500">
+            {language === "ar"
+              ? "الذكاء الاصطناعي يبحث عن أفضل المسارات لك"
+              : "AI is finding the best paths for you"}
+          </p>
         </div>
       </main>
     );

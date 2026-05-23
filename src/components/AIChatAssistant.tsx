@@ -640,9 +640,9 @@ export function AIChatAssistant({ initialMessage: _initialMessage }: Props) {
                   }`}
                 >
                   {message.role === "user" ? (
-                    <p className="text-sm whitespace-pre-wrap leading-relaxed text-white">{message.content}</p>
+                    <p dir="auto" className="text-sm whitespace-pre-wrap leading-relaxed text-white">{message.content}</p>
                   ) : (
-                    <div dir="auto" className="text-slate-800">
+                    <div dir={hasArabicText(message.content) ? "rtl" : "ltr"} className="text-slate-800">
                       <AssistantMessageBody content={message.content} />
                     </div>
                   )}

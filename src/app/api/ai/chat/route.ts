@@ -22,11 +22,16 @@ function hasArabicText(text: string): boolean {
   return /[\u0600-\u06FF]/.test(text);
 }
 
-/** Strip stray non-Arabic scripts the model sometimes hallucinates (e.g. Cyrillic) while keeping Latin acronyms when mixed in line. */
+/** Strip stray non-Arabic scripts the model sometimes hallucinates and normalize formatting. */
 function sanitizeArabicAssistantOutput(text: string): string {
   return text
-    .replace(/[\u0400-\u04FF\u0500-\u052F]+/g, "")
-    .replace(/[\u0590-\u05FF]+/g, "")
+    .replace(/[\u0400-\u04FF\u0500-\u052F]+/g, "")   // Cyrillic
+    .replace(/[\u0590-\u05FF]+/g, "")                   // Hebrew
+    .replace(/[\u4E00-\u9FFF\u3040-\u30FF\uAC00-\uD7AF]+/g, "") // CJK (Chinese/Japanese/Korean)
+    .replace(/[\u0370-\u03FF]+/g, "")                   // Greek
+    .replace(/\*\*([^*\n]*)\*\*/g, "$1")                // Strip **bold** markdown \u2192 plain text
+    .replace(/\*([^*\n]+)\*/g, "$1")                    // Strip *italic* markdown \u2192 plain text
+    .replace(/^#+\s+/gm, "")                            // Strip # heading markers
     .replace(/[ \t]{2,}/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
@@ -255,6 +260,7 @@ ${pathsList}
 9. اقترح مسارات من القائمة المتاحة فقط
 10. اجعل ردودك قصيرة ومفيدة (3-5 جمل)
 11. نظّم الشكل للقراءة: افصل بين الفقرات بسطر فارغ؛ استخدم نقاطاً أو ترقيمًا (1. 2. أو - ) عند أكثر من نقطة؛ ضع كل سؤال توجيهي في سطر مستقل بعد سطر فارغ.
+12. لا تستخدم رموز التنسيق مثل ** أو * أو # (ماركداون) - الكتابة العادية فقط.
 
 أسلوبك: زميل شاطر في الشغل بيتكلم مصري واضح ومشجّع، عايز يفهمك الدنيا من غير تعقيد.`;
   }

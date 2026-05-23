@@ -89,7 +89,15 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await response.json();
-    const aiResponse = JSON.parse(data.choices[0].message.content);
+
+    let aiResponse: { recommended_paths?: string[]; insight?: string; reasoning?: string };
+    try {
+      aiResponse = JSON.parse(data.choices[0].message.content);
+    } catch {
+      const recommendations = getBasicRecommendations(answers, filteredPaths, career_focus);
+      const insight = generateBasicInsight(answers, language, career_focus);
+      return NextResponse.json({ recommendations, insight, method: "rule-based" });
+    }
 
     // Map AI recommendations to actual paths (use filtered paths)
     const recommendedSlugs = aiResponse.recommended_paths || [];
