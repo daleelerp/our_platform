@@ -430,21 +430,24 @@ export function PathFinderQuiz({ paths, accessiblePaths, erpSystems, erpProvider
     setIsAnalyzing(true);
 
     try {
-      // Get user's career_focus from profile or answers
-      const careerFocus = userProfile?.career_focus || 
-                         (answers.targetRole === 'technical' ? 'technical' : 
-                          answers.targetRole === 'functional' ? 'business_functional' : null);
+      // Derive career focus from answers first (user may have edited it), fall back to profile
+      const careerFocusFromRole =
+        answers.targetRole === 'technical' ? 'technical' :
+        answers.targetRole === 'functional' ? 'business_functional' : null;
+      const careerFocus = careerFocusFromRole || userProfile?.career_focus || null;
 
       // Call AI API for recommendations
       const recommendationPool = getRecommendationPool();
+      const selectedErp = erpSystems.find((s) => s.id === selectedErpId);
       const response = await fetch("/api/ai/recommend-path", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          answers, 
+        body: JSON.stringify({
+          answers,
           paths: recommendationPool,
           language,
-          career_focus: careerFocus // Pass career focus to AI
+          career_focus: careerFocus,
+          erp_name: selectedErp?.name || null,
         }),
       });
 
@@ -491,21 +494,55 @@ export function PathFinderQuiz({ paths, accessiblePaths, erpSystems, erpProvider
     }
   };
 
-  // Fallback recommendation logic
+  // Fallback recommendation logic (mirrors API's getBasicRecommendations)
   const getBasicRecommendations = (pool: Path[]): Path[] => {
+    const careerFocusFromRole =
+      answers.targetRole === "technical" ? "technical" :
+      answers.targetRole === "functional" ? "business_functional" : null;
+    const effectiveCareerFocus = careerFocusFromRole || userProfile?.career_focus || null;
+
     const scored = pool.map((path) => {
       let score = 0;
+
+      // Career focus — highest priority
+      if (effectiveCareerFocus) {
+        if (path.career_focus === effectiveCareerFocus) score += 10;
+        else if (path.career_focus === null) score += 5;
+        else score -= 20;
+      }
+
+      // Experience
       if (answers.experience === "none" && path.difficulty_level === "beginner") score += 3;
       if (answers.experience === "basic" && path.difficulty_level === "beginner") score += 2;
       if (answers.experience === "intermediate" && path.difficulty_level === "intermediate") score += 3;
       if (answers.experience === "advanced" && path.difficulty_level === "advanced") score += 3;
+
+      // Goal
       if (answers.goal === "technical" && path.target_audience === "technical professionals") score += 3;
       if (answers.goal === "consulting" && path.target_audience === "experienced professionals") score += 3;
+      if (answers.goal === "career_switch" && path.target_audience === "career-switchers") score += 3;
+      if (answers.goal === "career_switch" && path.target_audience === "beginners") score += 2;
+
+      // Role keywords
       if (answers.targetRole === "functional" && path.title.toLowerCase().includes("functional")) score += 2;
       if (answers.targetRole === "technical" && path.title.toLowerCase().includes("technical")) score += 2;
+      if (answers.targetRole === "technical" && path.title.toLowerCase().includes("integration")) score += 2;
+      if (answers.targetRole === "technical" && path.title.toLowerCase().includes("developer")) score += 2;
+      if (answers.targetRole === "functional" && path.title.toLowerCase().includes("business")) score += 2;
+      if (answers.targetRole === "functional" && path.title.toLowerCase().includes("professional")) score += 2;
+
+      // Time commitment
+      if (answers.timeCommitment === "light" && (path.estimated_duration_hours || 0) < 100) score += 1;
+      if (answers.timeCommitment === "fulltime" && (path.estimated_duration_hours || 0) > 100) score += 1;
+
       return { path, score };
     });
-    return scored.sort((a, b) => b.score - a.score).slice(0, 3).map((s) => s.path);
+
+    return scored
+      .filter((s) => s.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3)
+      .map((s) => s.path);
   };
 
   const getBasicInsight = (): string => {

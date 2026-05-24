@@ -27,21 +27,15 @@ type Path = {
 
 export async function POST(request: NextRequest) {
   try {
-    const { answers, paths, language, career_focus } = await request.json() as {
+    const { answers, paths, language, career_focus, erp_name } = await request.json() as {
       answers: QuizAnswers;
       paths: Path[];
       language: "en" | "ar";
       career_focus?: string | null;
+      erp_name?: string | null;
     };
 
-    // Filter paths by career_focus if provided
-    let filteredPaths = paths;
-    if (career_focus) {
-      filteredPaths = paths.filter(path => {
-        // Show paths that match career_focus OR are available for both (null)
-        return !path.career_focus || path.career_focus === career_focus;
-      });
-    }
+    const filteredPaths = paths;
 
     // If no API key, fall back to rule-based recommendations
     if (!GROQ_API_KEY) {
@@ -51,7 +45,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Build the prompt for AI
-    const prompt = buildPrompt(answers, filteredPaths, language, career_focus);
+    const prompt = buildPrompt(answers, filteredPaths, language, career_focus, erp_name);
 
     // Call Groq API
     const response = await fetch(GROQ_API_URL, {
@@ -131,7 +125,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function buildPrompt(answers: QuizAnswers, paths: Path[], language: "en" | "ar", career_focus?: string | null): string {
+function buildPrompt(answers: QuizAnswers, paths: Path[], language: "en" | "ar", career_focus?: string | null, erp_name?: string | null): string {
   const pathsSummary = paths.map(p => ({
     slug: p.slug,
     title: p.title,
@@ -156,6 +150,7 @@ function buildPrompt(answers: QuizAnswers, paths: Path[], language: "en" | "ar",
 - الوقت المتاح: ${answers.timeCommitment}
 - أسلوب التعلم: ${answers.learningStyle}
 - الدور المستهدف: ${answers.targetRole}
+${erp_name ? `- نظام ERP المختار: ${erp_name}` : ''}
 ${career_focus ? `- التركيز المهني: ${career_focus === 'technical' ? 'تقني' : 'وظيفي/أعمال'}` : ''}
 
 المسارات المتاحة:
@@ -176,6 +171,7 @@ User Analysis:
 - Time Commitment: ${answers.timeCommitment}
 - Learning Style: ${answers.learningStyle}
 - Target Role: ${answers.targetRole}
+${erp_name ? `- Selected ERP System: ${erp_name}` : ''}
 ${career_focus ? `- Career Focus: ${career_focus === 'technical' ? 'Technical' : 'Business Functional'}` : ''}
 
 Available Paths:

@@ -34,7 +34,7 @@ export default async function PathFinderPage() {
         .from("user_path_preferences")
         .select("*")
         .eq("user_id", user.id)
-        .single(),
+        .maybeSingle(),
       supabase
         .from("user_subscriptions")
         .select("plan_id, status")
@@ -67,7 +67,13 @@ export default async function PathFinderPage() {
     `)
     .eq("is_published", true);
 
-  if (userProfile?.career_focus) {
+  const VALID_CAREER_FOCUSES = ["technical", "business_functional"] as const;
+  type CareerFocus = typeof VALID_CAREER_FOCUSES[number];
+
+  if (
+    userProfile?.career_focus &&
+    VALID_CAREER_FOCUSES.includes(userProfile.career_focus as CareerFocus)
+  ) {
     // Show paths matching the user's career focus OR paths available for all (null)
     pathsQuery = pathsQuery.or(
       `career_focus.eq.${userProfile.career_focus},career_focus.is.null`
