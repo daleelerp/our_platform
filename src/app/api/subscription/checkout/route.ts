@@ -316,65 +316,13 @@ export async function POST(request: NextRequest) {
       discountApplied = validation.discount;
     }
 
-    // If Kashier is not configured, simulate checkout
+    // Payment gateway must be configured — never bypass payment for paid plans
     if (!KASHIER_API_KEY || !KASHIER_MERCHANT_ID || !KASHIER_SECRET_KEY) {
-      const periodEnd = new Date();
-      if (finalBillingCycle === "yearly") {
-        periodEnd.setFullYear(periodEnd.getFullYear() + 1);
-      } else {
-        periodEnd.setMonth(periodEnd.getMonth() + 1);
-      }
-
-      const { data: subscription, error: subError } = await supabase
-        .from("user_subscriptions")
-        .insert({
-          user_id: user.id,
-          plan_id: planId,
-          status: "trial",
-          billing_cycle: finalBillingCycle,
-          started_at: new Date().toISOString(),
-          current_period_start: new Date().toISOString(),
-          current_period_end: periodEnd.toISOString(),
-          trial_ends_at: new Date(
-            Date.now() + 7 * 24 * 60 * 60 * 1000
-          ).toISOString(),
-          price_locked_egp: amount,
-          is_founders_club: promoCode?.toUpperCase() === "FOUNDERS2024",
-          discount_applied:
-            discountApplied && discountApplied.type === "percentage"
-              ? discountApplied.value
-              : null,
-          applied_discount_id: discountApplied?.id ?? null,
-        })
-        .select()
-        .single();
-
-      if (subError) {
-        console.error("Subscription error:", subError);
-        return NextResponse.json(
-          { error: "Failed to create subscription" },
-          { status: 500 }
-        );
-      }
-
-      if (discountApplied && subscription) {
-        await recordDiscountUsageAfterSuccessfulPayment(adminSupabase, subscription);
-      }
-      if (subscription) {
-        await ensureFeedbackRequestForPurchase({
-          userId: subscription.user_id,
-          planId: subscription.plan_id,
-          purchaseId: subscription.id,
-          purchaseTime: subscription.started_at,
-          client: adminSupabase,
-        });
-      }
-
-      return NextResponse.json({
-        success: true,
-        redirectUrl: "/dashboard?subscription=trial_started",
-        message: "Trial started! Configure Kashier for real payments.",
-      });
+      console.error("❌ Kashier payment gateway is not configured");
+      return NextResponse.json(
+        { error: "Payment gateway not configured. Please contact support." },
+        { status: 503 }
+      );
     }
 
     // Fetch user profile

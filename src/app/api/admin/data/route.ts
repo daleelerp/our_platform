@@ -213,6 +213,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Subscriptions must only be created through the payment flow, never directly
+    if (table === "user_subscriptions") {
+      return NextResponse.json(
+        { error: "Subscriptions cannot be created directly. Use the payment flow." },
+        { status: 403 }
+      );
+    }
+
     const raw = await request.json();
     const body = sanitizeAdminPayload(raw as Record<string, unknown>);
     const supabase = getAdminSupabaseClient();
@@ -265,6 +273,19 @@ export async function PUT(request: NextRequest) {
 
     const raw = await request.json();
     const body = sanitizeAdminPayload(raw as Record<string, unknown>);
+
+    // Prevent admin panel from directly granting active/trial status without payment verification
+    if (
+      table === "user_subscriptions" &&
+      typeof body.status === "string" &&
+      ["active", "trial"].includes(body.status)
+    ) {
+      return NextResponse.json(
+        { error: "Cannot set subscription status to active/trial directly. Use the payment flow." },
+        { status: 403 }
+      );
+    }
+
     const supabase = getAdminSupabaseClient();
 
     const { data, error } = await supabase
