@@ -140,3 +140,30 @@ export interface Quiz {
     is_required: boolean;
     is_active: boolean;
 }
+
+export interface QuizQuestion {
+    id: string;
+    quiz_id: string;
+    question_type: "multiple_choice" | "true_false" | "multiple_select";
+    question_text: string;
+    question_text_ar: string | null;
+    options: Array<{ id: string; text: string; text_ar?: string }> | null;
+    correct_answers: string[];
+    explanation: string | null;
+    explanation_ar: string | null;
+    points: number;
+    question_order: number;
+    image_url?: string | null;
+}
+
+export interface GeneratedQuestion {
+    question_type: "multiple_choice" | "true_false" | "multiple_select";
+    question_text: string;
+    question_text_ar: string;
+    options: Array<{ id: string; text: string; text_ar: string }> | null;
+    correct_answers: string[];
+    explanation: string;
+    explanation_ar: string;
+    points: number;
+    status: "pending" | "approved" | "rejected";
+}

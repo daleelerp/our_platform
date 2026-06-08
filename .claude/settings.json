@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(xargs grep -l \"milestone\")"
+      "Bash(xargs grep -l \"milestone\")",
+      "Bash(Get-ChildItem -Path \"e:\\\\Business\\\\Daleel\\\\our_platform\\\\src\\\\app\\\\admin\\\\paths\" -Recurse)",
+      "Bash(Select-Object FullName)"
     ]
   }
 }

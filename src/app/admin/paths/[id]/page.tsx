@@ -567,6 +567,9 @@ export default function EditPathPage() {
         body: JSON.stringify({
           milestone_id: milestoneId,
           ...data,
+          passing_score: data.passing_score !== "" ? Number(data.passing_score) : 70,
+          time_limit_minutes: data.time_limit_minutes !== "" ? Number(data.time_limit_minutes) : null,
+          max_attempts: data.max_attempts !== "" ? Number(data.max_attempts) : null,
           is_active: true,
         }),
       });
@@ -782,6 +785,7 @@ export default function EditPathPage() {
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-900">Milestones</h2>
           <button
+            type="button"
             onClick={handleOpenAddMilestoneModal}
             className="px-4 py-2 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 font-medium transition-colors"
           >
@@ -827,6 +831,7 @@ export default function EditPathPage() {
       {openMilestoneModal && (
         <MilestoneModal
           milestone={milestones.find((m) => m.id === openMilestoneModal)!}
+          pathTitle={path?.title || ""}
           onClose={() => setOpenMilestoneModal(null)}
           videos={videosByMilestone[openMilestoneModal] || []}
           onDeleteVideo={(vId) => handleDeleteVideo(openMilestoneModal, vId)}

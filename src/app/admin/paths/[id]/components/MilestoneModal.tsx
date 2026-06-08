@@ -1,18 +1,21 @@
 "use client";
 
+import { useState } from "react";
 import { Milestone, VideoContent, MilestoneResource, LearningResource, Quiz } from "../types";
 import VideoSection from "./VideoSection";
 import ResourceSection from "./ResourceSection";
+import QuizSection from "./QuizSection";
+import QuizQuestionsModal from "./QuizQuestionsModal";
 import AddArticleModal from "./AddArticleModal";
 
 interface MilestoneModalProps {
     milestone: Milestone;
+    pathTitle: string;
     onClose: () => void;
     // Video props
     videos: VideoContent[];
     onDeleteVideo: (videoId: string) => void;
-    onVideosExtracted?: (milestoneId: string, videos: VideoContent[]) => void; // Add this
-    /** Refetch videos after repair-order API */
+    onVideosExtracted?: (milestoneId: string, videos: VideoContent[]) => void;
     onReloadVideos?: (milestoneId: string) => Promise<void>;
     newVideo: any;
     setNewVideo: (data: any) => void;
@@ -49,10 +52,11 @@ interface MilestoneModalProps {
 
 export default function MilestoneModal({
     milestone,
+    pathTitle,
     onClose,
     videos,
     onDeleteVideo,
-    onVideosExtracted, // Add this
+    onVideosExtracted,
     onReloadVideos,
     newVideo,
     setNewVideo,
@@ -81,6 +85,8 @@ export default function MilestoneModal({
     onEditMilestone,
     onDeleteMilestone,
 }: MilestoneModalProps) {
+    const [selectedQuizForQuestions, setSelectedQuizForQuestions] = useState<Quiz | null>(null);
+
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl shadow-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
@@ -102,12 +108,14 @@ export default function MilestoneModal({
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex gap-2">
                             <button
+                                type="button"
                                 onClick={() => onEditMilestone(milestone)}
                                 className="text-xs px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
                             >
                                 Edit Milestone
                             </button>
                             <button
+                                type="button"
                                 onClick={() => onDeleteMilestone(milestone.id)}
                                 className="text-xs px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
                             >
@@ -123,7 +131,7 @@ export default function MilestoneModal({
                             onDeleteVideo={onDeleteVideo}
                             onReloadVideos={onReloadVideos}
                             onVideosExtracted={
-                                onVideosExtracted 
+                                onVideosExtracted
                                     ? (extractedVideos) => onVideosExtracted(milestone.id, extractedVideos)
                                     : undefined
                             }
@@ -160,10 +168,28 @@ export default function MilestoneModal({
                             }}
                             onScrapeArticle={() => onScrapeArticle(milestone.id)}
                         />
+
+                        {/* Quiz Section */}
+                        <div className="border-t border-slate-100 pt-6">
+                            <QuizSection
+                                quizzes={quizzes}
+                                onDeleteQuiz={(quizId) => onDeleteQuiz(milestone.id, quizId)}
+                                onManageQuestions={(quiz) => setSelectedQuizForQuestions(quiz)}
+                                newQuiz={newQuiz[milestone.id]}
+                                setNewQuiz={(updater: any) => {
+                                    setNewQuiz((prev: any) => ({
+                                        ...prev,
+                                        [milestone.id]: typeof updater === "function" ? updater(prev[milestone.id] || {}) : updater,
+                                    }));
+                                }}
+                                onAddQuiz={() => onAddQuiz(milestone.id)}
+                            />
+                        </div>
                     </div>
                 </div>
             </div>
 
+            {/* Article Modal */}
             {showAddArticleModal === milestone.id && (
                 <AddArticleModal
                     milestoneId={milestone.id}
@@ -177,6 +203,19 @@ export default function MilestoneModal({
                             [milestone.id]: typeof updater === "function" ? updater(prev[milestone.id] || {}) : updater,
                         }));
                     }}
+                />
+            )}
+
+            {/* Quiz Questions Modal */}
+            {selectedQuizForQuestions && (
+                <QuizQuestionsModal
+                    quiz={selectedQuizForQuestions}
+                    milestoneTitle={milestone.title}
+                    milestoneDescription={milestone.description || undefined}
+                    learningObjectives={milestone.learning_objectives || undefined}
+                    pathTitle={pathTitle}
+                    videos={videos}
+                    onClose={() => setSelectedQuizForQuestions(null)}
                 />
             )}
         </div>
