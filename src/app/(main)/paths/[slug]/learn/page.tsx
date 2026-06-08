@@ -180,8 +180,38 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
         })
     : [];
 
-  // Check and update milestone progress based on actual completion
-  // This will be handled by the LearningInterface component using the milestoneProgress utility
+  // Fetch checkpoint pass status for every milestone in this path.
+  // A milestone is "checkpoint passed" when the user has at least one passing attempt
+  // on any quiz with quiz_type = 'checkpoint' belonging to that milestone.
+  const checkpointPassStatus: Record<string, boolean> = {};
+  if (milestones && milestones.length > 0) {
+    const { data: checkpointQuizzes } = await supabase
+      .from("quizzes")
+      .select("id, milestone_id")
+      .in("milestone_id", milestones.map((m) => m.id))
+      .eq("quiz_type", "checkpoint")
+      .eq("is_active", true);
+
+    if (checkpointQuizzes && checkpointQuizzes.length > 0) {
+      const checkpointQuizIds = checkpointQuizzes.map((q) => q.id);
+      const { data: passedAttempts } = await supabase
+        .from("user_quiz_attempts")
+        .select("quiz_id")
+        .eq("user_id", user.id)
+        .in("quiz_id", checkpointQuizIds)
+        .eq("is_passed", true);
+
+      const passedQuizIds = new Set((passedAttempts || []).map((a) => a.quiz_id));
+      for (const quiz of checkpointQuizzes) {
+        // Keep the most optimistic value (passed) if multiple checkpoints per milestone
+        if (!checkpointPassStatus[quiz.milestone_id]) {
+          checkpointPassStatus[quiz.milestone_id] = passedQuizIds.has(quiz.id);
+        } else if (passedQuizIds.has(quiz.id)) {
+          checkpointPassStatus[quiz.milestone_id] = true;
+        }
+      }
+    }
+  }
 
   // Fetch user profile for content tier (already fetched above, but need budget info)
   const { data: userProfileWithBudget } = await supabase
@@ -237,6 +267,7 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
       milestoneProgress={milestoneProgress}
       userId={user.id}
       userProfile={{ ...userProfileWithBudget, budgetAmount }}
+      checkpointPassStatus={checkpointPassStatus}
     />
   );
 }

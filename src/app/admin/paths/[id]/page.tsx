@@ -17,6 +17,7 @@ import PathDetailsForm from "./components/PathDetailsForm";
 import AddMilestoneModal from "./components/AddMilestoneModal";
 import MilestoneItem from "./components/MilestoneItem";
 import MilestoneModal from "./components/MilestoneModal";
+import PathFinalQuizSection from "./components/PathFinalQuizSection";
 
 function sortVideosForMilestone(raw: VideoContent[]): VideoContent[] {
   return [...raw].sort((a, b) => {
@@ -91,6 +92,7 @@ export default function EditPathPage() {
   const [newVideo, setNewVideo] = useState<Record<string, any>>({});
   const [newResource, setNewResource] = useState<Record<string, any>>({});
   const [newQuiz, setNewQuiz] = useState<Record<string, any>>({});
+  const [pathFinalQuiz, setPathFinalQuiz] = useState<Quiz | null>(null);
 
   const [showAddArticleModal, setShowAddArticleModal] = useState<string | null>(
     null
@@ -137,6 +139,16 @@ export default function EditPathPage() {
             (a.milestone_number || 0) - (b.milestone_number || 0)
         );
         setMilestones(ms);
+
+        // Fetch path-level final quiz (quiz_type = 'final', path_id = pathId, no milestone_id)
+        const pathFinalRes = await fetch(
+          `/api/admin/data?table=quizzes&filterColumn=path_id&filterValue=${encodeURIComponent(pathId)}&limit=1`
+        );
+        if (pathFinalRes.ok) {
+          const pathFinalJson = await pathFinalRes.json();
+          const found = (pathFinalJson.data || []).find((q: Quiz) => q.quiz_type === "final");
+          setPathFinalQuiz(found ?? null);
+        }
 
         // Fetch all learning resources once for linking
         const resourcesAllRes = await fetch(
@@ -818,6 +830,17 @@ export default function EditPathPage() {
             ))
           )}
         </div>
+      </div>
+
+      {/* Path Final Quiz — gates moving to the next path after all milestones are done */}
+      <div className="mt-6">
+        <PathFinalQuizSection
+          pathId={pathId}
+          pathTitle={path.title || ""}
+          quiz={pathFinalQuiz}
+          onQuizCreated={(q) => setPathFinalQuiz(q)}
+          onDeleteQuiz={() => setPathFinalQuiz(null)}
+        />
       </div>
 
       <AddMilestoneModal

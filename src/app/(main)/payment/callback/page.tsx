@@ -25,6 +25,9 @@ export default function PaymentCallbackPage() {
   const [showSlowHint, setShowSlowHint] = useState(false);
 
   const provider = searchParams.get("provider");
+  const paymentType = searchParams.get("type"); // "certification" or null (subscription)
+  const examId = searchParams.get("examId");
+  const planId = searchParams.get("planId");
   const sessionId =
     searchParams.get("session_id") ||
     searchParams.get("sessionId") ||
@@ -60,14 +63,21 @@ export default function PaymentCallbackPage() {
     polling: isArabic ? "جاري التحقق من الدفع..." : "Still confirming with the bank...",
   };
 
-  const redirectToDashboard = () => {
+  const redirectAfterSuccess = () => {
     try {
       sessionStorage.setItem("daleel_payment_completed_at", String(Date.now()));
     } catch {
       /* ignore */
     }
-    router.replace("/dashboard?subscription=activated");
+    if (paymentType === "certification" && planId) {
+      router.replace(`/plans/${planId}?exam=purchased`);
+    } else {
+      router.replace("/dashboard?subscription=activated");
+    }
   };
+
+  // Keep old name as alias so existing code in the effect still works
+  const redirectToDashboard = redirectAfterSuccess;
 
   useEffect(() => {
     const normalizedStatus = (kashierStatus || paymentStatus || "").toUpperCase();
@@ -116,11 +126,16 @@ export default function PaymentCallbackPage() {
         setStatus("pending");
       };
 
+      const verifyEndpoint =
+        paymentType === "certification"
+          ? `/api/certification/verify`
+          : `/api/subscription/verify`;
+
       // Kashier: if redirect URL already says failure, sync DB and stop — no polling (API often stays "pending" on declines).
       if (provider === "kashier") {
         if (callbackQueryIndicatesPaymentFailure(searchParams)) {
           try {
-            await fetch(`/api/subscription/verify?${verifyParams.toString()}`, {
+            await fetch(`${verifyEndpoint}?${verifyParams.toString()}`, {
               method: "GET",
               cache: "no-store",
             });
@@ -148,7 +163,7 @@ export default function PaymentCallbackPage() {
               return;
             }
 
-            const response = await fetch(`/api/subscription/verify?${verifyParams.toString()}`, {
+            const response = await fetch(`${verifyEndpoint}?${verifyParams.toString()}`, {
               method: "GET",
               cache: "no-store",
             });
@@ -234,6 +249,8 @@ export default function PaymentCallbackPage() {
     };
   }, [
     provider,
+    paymentType,
+    planId,
     sessionId,
     merchantOrderId,
     successParam,

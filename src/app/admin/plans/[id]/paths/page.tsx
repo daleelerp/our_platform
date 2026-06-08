@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import toast from "react-hot-toast";
+import CertificationExamSection from "./components/CertificationExamSection";
 
 type Plan = {
   id: string;
@@ -38,6 +39,7 @@ export default function PlanPathsPage() {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [allPaths, setAllPaths] = useState<LearningPath[]>([]);
   const [planPaths, setPlanPaths] = useState<PlanPath[]>([]);
+  const [certExam, setCertExam] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -69,6 +71,15 @@ export default function PlanPathsPage() {
       const planPathsJson = await planPathsRes.json();
       if (planPathsRes.ok && planPathsJson.data) {
         setPlanPaths(planPathsJson.data);
+      }
+
+      // Load certification exam
+      const certRes = await fetch(
+        `/api/admin/data?table=certification_exams&filterColumn=plan_id&filterValue=${planId}`
+      );
+      const certJson = await certRes.json();
+      if (certRes.ok && Array.isArray(certJson.data) && certJson.data.length > 0) {
+        setCertExam(certJson.data[0]);
       }
     } catch (err: any) {
       toast.error("Failed to load data");
@@ -380,6 +391,18 @@ export default function PlanPathsPage() {
           </div>
         )}
       </div>
+
+      {/* Certification Exam */}
+      {plan && (
+        <CertificationExamSection
+          planId={planId}
+          planTitle={plan.display_name_en || plan.name}
+          exam={certExam}
+          onExamCreated={(exam) => setCertExam(exam)}
+          onExamDeleted={() => setCertExam(null)}
+          onExamUpdated={(exam) => setCertExam(exam)}
+        />
+      )}
     </div>
   );
 }

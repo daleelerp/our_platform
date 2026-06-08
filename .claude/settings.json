@@ -3,7 +3,9 @@
     "allow": [
       "Bash(xargs grep -l \"milestone\")",
       "Bash(Get-ChildItem -Path \"e:\\\\Business\\\\Daleel\\\\our_platform\\\\src\\\\app\\\\admin\\\\paths\" -Recurse)",
-      "Bash(Select-Object FullName)"
+      "Bash(Select-Object FullName)",
+      "Bash(node -e \"require\\('@anthropic-ai/sdk'\\); console.log\\('ok'\\)\")",
+      "Bash(npm install *)"
     ]
   }
 }

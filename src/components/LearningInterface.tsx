@@ -12,7 +12,7 @@ import { getContentTierFromBudget, hasAccessToTier, type ContentTier } from "@/u
 import { createClient } from "@/utils/supabase/client";
 import { checkMilestoneCompletion, updateMilestoneProgress, calculatePathProgress } from "@/utils/milestoneProgress";
 import Link from "next/link";
-import { CheckCircleIcon, DocumentTextIcon, PlayIcon } from "@heroicons/react/24/outline";
+import { CheckCircleIcon, DocumentTextIcon, PlayIcon, LockClosedIcon, ExclamationCircleIcon } from "@heroicons/react/24/outline";
 import { LearningResource } from "@/types/learning";
 import { Modal } from "./admin/Modal";
 import {
@@ -94,6 +94,8 @@ type Props = {
   milestoneProgress: any;
   userId: string;
   userProfile: any;
+  /** milestoneId → whether the user has passed that milestone's checkpoint quiz */
+  checkpointPassStatus: Record<string, boolean>;
 };
 
 export function LearningInterface({
@@ -108,6 +110,7 @@ export function LearningInterface({
   milestoneProgress,
   userId,
   userProfile,
+  checkpointPassStatus,
 }: Props) {
   const language = useAppStore((state) => state.language);
   const router = useRouter();
@@ -376,6 +379,37 @@ export function LearningInterface({
     return hasAccessToTier(userTier, quiz.content_tier as ContentTier);
   });
 
+  // Checkpoint quiz for this milestone (shown inline in main content, not just sidebar)
+  const checkpointQuiz = accessibleQuizzes.find((q) => (q as any).quiz_type === "checkpoint") ?? null;
+  // Practice/final quizzes shown in sidebar (everything except the checkpoint)
+  const sidebarQuizzes = accessibleQuizzes.filter((q) => (q as any).quiz_type !== "checkpoint");
+
+  // Derive which milestones are locked.
+  // A milestone is locked when ANY preceding milestone has a checkpoint quiz entry in
+  // checkpointPassStatus that the user has NOT yet passed.
+  const lockedMilestoneIds = useMemo(() => {
+    const locked = new Set<string>();
+    for (let i = 1; i < milestones.length; i++) {
+      const prev = milestones[i - 1];
+      if (prev.id in checkpointPassStatus && !checkpointPassStatus[prev.id]) {
+        for (let j = i; j < milestones.length; j++) {
+          locked.add(milestones[j].id);
+        }
+        break;
+      }
+    }
+    return locked;
+  }, [milestones, checkpointPassStatus]);
+
+  const isCurrentMilestoneLocked = currentMilestone
+    ? lockedMilestoneIds.has(currentMilestone.id)
+    : false;
+
+  // Local state so the checkpoint banner updates immediately when the user passes in-session
+  const [checkpointPassedLocally, setCheckpointPassedLocally] = useState<boolean>(
+    checkpointQuiz ? (checkpointPassStatus[currentMilestone?.id ?? ""] ?? false) : true
+  );
+
   const accessibleResources = filteredResources.filter((resource) => {
     // Resources don't have content_tier field, so all are accessible
     // If content_tier is added later, uncomment below:
@@ -429,7 +463,23 @@ export function LearningInterface({
                 {milestones.map((milestone) => {
                   const isCurrent = milestone.id === currentMilestone.id;
                   const isCompleted = milestone.milestone_number < currentMilestone.milestone_number;
+                  const isLocked = lockedMilestoneIds.has(milestone.id);
                   const milestoneTitle = getText(milestone.title, milestone.title_ar);
+
+                  if (isLocked) {
+                    return (
+                      <div
+                        key={milestone.id}
+                        title={language === "ar" ? "أكمل اختبار المرحلة السابقة لفتح هذه المرحلة" : "Pass the previous checkpoint to unlock"}
+                        className="block p-3 rounded-lg border border-slate-200 bg-slate-50 opacity-60 cursor-not-allowed select-none"
+                      >
+                        <div className="flex items-center gap-2">
+                          <LockClosedIcon className="w-5 h-5 text-slate-400 shrink-0" />
+                          <span className="text-sm text-slate-500">{milestoneTitle}</span>
+                        </div>
+                      </div>
+                    );
+                  }
 
                   return (
                     <Link
@@ -645,14 +695,14 @@ export function LearningInterface({
               </div>
             )}
 
-            {/* Quizzes List */}
-            <div className="bg-white rounded-xl border border-slate-200 p-4">
-              <h3 className="font-semibold text-slate-900 mb-3">
-                {language === "ar" ? "الاختبارات" : "Quizzes"}
-              </h3>
-              {quizzes.length > 0 ? (
+            {/* Practice Quizzes in sidebar (checkpoint quiz shown in main content area) */}
+            {sidebarQuizzes.length > 0 && (
+              <div className="bg-white rounded-xl border border-slate-200 p-4">
+                <h3 className="font-semibold text-slate-900 mb-3">
+                  {language === "ar" ? "اختبارات تدريبية" : "Practice Quizzes"}
+                </h3>
                 <div className="space-y-2">
-                  {accessibleQuizzes.map((quiz) => {
+                  {sidebarQuizzes.map((quiz) => {
                     const isSelected = selectedQuiz?.id === quiz.id;
                     const quizTitle = getText(quiz.title, quiz.title_ar);
 
@@ -681,26 +731,12 @@ export function LearningInterface({
                     );
                   })}
                 </div>
-              ) : (
-                <div className="text-center py-6">
-                  <div className="text-4xl mb-2">📝</div>
-                  <p className="text-sm text-slate-500">
-                    {language === "ar"
-                      ? "لا توجد اختبارات متاحة بعد"
-                      : "No quizzes available yet"}
-                  </p>
-                  <p className="text-xs text-slate-400 mt-1">
-                    {language === "ar"
-                      ? "سيتم إضافة الاختبارات قريباً"
-                      : "Quizzes will be added soon"}
-                  </p>
-                </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           {/* Main Content Area */}
-          <div className="order-1 space-y-6 lg:order-none lg:col-span-3">
+          <div className="order-1 space-y-6 lg:order-0 lg:col-span-3">
             {/* Milestone Header */}
             <div className="bg-white rounded-xl border border-slate-200 p-6">
               <h2 className="text-2xl font-bold text-slate-900 mb-2">{milestoneTitle}</h2>
@@ -724,8 +760,38 @@ export function LearningInterface({
               )}
             </div>
 
+            {/* Locked Milestone Banner — shown when user navigates directly to a locked milestone */}
+            {isCurrentMilestoneLocked && (() => {
+              const prevMilestone = milestones.find(
+                (m) => m.milestone_number === (currentMilestone.milestone_number - 1)
+              );
+              return (
+                <div className="bg-orange-50 rounded-xl border-2 border-orange-200 p-10 text-center">
+                  <LockClosedIcon className="w-12 h-12 text-orange-400 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-slate-900 mb-2">
+                    {language === "ar" ? "هذه المرحلة مقفلة" : "This Milestone is Locked"}
+                  </h3>
+                  <p className="text-slate-600 mb-6">
+                    {language === "ar"
+                      ? "يجب اجتياز اختبار المرحلة السابقة لفتح هذه المرحلة."
+                      : "You need to pass the checkpoint quiz in the previous milestone to unlock this one."}
+                  </p>
+                  {prevMilestone && (
+                    <Link
+                      href={`/paths/${path.slug}/learn?milestone=${prevMilestone.milestone_number}`}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 transition-colors"
+                    >
+                      {language === "ar"
+                        ? `العودة إلى: ${getText(prevMilestone.title, prevMilestone.title_ar)}`
+                        : `Go to: ${getText(prevMilestone.title, prevMilestone.title_ar)}`}
+                    </Link>
+                  )}
+                </div>
+              );
+            })()}
+
             {/* Video Player */}
-            {activeTab === "videos" && selectedVideo && (
+            {!isCurrentMilestoneLocked && activeTab === "videos" && selectedVideo && (
               <div>
                 {hasAccessToTier(
                   userTier,
@@ -791,7 +857,7 @@ export function LearningInterface({
             )}
 
             {/* Empty State - No Video Selected */}
-            {activeTab === "videos" && !selectedVideo && filteredVideos.length === 0 && (
+            {!isCurrentMilestoneLocked && activeTab === "videos" && !selectedVideo && filteredVideos.length === 0 && (
               <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
                 <div className="text-6xl mb-4">🎥</div>
                 <h3 className="text-xl font-semibold text-slate-900 mb-2">
@@ -820,7 +886,7 @@ export function LearningInterface({
             )}
 
             {/* Empty State - No Video Selected but videos exist (filtered out by language) */}
-            {activeTab === "videos" && !selectedVideo && videos.length > 0 && filteredVideos.length === 0 && language === "ar" && (
+            {!isCurrentMilestoneLocked && activeTab === "videos" && !selectedVideo && videos.length > 0 && filteredVideos.length === 0 && language === "ar" && (
               <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
                 <div className="text-4xl mb-4">📹</div>
                 <h3 className="text-lg font-semibold text-slate-900 mb-2">
@@ -833,7 +899,7 @@ export function LearningInterface({
             )}
 
             {/* Empty State - No Video Selected but filtered videos exist */}
-            {activeTab === "videos" && !selectedVideo && filteredVideos.length > 0 && (
+            {!isCurrentMilestoneLocked && activeTab === "videos" && !selectedVideo && filteredVideos.length > 0 && (
               <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
                 <div className="text-4xl mb-4">▶️</div>
                 <h3 className="text-lg font-semibold text-slate-900 mb-2">
@@ -848,7 +914,7 @@ export function LearningInterface({
             )}
 
             {/* Quiz Player */}
-            {activeTab === "quiz" && selectedQuiz && (
+            {!isCurrentMilestoneLocked && activeTab === "quiz" && selectedQuiz && (
               <div>
                 {hasAccessToTier(
                   userTier,
@@ -866,7 +932,10 @@ export function LearningInterface({
                     questions={selectedQuiz.quiz_questions}
                     userId={userId}
                     onComplete={async (score, isPassed) => {
-                      // Progress tracking removed - quiz completion is still tracked by QuizPlayer
+                      if (isPassed && checkpointQuiz && selectedQuiz.id === checkpointQuiz.id) {
+                        setCheckpointPassedLocally(true);
+                      }
+                      await recalculateProgress();
                     }}
                   />
                 ) : (
@@ -880,7 +949,7 @@ export function LearningInterface({
             )}
 
             {/* Resource Viewer - Only show non-article resources here */}
-            {activeTab === "resources" && selectedResource && selectedResource.resource_type !== "article" && (
+            {!isCurrentMilestoneLocked && activeTab === "resources" && selectedResource && selectedResource.resource_type !== "article" && (
               <ResourceViewer
                 resource={selectedResource}
                 userId={userId}
@@ -889,7 +958,7 @@ export function LearningInterface({
             )}
 
             {/* Empty State - No Resource Selected but resources exist */}
-            {activeTab === "resources" && !selectedResource && filteredResources.length > 0 && (
+            {!isCurrentMilestoneLocked && activeTab === "resources" && !selectedResource && filteredResources.length > 0 && (
               <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
                 <div className="text-4xl mb-4">📚</div>
                 <h3 className="text-lg font-semibold text-slate-900 mb-2">
@@ -904,7 +973,7 @@ export function LearningInterface({
             )}
 
             {/* Empty State - No Resources Available */}
-            {activeTab === "resources" && filteredResources.length === 0 && (
+            {!isCurrentMilestoneLocked && activeTab === "resources" && filteredResources.length === 0 && (
               <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
                 <div className="text-6xl mb-4">📚</div>
                 <h3 className="text-xl font-semibold text-slate-900 mb-2">
@@ -919,7 +988,7 @@ export function LearningInterface({
             )}
 
             {/* Empty State - No Quiz Selected */}
-            {activeTab === "quiz" && !selectedQuiz && (
+            {!isCurrentMilestoneLocked && activeTab === "quiz" && !selectedQuiz && (
               <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
                 {quizzes.length === 0 ? (
                   <>
@@ -958,6 +1027,70 @@ export function LearningInterface({
                     </p>
                   </>
                 )}
+              </div>
+            )}
+
+            {/* Checkpoint Quiz Banner — always visible below content (except when already in quiz tab) */}
+            {!isCurrentMilestoneLocked && checkpointQuiz && activeTab !== "quiz" && (
+              <div
+                className={`rounded-xl border-2 p-5 ${
+                  checkpointPassedLocally
+                    ? "border-green-300 bg-green-50"
+                    : "border-amber-300 bg-amber-50"
+                }`}
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl mt-0.5">🎯</span>
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-semibold text-slate-900">
+                          {language === "ar" ? "اختبار نقطة التحقق" : "Milestone Checkpoint"}
+                        </h3>
+                        {checkpointPassedLocally && (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
+                            <CheckCircleIcon className="w-3.5 h-3.5" />
+                            {language === "ar" ? "مجتاز" : "Passed"}
+                          </span>
+                        )}
+                        {!checkpointPassedLocally && (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                            <ExclamationCircleIcon className="w-3.5 h-3.5" />
+                            {language === "ar" ? "مطلوب" : "Required"}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-slate-700 font-medium">
+                        {getText(checkpointQuiz.title, checkpointQuiz.title_ar)}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {checkpointPassedLocally
+                          ? (language === "ar"
+                              ? "أحسنت! يمكنك الانتقال إلى المرحلة التالية."
+                              : "Great work! You can proceed to the next milestone.")
+                          : (language === "ar"
+                              ? `درجة النجاح ${checkpointQuiz.passing_score}% — أكمل هذا الاختبار لفتح المرحلة التالية.`
+                              : `Passing score ${checkpointQuiz.passing_score}% — complete this quiz to unlock the next milestone.`)}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedQuiz(checkpointQuiz);
+                      setActiveTab("quiz");
+                    }}
+                    className={`shrink-0 px-5 py-2.5 rounded-lg font-medium text-sm transition-colors ${
+                      checkpointPassedLocally
+                        ? "bg-green-100 text-green-700 hover:bg-green-200"
+                        : "bg-amber-500 text-white hover:bg-amber-600"
+                    }`}
+                  >
+                    {checkpointPassedLocally
+                      ? (language === "ar" ? "مراجعة الاختبار" : "Review Quiz")
+                      : (language === "ar" ? "ابدأ الاختبار" : "Start Quiz")}
+                  </button>
+                </div>
               </div>
             )}
 

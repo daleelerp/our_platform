@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
+import CertificationCard from "./CertificationCard";
 
 type Props = {
   params: Promise<{ planId: string }>;
@@ -68,6 +69,37 @@ export default async function PlanDetailsPage({ params }: Props) {
       .maybeSingle();
 
     alreadyOwned = !!ownedSubscription;
+  }
+
+  // Certification exam data
+  const { data: certExam } = await supabase
+    .from("certification_exams")
+    .select("id, title, title_ar, price_egp, passing_score, time_limit_minutes, max_attempts")
+    .eq("plan_id", plan.id)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  let certPurchaseStatus: "none" | "pending" | "paid" = "none";
+  let certPassed = false;
+  if (user && certExam) {
+    const { data: purchase } = await supabase
+      .from("user_certification_purchases")
+      .select("status")
+      .eq("user_id", user.id)
+      .eq("exam_id", certExam.id)
+      .maybeSingle();
+    if (purchase?.status === "paid") certPurchaseStatus = "paid";
+    else if (purchase?.status === "pending") certPurchaseStatus = "pending";
+
+    if (certPurchaseStatus === "paid") {
+      const { data: cert } = await supabase
+        .from("certificates")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("exam_id", certExam.id)
+        .maybeSingle();
+      certPassed = !!cert;
+    }
   }
 
   const { data: includedPlanPaths } = await supabase
@@ -260,6 +292,19 @@ export default async function PlanDetailsPage({ params }: Props) {
             </div>
           </section>
         </div>
+
+        {/* Certification Exam Card */}
+        {certExam && (
+          <div className="mt-8">
+            <CertificationCard
+              exam={certExam}
+              planId={plan.id}
+              isSubscribed={hasLiveAccess}
+              purchaseStatus={certPurchaseStatus}
+              hasCertificate={certPassed}
+            />
+          </div>
+        )}
       </div>
     </main>
   );

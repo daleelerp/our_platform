@@ -10,6 +10,7 @@
     "etl:job-roles": "node scripts/job_roles_etl.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.102.0",
     "@heroicons/react": "^2.2.0",
     "@sentry/nextjs": "^10.51.0",
     "@supabase/ssr": "^0.8.0",

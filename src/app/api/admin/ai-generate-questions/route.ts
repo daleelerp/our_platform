@@ -4,6 +4,37 @@ import { getAdminSession } from "@/utils/admin-auth";
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
+// Allow up to 3 minutes so retry waits don't hit Vercel's default 60s timeout
+export const maxDuration = 180;
+
+async function fetchGroqWithRetry(payload: object, maxRetries = 4): Promise<Response> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const res = await fetch(GROQ_API_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${GROQ_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (res.status !== 429) return res;
+
+    // Parse "Please try again in X.Xs" from Groq's error body
+    const errorText = await res.text();
+    const match = errorText.match(/try again in (\d+\.?\d*)s/i);
+    const waitSeconds = match ? Math.ceil(parseFloat(match[1])) + 3 : 40;
+
+    if (attempt < maxRetries) {
+      await new Promise((r) => setTimeout(r, waitSeconds * 1000));
+    } else {
+      // Return a synthetic response with the error on last attempt
+      return new Response(errorText, { status: 429 });
+    }
+  }
+  return new Response(JSON.stringify({ error: "Max retries exceeded" }), { status: 500 });
+}
+
 export async function POST(request: NextRequest) {
   const session = await getAdminSession();
   if (!session) {
@@ -155,32 +186,25 @@ Return ONLY valid JSON, no markdown, no extra text:
   ]
 }`;
 
-    const response = await fetch(GROQ_API_URL, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${GROQ_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        messages: [
-          {
-            role: "system",
-            content: "You are an expert ERP trainer. Generate quiz questions as valid JSON only. No markdown, no explanations outside the JSON.",
-          },
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        temperature: 0.7,
-        max_tokens: 8192,
-        response_format: { type: "json_object" },
-      }),
+    const groqRes = await fetchGroqWithRetry({
+      model: "llama-3.3-70b-versatile",
+      messages: [
+        {
+          role: "system",
+          content: "You are an expert ERP trainer. Generate quiz questions as valid JSON only. No markdown, no explanations outside the JSON.",
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      temperature: 0.7,
+      max_tokens: 6000,
+      response_format: { type: "json_object" },
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
+    if (!groqRes.ok) {
+      const errorText = await groqRes.text();
       console.error("Groq API error:", errorText);
       let groqMessage = "Groq API request failed.";
       try {
@@ -190,7 +214,7 @@ Return ONLY valid JSON, no markdown, no extra text:
       return NextResponse.json({ error: `Groq error: ${groqMessage}` }, { status: 500 });
     }
 
-    const data = await response.json();
+    const data = await groqRes.json();
     const content = data.choices?.[0]?.message?.content;
 
     if (!content) {
