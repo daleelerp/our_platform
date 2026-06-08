@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import PlaylistExtractor from "@/components/admin/PlaylistExtractor";
 import { VideoContent } from "../types";
 
@@ -51,6 +51,22 @@ export default function VideoSection({
   setNewVideo,
   onAddVideo,
 }: VideoSectionProps) {
+  const [activatingId, setActivatingId] = useState<string | null>(null);
+
+  const handleActivateVideo = async (videoId: string) => {
+    setActivatingId(videoId);
+    try {
+      await fetch(`/api/admin/data?table=video_content&id=${encodeURIComponent(videoId)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: true }),
+      });
+      if (onReloadVideos) await onReloadVideos(milestoneId);
+    } finally {
+      setActivatingId(null);
+    }
+  };
+
   const videoGroups = useMemo(() => {
     const slots = new Map<number, VideoContent[]>();
     const sorted = [...videos].sort((a, b) => {
@@ -122,7 +138,7 @@ export default function VideoSection({
                     <img
                       src={v.thumbnail_url}
                       alt={v.title || "Video thumbnail"}
-                      className="w-16 h-9 object-cover rounded flex-shrink-0"
+                      className="w-16 h-9 object-cover rounded shrink-0"
                     />
                   )}
                   <div className="flex-1 min-w-0">
@@ -133,7 +149,7 @@ export default function VideoSection({
                       <div className="font-medium text-slate-800 truncate">
                         {v.title || v.title_ar || "Untitled"}
                       </div>
-                      <span className="text-xs px-2 py-0.5 rounded bg-slate-200 text-slate-600 flex-shrink-0">
+                      <span className="text-xs px-2 py-0.5 rounded bg-slate-200 text-slate-600 shrink-0">
                         {v.primary_language === "ar"
                           ? "AR"
                           : v.primary_language === "en"
@@ -141,8 +157,13 @@ export default function VideoSection({
                           : "Mixed"}
                       </span>
                       {v.duration_seconds && (
-                        <span className="text-xs text-slate-500 flex-shrink-0">
+                        <span className="text-xs text-slate-500 shrink-0">
                           {formatDuration(v.duration_seconds)}
+                        </span>
+                      )}
+                      {v.is_active === false && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-600 font-medium shrink-0">
+                          Hidden from users
                         </span>
                       )}
                     </div>
@@ -156,20 +177,32 @@ export default function VideoSection({
                         {v.youtube_url}
                       </a>
                       {v.channel_name && (
-                        <span className="text-xs text-slate-400 flex-shrink-0">
+                        <span className="text-xs text-slate-400 shrink-0">
                           • {v.channel_name}
                         </span>
                       )}
                     </div>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => onDeleteVideo(v.id)}
-                  className="ml-4 text-xs text-red-600 hover:text-red-700 flex-shrink-0"
-                >
-                  Delete
-                </button>
+                <div className="ml-4 flex items-center gap-2 shrink-0">
+                  {v.is_active === false && (
+                    <button
+                      type="button"
+                      disabled={activatingId === v.id}
+                      onClick={() => handleActivateVideo(v.id)}
+                      className="text-xs px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                    >
+                      {activatingId === v.id ? "Activating…" : "Activate"}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => onDeleteVideo(v.id)}
+                    className="text-xs text-red-600 hover:text-red-700"
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
                   ))}
                 </div>
