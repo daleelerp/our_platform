@@ -5,7 +5,11 @@
       "Bash(Get-ChildItem -Path \"e:\\\\Business\\\\Daleel\\\\our_platform\\\\src\\\\app\\\\admin\\\\paths\" -Recurse)",
       "Bash(Select-Object FullName)",
       "Bash(node -e \"require\\('@anthropic-ai/sdk'\\); console.log\\('ok'\\)\")",
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "Bash(mkdir -p \"e:/Business/Daleel/our_platform/src/app/admin/certificate-settings\" \"e:/Business/Daleel/our_platform/src/app/certificate/[certificateNumber]\" \"e:/Business/Daleel/our_platform/src/app/api/user/certificate-name\")"
+    ],
+    "additionalDirectories": [
+      "e:\\Business\\Daleel\\our_platform\\src\\app\\certificate"
     ]
   }
 }
