@@ -82,6 +82,14 @@ type VideoProgress = {
   last_watched_position: number;
 };
 
+type CertExamInfo = {
+  examId: string;
+  title: string;
+  priceEgp: number;
+  planId: string;
+  purchaseStatus: string | null;
+};
+
 type Props = {
   path: Path;
   milestones: Milestone[];
@@ -97,6 +105,7 @@ type Props = {
   userProfile: any;
   /** milestoneId → whether the user has passed that milestone's checkpoint quiz */
   checkpointPassStatus: Record<string, boolean>;
+  certExamInfo?: CertExamInfo | null;
 };
 
 export function LearningInterface({
@@ -113,6 +122,7 @@ export function LearningInterface({
   userId,
   userProfile,
   checkpointPassStatus,
+  certExamInfo = null,
 }: Props) {
   const language = useAppStore((state) => state.language);
   const router = useRouter();
@@ -180,6 +190,7 @@ export function LearningInterface({
   );
   const [isArticleModalOpen, setIsArticleModalOpen] = useState(false);
   const [articleToShow, setArticleToShow] = useState<LearningResource | null>(null);
+  const [buyingCert, setBuyingCert] = useState(false);
 
   // Update selected resource when resources change or when switching to resources tab
   useEffect(() => {
@@ -386,6 +397,12 @@ export function LearningInterface({
   // Practice/final quizzes shown in sidebar (everything except the checkpoint)
   const sidebarQuizzes = accessibleQuizzes.filter((q) => (q as any).quiz_type !== "checkpoint");
 
+  // Final quiz is unlocked when ALL checkpoint quizzes across the path have been passed
+  const allCheckpointsPassed =
+    Object.keys(checkpointPassStatus).length === 0 ||
+    Object.values(checkpointPassStatus).every(Boolean);
+  const finalQuizUnlocked = !!finalQuiz && allCheckpointsPassed;
+
   // Derive which milestones are locked.
   // A milestone is locked when ANY preceding milestone has a checkpoint quiz entry in
   // checkpointPassStatus that the user has NOT yet passed.
@@ -518,34 +535,40 @@ export function LearningInterface({
                   );
                 })}
 
-                {/* Path Final Quiz entry at the bottom of the milestones list */}
+                {/* Path Final Quiz — links to dedicated full page */}
                 {finalQuiz && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedQuiz(finalQuiz);
-                      setActiveTab("quiz");
-                    }}
-                    className={`w-full text-left p-3 rounded-lg border transition-colors ${
-                      selectedQuiz?.id === finalQuiz.id
-                        ? "border-blue-500 bg-blue-50"
-                        : "border-blue-200 bg-blue-50/50 hover:border-blue-400"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-base">🏁</span>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-medium truncate ${
-                          selectedQuiz?.id === finalQuiz.id ? "text-blue-900" : "text-blue-700"
-                        }`}>
-                          {getText(finalQuiz.title, finalQuiz.title_ar) || (language === "ar" ? "الاختبار النهائي" : "Final Assessment")}
-                        </p>
-                        <p className="text-xs text-slate-400 mt-0.5">
-                          {language === "ar" ? "اختبار نهاية المسار" : "End-of-path quiz"}
-                        </p>
+                  finalQuizUnlocked ? (
+                    <Link
+                      href={`/paths/${path.slug}/final-quiz`}
+                      className="block p-3 rounded-lg border border-teal-300 bg-gradient-to-r from-teal-50 to-blue-50 hover:border-teal-400 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-base">🏁</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-teal-800 truncate">
+                            {getText(finalQuiz.title, finalQuiz.title_ar) || (language === "ar" ? "الاختبار النهائي" : "Final Assessment")}
+                          </p>
+                          <p className="text-xs text-teal-600 mt-0.5">
+                            {language === "ar" ? "ابدأ الاختبار النهائي ←" : "Start final exam →"}
+                          </p>
+                        </div>
+                      </div>
+                    </Link>
+                  ) : (
+                    <div className="p-3 rounded-lg border border-slate-200 bg-slate-50 opacity-70 cursor-not-allowed select-none">
+                      <div className="flex items-center gap-2">
+                        <LockClosedIcon className="w-4 h-4 text-slate-400 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-500 truncate">
+                            {language === "ar" ? "الاختبار النهائي" : "Final Assessment"}
+                          </p>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            {language === "ar" ? "أكمل جميع نقاط التحقق أولاً" : "Pass all checkpoints first"}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </button>
+                  )
                 )}
               </div>
             </div>
@@ -764,6 +787,69 @@ export function LearningInterface({
                   })}
                 </div>
               </div>
+            )}
+
+            {/* Certification Exam card */}
+            {certExamInfo && certExamInfo.purchaseStatus !== "paid" && (
+              <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl border border-amber-200 p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">🏆</span>
+                  <p className="text-xs font-semibold text-amber-800 uppercase tracking-wider">
+                    {language === "ar" ? "احصل على شهادة" : "Get Certified"}
+                  </p>
+                </div>
+                <p className="text-sm font-semibold text-slate-900 mb-1 leading-tight">
+                  {certExamInfo.title}
+                </p>
+                <p className="text-xs text-slate-500 mb-3">
+                  {language === "ar"
+                    ? "اجتز امتحان الاعتماد الرسمي وأضف الشهادة لملفك الشخصي."
+                    : "Pass the official certification exam and add it to your LinkedIn profile."}
+                </p>
+                <button
+                  type="button"
+                  disabled={buyingCert}
+                  onClick={async () => {
+                    setBuyingCert(true);
+                    try {
+                      const res = await fetch("/api/certification/checkout", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ examId: certExamInfo.examId }),
+                      });
+                      const json = await res.json();
+                      if (json.redirectUrl) window.location.href = json.redirectUrl;
+                      else if (json.sessionUrl) window.location.href = json.sessionUrl;
+                    } finally {
+                      setBuyingCert(false);
+                    }
+                  }}
+                  className="w-full py-2 bg-amber-500 text-white rounded-lg text-sm font-semibold hover:bg-amber-600 disabled:opacity-50 transition-colors"
+                >
+                  {buyingCert
+                    ? (language === "ar" ? "جاري التحميل…" : "Loading…")
+                    : certExamInfo.priceEgp > 0
+                    ? `${language === "ar" ? "احصل عليها" : "Get Certified"} — ${Number(certExamInfo.priceEgp).toLocaleString()} EGP`
+                    : (language === "ar" ? "ابدأ الاختبار مجاناً" : "Start Exam — Free")}
+                </button>
+              </div>
+            )}
+
+            {certExamInfo?.purchaseStatus === "paid" && (
+              <Link
+                href={`/plans/${certExamInfo.planId}`}
+                className="block bg-emerald-50 border border-emerald-200 rounded-xl p-4 hover:border-emerald-300 transition-colors"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-lg">🏆</span>
+                  <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wider">
+                    {language === "ar" ? "الاختبار الرسمي متاح" : "Certification Unlocked"}
+                  </p>
+                </div>
+                <p className="text-sm text-emerald-800 font-medium">
+                  {language === "ar" ? "ابدأ اختبار الاعتماد →" : "Start certification exam →"}
+                </p>
+              </Link>
             )}
           </div>
 

@@ -30,6 +30,7 @@ export async function GET(
       { data: quizAttempts },
       { data: payments },
       { data: learningAnalytics },
+      { data: certPurchases },
     ] = await Promise.all([
       // Auth user data - query auth.users directly via RPC or service role
       (async () => {
@@ -100,6 +101,11 @@ export async function GET(
         .select("*")
         .eq("user_id", userId)
         .maybeSingle(),
+      // Certification purchases
+      supabase
+        .from("user_certification_purchases")
+        .select("id, exam_id, status, amount_paid_egp, created_at")
+        .eq("user_id", userId),
     ]);
 
     // Try to get email from auth.users table using service role
@@ -120,6 +126,18 @@ export async function GET(
       console.log("Could not fetch auth user data:", err);
     }
 
+    // Fetch certification exam for the user's subscribed plan
+    let certExam: any = null;
+    if ((subscription as any)?.plan_id) {
+      const { data: exam } = await supabase
+        .from("certification_exams")
+        .select("id, title, price_egp, passing_score, time_limit_minutes, max_attempts")
+        .eq("plan_id", (subscription as any).plan_id)
+        .eq("is_active", true)
+        .maybeSingle();
+      certExam = exam;
+    }
+
     return NextResponse.json({
       data: {
         email,
@@ -133,6 +151,8 @@ export async function GET(
         quizAttempts: quizAttempts || [],
         payments: payments || [],
         learningAnalytics,
+        certExam,
+        certPurchases: certPurchases || [],
       },
     });
   } catch (error: any) {

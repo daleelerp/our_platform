@@ -225,6 +225,45 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
     }
   }
 
+  // Fetch certification exam for the user's active subscription plan
+  let certExamInfo: { examId: string; title: string; priceEgp: number; planId: string; purchaseStatus: string | null } | null = null;
+  {
+    const { data: userSub } = await supabase
+      .from("user_subscriptions")
+      .select("plan_id")
+      .eq("user_id", user.id)
+      .in("status", ["active", "trial"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (userSub?.plan_id) {
+      const { data: certExam } = await supabase
+        .from("certification_exams")
+        .select("id, title, price_egp, plan_id")
+        .eq("plan_id", userSub.plan_id)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (certExam) {
+        const { data: certPurchase } = await supabase
+          .from("user_certification_purchases")
+          .select("status")
+          .eq("user_id", user.id)
+          .eq("exam_id", certExam.id)
+          .maybeSingle();
+
+        certExamInfo = {
+          examId: certExam.id,
+          title: certExam.title || "Certification Exam",
+          priceEgp: certExam.price_egp ?? 0,
+          planId: certExam.plan_id,
+          purchaseStatus: certPurchase?.status ?? null,
+        };
+      }
+    }
+  }
+
   // Fetch user profile for content tier (already fetched above, but need budget info)
   const { data: userProfileWithBudget } = await supabase
     .from("user_profiles")
@@ -281,6 +320,7 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
       userId={user.id}
       userProfile={{ ...userProfileWithBudget, budgetAmount }}
       checkpointPassStatus={checkpointPassStatus}
+      certExamInfo={certExamInfo}
     />
   );
 }
