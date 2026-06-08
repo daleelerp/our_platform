@@ -607,8 +607,6 @@ export function LearningInterface({
                             // For other resource types, use the normal flow
                             setSelectedResource(resource);
                             setActiveTab("resources");
-                            setSelectedVideo(null);
-                            setSelectedQuiz(null);
                           }
                         }}
                         className={`w-full text-left p-3 rounded-lg border transition-colors ${isSelected
@@ -664,8 +662,6 @@ export function LearningInterface({
                         onClick={() => {
                           setSelectedQuiz(quiz);
                           setActiveTab("quiz");
-                          setSelectedVideo(null);
-                          setSelectedResource(null);
                         }}
                         className={`w-full text-left p-3 rounded-lg border transition-colors ${isSelected
                             ? "border-teal-500 bg-teal-50"

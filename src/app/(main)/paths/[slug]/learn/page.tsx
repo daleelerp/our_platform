@@ -111,17 +111,15 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
     milestones?.find((m) => m.milestone_number === currentMilestoneNumber) ||
     milestones?.[0];
 
-  // Fetch videos: prefer ordered query; on any failure retry without ORDER BY (avoids broken migrations / schema drift).
+  // Fetch videos for the current milestone.
+  // RLS policy "video_content_enrolled_or_subscribed_read" controls access.
   let videos: any[] = [];
   if (currentMilestone) {
-    // Include rows where is_active is true OR null (legacy imports sometimes omit the flag)
-    const activeClause = "is_active.eq.true,is_active.is.null";
-
     const primary = await supabase
       .from("video_content")
       .select("*")
       .eq("milestone_id", currentMilestone.id)
-      .or(activeClause)
+      .neq("is_active", false)
       .order("video_order", { ascending: true })
       .limit(500);
 
@@ -131,7 +129,7 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
         .from("video_content")
         .select("*")
         .eq("milestone_id", currentMilestone.id)
-        .or(activeClause)
+        .neq("is_active", false)
         .limit(500);
       videos = fallback.data ?? [];
     } else {
