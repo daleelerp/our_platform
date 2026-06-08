@@ -151,6 +151,18 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
         .eq("is_active", true)
     : { data: null };
 
+  // Fetch path-level final quiz (milestone_id is null, path_id is set)
+  const { data: finalQuizData } = await supabase
+    .from("quizzes")
+    .select(`
+      *,
+      quiz_questions (*)
+    `)
+    .eq("path_id", path.id)
+    .eq("quiz_type", "final")
+    .eq("is_active", true)
+    .maybeSingle();
+
   // Fetch resources for current milestone
   const { data: milestoneResources } = currentMilestone
     ? await supabase
@@ -261,6 +273,7 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
       currentMilestone={currentMilestone}
       videos={videos}
       quizzes={quizzes || []}
+      finalQuiz={finalQuizData || null}
       resources={resources}
       enrollment={enrollment}
       videoProgress={videoProgress || []}

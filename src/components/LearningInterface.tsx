@@ -88,6 +88,7 @@ type Props = {
   currentMilestone: Milestone | null;
   videos: Video[];
   quizzes: Quiz[];
+  finalQuiz?: Quiz | null;
   resources: LearningResource[];
   enrollment: Enrollment;
   videoProgress: VideoProgress[];
@@ -104,6 +105,7 @@ export function LearningInterface({
   currentMilestone,
   videos,
   quizzes,
+  finalQuiz = null,
   resources,
   enrollment,
   videoProgress,
@@ -515,6 +517,36 @@ export function LearningInterface({
                     </Link>
                   );
                 })}
+
+                {/* Path Final Quiz entry at the bottom of the milestones list */}
+                {finalQuiz && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedQuiz(finalQuiz);
+                      setActiveTab("quiz");
+                    }}
+                    className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                      selectedQuiz?.id === finalQuiz.id
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-blue-200 bg-blue-50/50 hover:border-blue-400"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">🏁</span>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-medium truncate ${
+                          selectedQuiz?.id === finalQuiz.id ? "text-blue-900" : "text-blue-700"
+                        }`}>
+                          {getText(finalQuiz.title, finalQuiz.title_ar) || (language === "ar" ? "الاختبار النهائي" : "Final Assessment")}
+                        </p>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          {language === "ar" ? "اختبار نهاية المسار" : "End-of-path quiz"}
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -914,7 +946,7 @@ export function LearningInterface({
             )}
 
             {/* Quiz Player */}
-            {!isCurrentMilestoneLocked && activeTab === "quiz" && selectedQuiz && (
+            {(!isCurrentMilestoneLocked || (finalQuiz && selectedQuiz?.id === finalQuiz.id)) && activeTab === "quiz" && selectedQuiz && (
               <div>
                 {hasAccessToTier(
                   userTier,
