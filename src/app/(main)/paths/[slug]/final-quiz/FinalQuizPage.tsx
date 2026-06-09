@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import Image from "next/image";
+import logo from "../../../../../public/Logos/2.svg";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -37,6 +38,8 @@ type Question = {
 
 type Milestone = { id: string; milestone_number: number; title: string; title_ar: string | null };
 
+type CertExam = { id: string; title: string; priceEgp: number; planId: string };
+
 type Props = {
   path: Path;
   quiz: Quiz;
@@ -45,6 +48,8 @@ type Props = {
   isLocked: boolean;
   unpassedMilestones: Milestone[];
   previousAttempts: number;
+  certExam?: CertExam | null;
+  hasPurchasedCert?: boolean;
 };
 
 type Phase = "overview" | "taking" | "submitted";
@@ -70,7 +75,7 @@ function LockedGate({ path, unpassedMilestones }: { path: Path; unpassedMileston
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center gap-3">
         <Link href="/" className="shrink-0">
-          <Image src="/logo.svg" alt="Daleel" width={32} height={32} className="rounded-lg" />
+          <Image src={logo} alt="Daleel" width={32} height={32} className="rounded-lg" />
         </Link>
         <Link href={`/paths/${path.slug}/learn`} className="ml-2 inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-teal-700 transition-colors">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -118,6 +123,144 @@ function LockedGate({ path, unpassedMilestones }: { path: Path; unpassedMileston
   );
 }
 
+// ─── Certification Gate (payment required) ────────────────────────────────────
+
+function CertificationGate({ path, certExam }: { path: Path; certExam: CertExam }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handlePurchase = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/certification/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ examId: certExam.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to create checkout session");
+      if (data.redirectUrl) { window.location.href = data.redirectUrl; return; }
+      if (data.sessionUrl) { window.location.href = data.sessionUrl; return; }
+      throw new Error("No payment URL returned");
+    } catch (err: any) {
+      setError(err.message);
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-linear-to-br from-slate-900 via-teal-950 to-slate-900 flex flex-col">
+      <header className="px-6 py-4 flex items-center gap-4 border-b border-white/10">
+        <Link href="/" className="shrink-0">
+          <Image src={logo} alt="Daleel" width={32} height={32} className="rounded-lg opacity-90" />
+        </Link>
+        <div className="w-px h-5 bg-white/20" />
+        <Link href={`/paths/${path.slug}/learn`} className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors text-sm">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          {path.title}
+        </Link>
+      </header>
+
+      <div className="flex-1 flex items-center justify-center px-4 py-10">
+        <div className="max-w-lg w-full">
+          <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
+            <div className="h-1.5 bg-linear-to-r from-teal-500 via-teal-400 to-emerald-400" />
+
+            <div className="p-8">
+              {/* Header */}
+              <div className="flex items-center gap-4 mb-7">
+                <div className="w-14 h-14 bg-linear-to-br from-teal-500 to-teal-600 rounded-2xl flex items-center justify-center shadow-lg shadow-teal-200">
+                  <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-teal-600 uppercase tracking-widest mb-0.5">Certification Exam</p>
+                  <h1 className="text-xl font-bold text-slate-900 leading-tight">{certExam.title}</h1>
+                </div>
+              </div>
+
+              {/* What you get */}
+              <div className="bg-teal-50 border border-teal-100 rounded-xl p-4 mb-6">
+                <p className="text-xs font-bold text-teal-700 uppercase tracking-widest mb-3">What you get</p>
+                <ul className="space-y-2.5">
+                  {[
+                    "Official digital certificate (PDF)",
+                    "LinkedIn shareable badge",
+                    "Verified proof of knowledge",
+                    "Daleel-certified status",
+                  ].map((item) => (
+                    <li key={item} className="flex items-center gap-2.5 text-sm text-teal-800">
+                      <svg className="w-4 h-4 text-teal-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                      </svg>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Price */}
+              <div className="flex items-center justify-between mb-6 px-1">
+                <span className="text-sm text-slate-500 font-medium">Exam price</span>
+                <div className="text-right">
+                  <span className="text-3xl font-black text-slate-900">{certExam.priceEgp.toLocaleString()}</span>
+                  <span className="text-sm text-slate-500 ml-1">EGP</span>
+                </div>
+              </div>
+
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4 text-sm text-red-700">
+                  {error}
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={handlePurchase}
+                disabled={loading}
+                className="w-full py-4 bg-teal-600 text-white rounded-xl font-bold text-base hover:bg-teal-700 transition-all shadow-lg shadow-teal-200 active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {loading ? (
+                  <>
+                    <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Redirecting to payment…
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                    </svg>
+                    Purchase Certification — {certExam.priceEgp.toLocaleString()} EGP
+                  </>
+                )}
+              </button>
+
+              <p className="text-center text-xs text-slate-400 mt-3">
+                Secure payment via Kashier · Powered by Visa &amp; Mastercard
+              </p>
+            </div>
+          </div>
+
+          <p className="text-center text-slate-500 text-xs mt-4">
+            Already purchased?{" "}
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="text-teal-400 hover:text-teal-300 underline"
+            >
+              Refresh to unlock
+            </button>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Overview Screen ──────────────────────────────────────────────────────────
 
 function QuizOverview({
@@ -141,7 +284,7 @@ function QuizOverview({
       {/* Top bar */}
       <header className="px-6 py-4 flex items-center gap-4 border-b border-white/10">
         <Link href="/" className="shrink-0">
-          <Image src="/logo.svg" alt="Daleel" width={32} height={32} className="rounded-lg opacity-90" />
+          <Image src={logo} alt="Daleel" width={32} height={32} className="rounded-lg opacity-90" />
         </Link>
         <div className="w-px h-5 bg-white/20" />
         <Link href={`/paths/${path.slug}/learn`} className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors text-sm">
@@ -290,7 +433,7 @@ function ResultsScreen({
       {/* Top bar */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-20 px-6 py-3.5 flex items-center justify-between">
         <Link href="/" className="shrink-0">
-          <Image src="/logo.svg" alt="Daleel" width={28} height={28} className="rounded-lg" />
+          <Image src={logo} alt="Daleel" width={28} height={28} className="rounded-lg" />
         </Link>
         <span className="text-sm font-semibold text-slate-700">{quiz.title}</span>
         <Link
@@ -433,7 +576,7 @@ function ResultsScreen({
 
 // ─── Main Quiz Taking UI ──────────────────────────────────────────────────────
 
-export default function FinalQuizPage({ path, quiz, questions, userId, isLocked, unpassedMilestones, previousAttempts }: Props) {
+export default function FinalQuizPage({ path, quiz, questions, userId, isLocked, unpassedMilestones, previousAttempts, certExam, hasPurchasedCert }: Props) {
   const [phase, setPhase] = useState<Phase>("overview");
   const [shuffledQuestions, setShuffledQuestions] = useState<Question[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
@@ -529,6 +672,9 @@ export default function FinalQuizPage({ path, quiz, questions, userId, isLocked,
   // ── Conditional render gates (all hooks are above this line) ─────────────
   if (isLocked) return <LockedGate path={path} unpassedMilestones={unpassedMilestones} />;
 
+  // If a cert exam exists and the user hasn't purchased it, show the payment gate
+  if (certExam && !hasPurchasedCert) return <CertificationGate path={path} certExam={certExam} />;
+
   if (results) {
     return (
       <ResultsScreen
@@ -585,7 +731,7 @@ export default function FinalQuizPage({ path, quiz, questions, userId, isLocked,
       <div className="bg-white border-b border-slate-200 sticky top-0 z-30 px-4 py-3">
         <div className="max-w-7xl mx-auto flex items-center gap-4">
           <Link href="/" className="shrink-0">
-            <Image src="/logo.svg" alt="Daleel" width={28} height={28} className="rounded-lg" />
+            <Image src={logo} alt="Daleel" width={28} height={28} className="rounded-lg" />
           </Link>
 
           <Link

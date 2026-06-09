@@ -35,6 +35,7 @@ type QuizPlayerProps = {
   questions: QuizQuestion[];
   userId: string;
   onComplete?: (score: number, isPassed: boolean) => void;
+  onContinue?: () => void;
 };
 
 type UserAnswer = {
@@ -44,7 +45,7 @@ type UserAnswer = {
   pointsEarned: number;
 };
 
-export function QuizPlayer({ quiz, questions, userId, onComplete }: QuizPlayerProps) {
+export function QuizPlayer({ quiz, questions, userId, onComplete, onContinue }: QuizPlayerProps) {
   const language = useAppStore((state) => state.language);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string | string[]>>({});
@@ -231,12 +232,24 @@ export function QuizPlayer({ quiz, questions, userId, onComplete }: QuizPlayerPr
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
+  const handleRetake = useCallback(() => {
+    setResults(null);
+    setCurrentQuestionIndex(0);
+    setAnswers({});
+    setMarkedForReview(new Set());
+    setIsSubmitted(false);
+    setTimeRemaining(quiz.time_limit_minutes ? quiz.time_limit_minutes * 60 : null);
+    setAttemptNumber((n) => n + 1);
+  }, [quiz.time_limit_minutes]);
+
   if (results) {
     return (
       <QuizResults
         results={results}
         quiz={quiz}
         showCorrectAnswers={quiz.show_correct_answers}
+        onContinue={results.isPassed ? onContinue : undefined}
+        onRetake={handleRetake}
       />
     );
   }
@@ -281,12 +294,11 @@ export function QuizPlayer({ quiz, questions, userId, onComplete }: QuizPlayerPr
 
       {/* Progress Bar */}
       <div className="mb-6">
-        <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300"
-            style={{ width: `${((currentQuestionIndex + 1) / shuffledQuestions.length) * 100}%` }}
-          />
-        </div>
+        <progress
+          value={currentQuestionIndex + 1}
+          max={shuffledQuestions.length}
+          className="w-full h-2 rounded-full [&::-webkit-progress-bar]:bg-slate-200 [&::-webkit-progress-bar]:rounded-full [&::-webkit-progress-value]:bg-teal-500 [&::-webkit-progress-value]:rounded-full [&::-moz-progress-bar]:bg-teal-500"
+        />
       </div>
 
       {/* Question */}
@@ -389,10 +401,11 @@ export function QuizPlayer({ quiz, questions, userId, onComplete }: QuizPlayerPr
               ].map((option) => (
                 <button
                   key={option.id}
+                  type="button"
                   onClick={() => handleAnswerChange(currentQuestion.id, option.id)}
                   className={`p-4 border-2 rounded-lg font-medium transition-colors ${
                     currentAnswer === option.id
-                      ? "border-blue-500 bg-blue-50 text-blue-700"
+                      ? "border-teal-500 bg-teal-50 text-teal-700"
                       : "border-slate-200 hover:border-slate-300"
                   }`}
                 >
@@ -418,10 +431,11 @@ export function QuizPlayer({ quiz, questions, userId, onComplete }: QuizPlayerPr
       <div className="flex items-center justify-between pt-4 border-t border-slate-200">
         <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={() => toggleMarkForReview(currentQuestion.id)}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               isMarkedForReview
-                ? "bg-yellow-100 text-yellow-700"
+                ? "bg-amber-100 text-amber-700"
                 : "bg-slate-100 text-slate-700 hover:bg-slate-200"
             }`}
           >
@@ -431,6 +445,7 @@ export function QuizPlayer({ quiz, questions, userId, onComplete }: QuizPlayerPr
 
         <div className="flex items-center gap-3">
           <button
+            type="button"
             onClick={handlePrevious}
             disabled={currentQuestionIndex === 0}
             className="px-4 py-2 border border-slate-300 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50"
@@ -439,15 +454,17 @@ export function QuizPlayer({ quiz, questions, userId, onComplete }: QuizPlayerPr
           </button>
           {currentQuestionIndex < shuffledQuestions.length - 1 ? (
             <button
+              type="button"
               onClick={handleNext}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
+              className="px-4 py-2 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700"
             >
               {language === "ar" ? "التالي" : "Next"}
             </button>
           ) : (
             <button
+              type="button"
               onClick={handleSubmit}
-              className="px-6 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700"
+              className="px-6 py-2 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700"
             >
               {language === "ar" ? "إرسال الاختبار" : "Submit Quiz"}
             </button>

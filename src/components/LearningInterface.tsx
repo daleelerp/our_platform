@@ -1052,9 +1052,16 @@ export function LearningInterface({
                     onComplete={async (score, isPassed) => {
                       if (isPassed && checkpointQuiz && selectedQuiz.id === checkpointQuiz.id) {
                         setCheckpointPassedLocally(true);
+                        // Re-run server component so checkpointPassStatus refreshes and milestones unlock
+                        router.refresh();
                       }
                       await recalculateProgress();
                     }}
+                    onContinue={
+                      checkpointQuiz && selectedQuiz.id === checkpointQuiz.id
+                        ? () => { router.refresh(); setSelectedQuiz(null); }
+                        : undefined
+                    }
                   />
                 ) : (
                   <LockedContent

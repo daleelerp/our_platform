@@ -103,6 +103,39 @@ export default async function PathFinalQuizRoute({ params }: Props) {
     .eq("user_id", user.id)
     .eq("quiz_id", quiz.id);
 
+  // Certification exam gate — check if user's plan has a cert exam and if they purchased it
+  let certExam: { id: string; title: string; priceEgp: number; planId: string } | null = null;
+  let hasPurchasedCert = false;
+
+  const { data: userSub } = await supabase
+    .from("user_subscriptions")
+    .select("plan_id")
+    .eq("user_id", user.id)
+    .in("status", ["active", "trial"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (userSub?.plan_id) {
+    const { data: exam } = await supabase
+      .from("certification_exams")
+      .select("id, title, price_egp, plan_id")
+      .eq("plan_id", userSub.plan_id)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (exam) {
+      certExam = { id: exam.id, title: exam.title ?? "Certification Exam", priceEgp: exam.price_egp ?? 0, planId: exam.plan_id };
+      const { data: purchase } = await supabase
+        .from("user_certification_purchases")
+        .select("status")
+        .eq("user_id", user.id)
+        .eq("exam_id", exam.id)
+        .maybeSingle();
+      hasPurchasedCert = purchase?.status === "paid";
+    }
+  }
+
   return (
     <FinalQuizPage
       path={{ id: path.id, title: path.title, title_ar: path.title_ar, slug: path.slug }}
@@ -122,6 +155,8 @@ export default async function PathFinalQuizRoute({ params }: Props) {
       isLocked={unpassedMilestones.length > 0}
       unpassedMilestones={unpassedMilestones}
       previousAttempts={attemptCount ?? 0}
+      certExam={certExam}
+      hasPurchasedCert={hasPurchasedCert}
     />
   );
 }

@@ -31,9 +31,11 @@ type QuizResultsProps = {
     show_correct_answers: boolean;
   };
   showCorrectAnswers: boolean;
+  onContinue?: () => void;
+  onRetake?: () => void;
 };
 
-export function QuizResults({ results, quiz, showCorrectAnswers }: QuizResultsProps) {
+export function QuizResults({ results, quiz, showCorrectAnswers, onContinue, onRetake }: QuizResultsProps) {
   const language = useAppStore((state) => state.language);
 
   const correctCount = results.userAnswers.filter((a) => a.isCorrect).length;
@@ -125,9 +127,9 @@ export function QuizResults({ results, quiz, showCorrectAnswers }: QuizResultsPr
                 >
                   <div className="flex items-start gap-3 mb-2">
                     {isCorrect ? (
-                      <CheckCircleIcon className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+                      <CheckCircleIcon className="w-5 h-5 text-green-600 mt-0.5 shrink-0" />
                     ) : (
-                      <XCircleIcon className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+                      <XCircleIcon className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
                     )}
                     <div className="flex-1">
                       <p className="font-medium text-slate-900 mb-2">
@@ -201,11 +203,11 @@ export function QuizResults({ results, quiz, showCorrectAnswers }: QuizResultsPr
 
       {/* Recommendations */}
       {!results.isPassed && (
-        <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <h4 className="font-semibold text-blue-800 mb-2">
+        <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
+          <h4 className="font-semibold text-amber-800 mb-2">
             {language === "ar" ? "التوصيات" : "Recommendations"}
           </h4>
-          <p className="text-sm text-blue-700">
+          <p className="text-sm text-amber-700">
             {language === "ar"
               ? "نوصي بمراجعة المواد المتعلقة بالأسئلة التي أخطأت فيها قبل إعادة المحاولة."
               : "We recommend reviewing the materials related to the questions you got wrong before retaking the quiz."}
@@ -215,15 +217,35 @@ export function QuizResults({ results, quiz, showCorrectAnswers }: QuizResultsPr
 
       {/* Actions */}
       <div className="mt-6 flex gap-3">
+        {results.isPassed && onContinue ? (
+          <button
+            type="button"
+            onClick={onContinue}
+            className="flex-1 px-6 py-3 bg-teal-600 text-white rounded-lg font-semibold hover:bg-teal-700 transition-colors flex items-center justify-center gap-2"
+          >
+            {language === "ar" ? "تابع التعلم ←" : "Continue Learning →"}
+          </button>
+        ) : onRetake ? (
+          <button
+            type="button"
+            onClick={onRetake}
+            className="flex-1 px-6 py-3 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 transition-colors"
+          >
+            {language === "ar" ? "إعادة المحاولة" : "Try Again"}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="flex-1 px-6 py-3 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 transition-colors"
+          >
+            {language === "ar" ? "إعادة المحاولة" : "Try Again"}
+          </button>
+        )}
         <button
-          onClick={() => window.location.reload()}
-          className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
-        >
-          {language === "ar" ? "إعادة المحاولة" : "Retake Quiz"}
-        </button>
-        <button
-          onClick={() => (window.location.href = "/dashboard")}
-          className="flex-1 px-6 py-3 border border-slate-300 rounded-lg font-medium hover:bg-slate-50"
+          type="button"
+          onClick={() => { window.location.href = "/dashboard"; }}
+          className="flex-1 px-6 py-3 border border-slate-300 rounded-lg font-medium hover:bg-slate-50 transition-colors"
         >
           {language === "ar" ? "العودة للوحة التحكم" : "Back to Dashboard"}
         </button>
