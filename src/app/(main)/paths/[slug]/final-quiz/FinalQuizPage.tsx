@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import Image from "next/image";
-import logo from "../../../../../public/Logos/2.svg";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -75,7 +74,7 @@ function LockedGate({ path, unpassedMilestones }: { path: Path; unpassedMileston
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center gap-3">
         <Link href="/" className="shrink-0">
-          <Image src={logo} alt="Daleel" width={32} height={32} className="rounded-lg" />
+          <Image src="/Logos/2.svg" alt="Daleel" width={32} height={32} className="rounded-lg" />
         </Link>
         <Link href={`/paths/${path.slug}/learn`} className="ml-2 inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-teal-700 transition-colors">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -153,7 +152,7 @@ function CertificationGate({ path, certExam }: { path: Path; certExam: CertExam 
     <div className="min-h-screen bg-linear-to-br from-slate-900 via-teal-950 to-slate-900 flex flex-col">
       <header className="px-6 py-4 flex items-center gap-4 border-b border-white/10">
         <Link href="/" className="shrink-0">
-          <Image src={logo} alt="Daleel" width={32} height={32} className="rounded-lg opacity-90" />
+          <Image src="/Logos/2.svg" alt="Daleel" width={32} height={32} className="rounded-lg opacity-90" />
         </Link>
         <div className="w-px h-5 bg-white/20" />
         <Link href={`/paths/${path.slug}/learn`} className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors text-sm">
@@ -284,7 +283,7 @@ function QuizOverview({
       {/* Top bar */}
       <header className="px-6 py-4 flex items-center gap-4 border-b border-white/10">
         <Link href="/" className="shrink-0">
-          <Image src={logo} alt="Daleel" width={32} height={32} className="rounded-lg opacity-90" />
+          <Image src="/Logos/2.svg" alt="Daleel" width={32} height={32} className="rounded-lg opacity-90" />
         </Link>
         <div className="w-px h-5 bg-white/20" />
         <Link href={`/paths/${path.slug}/learn`} className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors text-sm">
@@ -433,7 +432,7 @@ function ResultsScreen({
       {/* Top bar */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-20 px-6 py-3.5 flex items-center justify-between">
         <Link href="/" className="shrink-0">
-          <Image src={logo} alt="Daleel" width={28} height={28} className="rounded-lg" />
+          <Image src="/Logos/2.svg" alt="Daleel" width={28} height={28} className="rounded-lg" />
         </Link>
         <span className="text-sm font-semibold text-slate-700">{quiz.title}</span>
         <Link
@@ -731,7 +730,7 @@ export default function FinalQuizPage({ path, quiz, questions, userId, isLocked,
       <div className="bg-white border-b border-slate-200 sticky top-0 z-30 px-4 py-3">
         <div className="max-w-7xl mx-auto flex items-center gap-4">
           <Link href="/" className="shrink-0">
-            <Image src={logo} alt="Daleel" width={28} height={28} className="rounded-lg" />
+            <Image src="/Logos/2.svg" alt="Daleel" width={28} height={28} className="rounded-lg" />
           </Link>
 
           <Link
