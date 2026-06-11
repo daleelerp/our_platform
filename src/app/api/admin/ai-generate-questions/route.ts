@@ -14,6 +14,10 @@ function isDailyLimit(errorText: string): boolean {
   return errorText.includes("tokens per day") || errorText.includes("TPD");
 }
 
+function isOversizedRequest(errorText: string): boolean {
+  return errorText.includes("Request too large") || errorText.includes("reduce your message size");
+}
+
 async function fetchGroqWithRetry(payload: object, maxRetries = 4): Promise<Response> {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     const res = await fetch(GROQ_API_URL, {
@@ -29,8 +33,8 @@ async function fetchGroqWithRetry(payload: object, maxRetries = 4): Promise<Resp
 
     const errorText = await res.text();
 
-    // Daily limit — no point waiting hours, fail immediately so caller can try fallback
-    if (isDailyLimit(errorText)) {
+    // Daily limit or oversized request — fail immediately, no retry will help
+    if (isDailyLimit(errorText) || isOversizedRequest(errorText)) {
       return new Response(errorText, { status: 429 });
     }
 
@@ -60,11 +64,14 @@ async function callGroq(messages: object[], temperature: number, max_tokens: num
   if (res.status === 429 && model === PRIMARY_MODEL) {
     const errText = await res.clone().text();
     if (isDailyLimit(errText)) {
+      // 8B model has a 6000 TPM (total tokens) limit.
+      // Cap max_tokens so prompt (~2000) + output stays under 6000.
+      const fallbackMaxTokens = Math.min(max_tokens, 3800);
       return fetchGroqWithRetry({
         model: FALLBACK_MODEL,
         messages,
         temperature,
-        max_tokens,
+        max_tokens: fallbackMaxTokens,
         response_format: { type: "json_object" },
       });
     }
@@ -255,6 +262,8 @@ Return ONLY valid JSON, no markdown, no extra text:
       let groqMessage = "Groq API request failed.";
       if (isDailyLimit(errorText)) {
         groqMessage = "Daily token limit reached on all available models. Please try again tomorrow or upgrade your Groq plan at console.groq.com/settings/billing.";
+      } else if (isOversizedRequest(errorText)) {
+        groqMessage = "Prompt is too large for the fallback model. Try shortening the plan content in the textarea before generating.";
       } else {
         try {
           const errJson = JSON.parse(errorText);
