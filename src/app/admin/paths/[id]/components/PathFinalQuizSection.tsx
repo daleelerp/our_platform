@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Quiz } from "../types";
 import QuizQuestionsModal from "./QuizQuestionsModal";
 
@@ -22,6 +22,15 @@ export default function PathFinalQuizSection({
     const [creating, setCreating] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [questionsModal, setQuestionsModal] = useState<Quiz | null>(null);
+    const [questionCount, setQuestionCount] = useState<number | null>(null);
+
+    useEffect(() => {
+        if (!quiz?.id) { setQuestionCount(null); return; }
+        fetch(`/api/admin/data?table=quiz_questions&filterColumn=quiz_id&filterValue=${encodeURIComponent(quiz.id)}&limit=200`)
+            .then((r) => r.json())
+            .then((j) => setQuestionCount(Array.isArray(j.data) ? j.data.length : null))
+            .catch(() => setQuestionCount(null));
+    }, [quiz?.id, questionsModal]); // re-fetches after modal closes so count stays current
 
     const handleSetUp = async () => {
         setCreating(true);
@@ -109,6 +118,12 @@ export default function PathFinalQuizSection({
                                 {quiz.time_limit_minutes ? ` · ${quiz.time_limit_minutes} min` : " · No time limit"}
                                 {quiz.max_attempts ? ` · max ${quiz.max_attempts} attempts` : ""}
                             </div>
+                            {questionCount !== null && (
+                                <div className={`mt-1 font-medium ${questionCount < 20 ? "text-orange-600" : "text-emerald-600"}`}>
+                                    {questionCount} question{questionCount !== 1 ? "s" : ""}
+                                    {questionCount < 20 && " — add more via Manage Questions"}
+                                </div>
+                            )}
                         </div>
                         <div className="flex items-center gap-2 shrink-0 ml-3">
                             <button
