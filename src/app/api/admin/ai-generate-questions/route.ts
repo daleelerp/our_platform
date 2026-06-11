@@ -64,6 +64,8 @@ export async function POST(request: NextRequest) {
 
     const mcqCount = Math.max(count - 2, 1);
 
+    const erpSystem = pathTitle || "ERP";
+
     const conceptualKeywords = ["what is", "introduction", "overview", "basics", "fundamentals", "getting started", "ما هو", "مقدمة", "نظرة عامة", "أساسيات"];
     const milestoneKey = milestoneTitle.toLowerCase();
     const isConceptual = conceptualKeywords.some((kw) => milestoneKey.includes(kw));
@@ -72,34 +74,34 @@ export async function POST(request: NextRequest) {
       ? `This is a CONCEPTUAL / INTRODUCTORY milestone. Questions must test understanding of what the system is, its modules, architecture, and purpose — not hands-on navigation or configuration.
 
 ✅ REQUIRED question types for this level:
-- Definition: "What does ERP stand for and what is its primary purpose?"
-- Module identification: "Which Oracle Fusion module is responsible for managing supplier invoices?"
-- Architecture: "Oracle Fusion Applications are built on which technology stack?"
-- Scope: "Which of the following business processes does Oracle Fusion Financials cover?"
-- Comparison: "What is the key difference between Oracle EBS and Oracle Fusion?"
-- Business value: "A company with 10 subsidiaries in 5 countries would use Oracle Fusion's ___ feature to manage intercompany transactions."
-- Terminology: "In Oracle ERP, a 'Legal Entity' refers to..."
+- Definition: "What does ERP stand for and what is its primary purpose in ${erpSystem}?"
+- Module identification: "Which ${erpSystem} module is responsible for managing supplier invoices?"
+- Architecture: "Which technology stack or platform is ${erpSystem} built on?"
+- Scope: "Which of the following business processes does ${erpSystem} cover?"
+- Comparison: "What is the key difference between ${erpSystem} and a traditional ERP system?"
+- Business value: "A company with 10 subsidiaries in 5 countries would use ${erpSystem}'s ___ feature to manage intercompany transactions."
+- Terminology: "In ${erpSystem}, a 'Legal Entity' refers to..."
 
 ❌ FORBIDDEN for this level:
-- Step-by-step navigation questions ("navigate to Payables > Invoices")
+- Step-by-step navigation questions ("navigate to Module > Submenu")
 - Error-handling scenarios requiring system experience
 - Profile option names or technical configuration details`
-      : `This is a FUNCTIONAL / PRACTICAL milestone. Questions must test real hands-on knowledge of daily Oracle ERP work.
+      : `This is a FUNCTIONAL / PRACTICAL milestone. Questions must test real hands-on knowledge of daily ${erpSystem} work.
 
 ✅ REQUIRED question types for this level:
-- Navigation: "In Oracle Fusion, to approve a supplier invoice, you navigate to: ..."
-- Process sequences: "What is the correct order of steps to close an AP period in Oracle Fusion?"
-- Error handling: "A user receives error 'Funds Check Failed' during PO approval. The FIRST step to resolve this is..."
-- Configuration: "Which profile option in Oracle EBS controls the number of periods open at once?"
-- Data entry rules: "When creating a new supplier site in Oracle Fusion Procurement, which fields are MANDATORY?"
-- Matching rules: "In 3-way matching, Oracle compares the PO, the receipt, and the ___"
-- Role-based: "Which Oracle Fusion responsibility allows a user to run the 'Create Accounting' program?"
-- Real scenarios: "An invoice was matched to a PO but the quantity received is less than invoiced. Oracle will..."
+- Navigation: "In ${erpSystem}, to approve a supplier invoice, you navigate to: ..."
+- Process sequences: "What is the correct order of steps to close an AP period in ${erpSystem}?"
+- Error handling: "A user receives an error during PO approval in ${erpSystem}. The FIRST step to resolve this is..."
+- Configuration: "Which setting in ${erpSystem} controls the number of open accounting periods?"
+- Data entry rules: "When creating a new supplier site in ${erpSystem}, which fields are MANDATORY?"
+- Matching rules: "In 3-way matching, ${erpSystem} compares the PO, the receipt, and the ___"
+- Role-based: "Which ${erpSystem} role or responsibility allows a user to run the accounting process?"
+- Real scenarios: "An invoice was matched to a PO but the quantity received is less than invoiced. ${erpSystem} will..."
 
 ❌ FORBIDDEN for this level:
-- "Why would a company choose Oracle?" — too vague, not practical
+- "Why would a company choose ${erpSystem}?" — too vague, not practical
 - "What is the benefit of ERP?" — theoretical, not useful
-- Any question a non-Oracle person could guess from common sense`;
+- Any question a person unfamiliar with ${erpSystem} could guess from common sense`;
 
     const videoLines = Array.isArray(videos) && videos.length > 0
       ? videos.map((v: any, i: number) => {
@@ -121,10 +123,10 @@ export async function POST(request: NextRequest) {
         }).join("\n")
       : null;
 
-    const prompt = `You are a senior Oracle ERP consultant and trainer with 15+ years of hands-on implementation experience. You are creating exam questions for professionals who work or want to work with Oracle ERP systems daily.
+    const prompt = `You are a senior ${erpSystem} consultant and trainer with 15+ years of hands-on implementation experience. You are creating exam questions for professionals who work or want to work with ${erpSystem} daily.
 
 Context:
-- ERP System / Learning Path: ${pathTitle || "Oracle ERP"}
+- ERP System / Learning Path: ${erpSystem}
 - Milestone Topic: ${milestoneTitle}
 - Description: ${milestoneDescription || "No description provided"}
 - Learning Objectives: ${Array.isArray(learningObjectives) && learningObjectives.length > 0 ? learningObjectives.join(", ") : "Not specified"}
@@ -191,7 +193,7 @@ Return ONLY valid JSON, no markdown, no extra text:
       messages: [
         {
           role: "system",
-          content: "You are an expert ERP trainer. Generate quiz questions as valid JSON only. No markdown, no explanations outside the JSON.",
+          content: `You are an expert ${erpSystem} trainer. Generate quiz questions as valid JSON only. No markdown, no explanations outside the JSON.`,
         },
         {
           role: "user",
