@@ -7,6 +7,13 @@ const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 // Allow up to 3 minutes so retry waits don't hit Vercel's default 60s timeout
 export const maxDuration = 180;
 
+const PRIMARY_MODEL = "llama-3.3-70b-versatile";
+const FALLBACK_MODEL = "llama-3.1-8b-instant"; // 500k TPD vs 100k on primary
+
+function isDailyLimit(errorText: string): boolean {
+  return errorText.includes("tokens per day") || errorText.includes("TPD");
+}
+
 async function fetchGroqWithRetry(payload: object, maxRetries = 4): Promise<Response> {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     const res = await fetch(GROQ_API_URL, {
@@ -20,19 +27,50 @@ async function fetchGroqWithRetry(payload: object, maxRetries = 4): Promise<Resp
 
     if (res.status !== 429) return res;
 
-    // Parse "Please try again in X.Xs" from Groq's error body
     const errorText = await res.text();
+
+    // Daily limit — no point waiting hours, fail immediately so caller can try fallback
+    if (isDailyLimit(errorText)) {
+      return new Response(errorText, { status: 429 });
+    }
+
+    // Per-minute limit — parse wait time and retry
     const match = errorText.match(/try again in (\d+\.?\d*)s/i);
     const waitSeconds = match ? Math.ceil(parseFloat(match[1])) + 3 : 40;
 
     if (attempt < maxRetries) {
       await new Promise((r) => setTimeout(r, waitSeconds * 1000));
     } else {
-      // Return a synthetic response with the error on last attempt
       return new Response(errorText, { status: 429 });
     }
   }
   return new Response(JSON.stringify({ error: "Max retries exceeded" }), { status: 500 });
+}
+
+async function callGroq(messages: object[], temperature: number, max_tokens: number, model: string): Promise<Response> {
+  const res = await fetchGroqWithRetry({
+    model,
+    messages,
+    temperature,
+    max_tokens,
+    response_format: { type: "json_object" },
+  });
+
+  // If daily limit on primary model, retry with fallback
+  if (res.status === 429 && model === PRIMARY_MODEL) {
+    const errText = await res.clone().text();
+    if (isDailyLimit(errText)) {
+      return fetchGroqWithRetry({
+        model: FALLBACK_MODEL,
+        messages,
+        temperature,
+        max_tokens,
+        response_format: { type: "json_object" },
+      });
+    }
+  }
+
+  return res;
 }
 
 export async function POST(request: NextRequest) {
@@ -198,31 +236,31 @@ Return ONLY valid JSON, no markdown, no extra text:
   ]
 }`;
 
-    const groqRes = await fetchGroqWithRetry({
-      model: "llama-3.3-70b-versatile",
-      messages: [
-        {
-          role: "system",
-          content: `You are an expert ${erpSystem} trainer. Generate quiz questions as valid JSON only. No markdown, no explanations outside the JSON.`,
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      temperature: 0.7,
-      max_tokens: 6000,
-      response_format: { type: "json_object" },
-    });
+    const messages = [
+      {
+        role: "system",
+        content: `You are an expert ${erpSystem} trainer. Generate quiz questions as valid JSON only. No markdown, no explanations outside the JSON.`,
+      },
+      {
+        role: "user",
+        content: prompt,
+      },
+    ];
+
+    const groqRes = await callGroq(messages, 0.7, 6000, PRIMARY_MODEL);
 
     if (!groqRes.ok) {
       const errorText = await groqRes.text();
       console.error("Groq API error:", errorText);
       let groqMessage = "Groq API request failed.";
-      try {
-        const errJson = JSON.parse(errorText);
-        groqMessage = errJson?.error?.message || groqMessage;
-      } catch {}
+      if (isDailyLimit(errorText)) {
+        groqMessage = "Daily token limit reached on all available models. Please try again tomorrow or upgrade your Groq plan at console.groq.com/settings/billing.";
+      } else {
+        try {
+          const errJson = JSON.parse(errorText);
+          groqMessage = errJson?.error?.message || groqMessage;
+        } catch {}
+      }
       return NextResponse.json({ error: `Groq error: ${groqMessage}` }, { status: 500 });
     }
 
