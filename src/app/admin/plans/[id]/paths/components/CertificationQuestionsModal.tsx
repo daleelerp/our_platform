@@ -58,8 +58,45 @@ const TYPE_COLOR: Record<string, string> = {
 const COUNT_OPTIONS = [10, 15, 20, 25, 30, 40, 50, 75, 100];
 const BATCH_SIZE = 15;
 
+async function fetchPlanContent(planId: string): Promise<string> {
+  try {
+    const planPathsRes = await fetch(`/api/admin/data?table=plan_paths&plan_id=${encodeURIComponent(planId)}`);
+    const planPathsJson = await planPathsRes.json();
+    const planPaths: any[] = (planPathsJson.data || []).sort(
+      (a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0)
+    );
+
+    if (planPaths.length === 0) return "";
+
+    const lines: string[] = [];
+    for (const pp of planPaths) {
+      const pathTitle = pp.learning_paths?.title || "Untitled Path";
+      lines.push(`Path: ${pathTitle}`);
+
+      const msRes = await fetch(
+        `/api/admin/data?table=path_milestones&filterColumn=learning_path_id&filterValue=${encodeURIComponent(pp.learning_path_id)}&limit=50`
+      );
+      const msJson = await msRes.json();
+      const milestones: any[] = (msJson.data || []).sort(
+        (a: any, b: any) => (a.milestone_number || 0) - (b.milestone_number || 0)
+      );
+      for (const m of milestones) {
+        const obj = Array.isArray(m.learning_objectives) && m.learning_objectives.length
+          ? ` [${m.learning_objectives.slice(0, 3).join("; ")}]`
+          : "";
+        lines.push(`  - Milestone ${m.milestone_number || ""}: ${m.title}${obj}`);
+      }
+    }
+    return lines.join("\n");
+  } catch {
+    return "";
+  }
+}
+
 async function generateBatch(
+  systemName: string,
   planTitle: string,
+  planContent: string,
   count: number,
   batchLabel: string
 ): Promise<GeneratedQuestion[]> {
@@ -68,9 +105,10 @@ async function generateBatch(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       milestoneTitle: `${planTitle} — Certification Exam (${batchLabel})`,
-      milestoneDescription:
-        "Comprehensive certification assessment covering all learning paths in this plan",
+      milestoneDescription: "Comprehensive certification assessment covering all learning paths in this plan",
       pathTitle: planTitle,
+      systemName,
+      planContent,
       videos: [],
       count,
     }),
@@ -90,10 +128,21 @@ export default function CertificationQuestionsModal({ exam, planTitle, onClose }
   const [genCount, setGenCount] = useState(30);
   const [generatedQueue, setGeneratedQueue] = useState<GeneratedQuestion[]>([]);
   const [activeTab, setActiveTab] = useState<"existing" | "generate">("existing");
+  const [systemName, setSystemName] = useState(planTitle);
+  const [planContent, setPlanContent] = useState("");
+  const [loadingContent, setLoadingContent] = useState(false);
 
   useEffect(() => {
     loadQuestions();
+    loadContent();
   }, [exam.id]);
+
+  const loadContent = async () => {
+    setLoadingContent(true);
+    const content = await fetchPlanContent(exam.plan_id);
+    setPlanContent(content);
+    setLoadingContent(false);
+  };
 
   const loadQuestions = async () => {
     setLoading(true);
@@ -123,9 +172,8 @@ export default function CertificationQuestionsModal({ exam, planTitle, onClose }
 
       if (genCount <= BATCH_SIZE) {
         setGenProgress(`Generating ${genCount} questions…`);
-        all = await generateBatch(planTitle, genCount, "Part 1");
+        all = await generateBatch(systemName, planTitle, planContent, genCount, "Part 1");
       } else {
-        // Split into batches of up to BATCH_SIZE
         const batches: number[] = [];
         let remaining = genCount;
         while (remaining > 0) {
@@ -134,7 +182,7 @@ export default function CertificationQuestionsModal({ exam, planTitle, onClose }
         }
         for (let i = 0; i < batches.length; i++) {
           setGenProgress(`Generating batch ${i + 1} of ${batches.length} (${batches[i]} questions)…`);
-          const batch = await generateBatch(planTitle, batches[i], `Part ${i + 1} of ${batches.length}`);
+          const batch = await generateBatch(systemName, planTitle, planContent, batches[i], `Part ${i + 1} of ${batches.length}`);
           all = [...all, ...batch];
         }
       }
@@ -350,12 +398,41 @@ export default function CertificationQuestionsModal({ exam, planTitle, onClose }
           {activeTab === "generate" && (
             <div>
               {generatedQueue.length === 0 ? (
-                <div className="space-y-4">
-                  <div className="p-4 bg-violet-50 border border-violet-200 rounded-xl">
-                    <p className="text-xs text-violet-700 mb-3 font-medium">
-                      AI will generate comprehensive certification questions covering the entire {planTitle} plan.
-                      Large counts (40+) are split into multiple batches automatically.
+                <div className="space-y-3">
+                  {/* System name */}
+                  <div>
+                    <label className="text-[11px] font-medium text-slate-600 block mb-1">
+                      ERP System Name{" "}
+                      <span className="text-slate-400 font-normal">(used in question text — use the short product name)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={systemName}
+                      onChange={(e) => setSystemName(e.target.value)}
+                      placeholder="e.g. ERPNext, Oracle Fusion, SAP S/4HANA"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    />
+                  </div>
+
+                  {/* Plan content preview */}
+                  <div>
+                    <label className="text-[11px] font-medium text-slate-600 block mb-1">
+                      Plan content used as context{" "}
+                      {loadingContent && <span className="text-violet-500">(loading…)</span>}
+                    </label>
+                    <textarea
+                      value={planContent}
+                      onChange={(e) => setPlanContent(e.target.value)}
+                      rows={6}
+                      placeholder="Paths and milestones will be loaded automatically…"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-violet-500 resize-y"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      AI uses this to generate questions relevant to what was actually taught. You can edit it.
                     </p>
+                  </div>
+
+                  <div className="p-4 bg-violet-50 border border-violet-200 rounded-xl">
                     <div className="flex items-end gap-3 flex-wrap">
                       <div>
                         <label htmlFor="cert-gen-count" className="text-[11px] text-slate-500 block mb-1">
@@ -377,7 +454,7 @@ export default function CertificationQuestionsModal({ exam, planTitle, onClose }
                       <button
                         type="button"
                         onClick={handleGenerate}
-                        disabled={generating}
+                        disabled={generating || loadingContent}
                         className="text-xs px-5 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-50 flex items-center gap-2"
                       >
                         {generating ? (

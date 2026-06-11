@@ -54,6 +54,8 @@ export async function POST(request: NextRequest) {
       milestoneDescription,
       learningObjectives,
       pathTitle,
+      systemName,
+      planContent,
       videos,
       count = 8,
     } = await request.json();
@@ -64,7 +66,9 @@ export async function POST(request: NextRequest) {
 
     const mcqCount = Math.max(count - 2, 1);
 
-    const erpSystem = pathTitle || "ERP";
+    // systemName is the short product name (e.g. "ERPNext", "Oracle Fusion") set by the admin.
+    // pathTitle is the full course name — never use it verbatim in questions.
+    const erpSystem = systemName || pathTitle || "ERP";
 
     const conceptualKeywords = ["what is", "introduction", "overview", "basics", "fundamentals", "getting started", "ما هو", "مقدمة", "نظرة عامة", "أساسيات"];
     const milestoneKey = milestoneTitle.toLowerCase();
@@ -123,14 +127,20 @@ export async function POST(request: NextRequest) {
         }).join("\n")
       : null;
 
-    const prompt = `You are a senior ${erpSystem} consultant and trainer with 15+ years of hands-on implementation experience. You are creating exam questions for professionals who work or want to work with ${erpSystem} daily.
+    const planContentBlock = planContent && planContent.trim()
+      ? `\nPlan content (paths and milestones actually taught — questions MUST be based on these topics):\n${planContent.trim()}\n\nCRITICAL: Every question must test knowledge of the specific topics listed above. Do not generate generic questions that could apply to any ERP system.`
+      : "";
+
+    const prompt = `You are a senior ${erpSystem} consultant and trainer with 15+ years of hands-on implementation experience. You are creating certification exam questions for professionals who work or want to work with ${erpSystem} daily.
+
+IMPORTANT — System name rule: Always refer to the ERP system as "${erpSystem}" in questions. NEVER use a full course title or any variation like "(Technical)" in question text.
 
 Context:
-- ERP System / Learning Path: ${erpSystem}
-- Milestone Topic: ${milestoneTitle}
+- ERP System: ${erpSystem}
+- Exam: ${milestoneTitle}
 - Description: ${milestoneDescription || "No description provided"}
 - Learning Objectives: ${Array.isArray(learningObjectives) && learningObjectives.length > 0 ? learningObjectives.join(", ") : "Not specified"}
-${videoLines ? `\nVideos in this milestone (questions MUST align with these specific videos and their content):\n${videoLines}\n\nIMPORTANT: Base your questions on the actual topics, tools, and concepts covered in these videos. Do not invent topics that are not represented in the video list above.` : ""}
+${videoLines ? `\nVideos in this milestone (questions MUST align with these specific videos and their content):\n${videoLines}\n\nIMPORTANT: Base your questions on the actual topics, tools, and concepts covered in these videos. Do not invent topics that are not represented in the video list above.` : ""}${planContentBlock}
 
 Generate exactly ${count} quiz questions with this distribution:
 - ${mcqCount} multiple_choice questions (4 options each, ids: "a", "b", "c", "d")
