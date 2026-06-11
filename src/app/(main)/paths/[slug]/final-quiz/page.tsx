@@ -96,7 +96,8 @@ export default async function PathFinalQuizRoute({ params }: Props) {
     .eq("user_id", user.id)
     .eq("quiz_id", quiz.id);
 
-  // Certification exam gate — check if user's plan has a cert exam and if they purchased it
+  // Certification exam gate — find via path → plan_paths → certification_exams
+  // (does NOT require an active subscription; works for all enrolled users)
   let certExam: {
     id: string;
     title: string;
@@ -108,20 +109,19 @@ export default async function PathFinalQuizRoute({ params }: Props) {
   } | null = null;
   let hasPurchasedCert = false;
 
-  const { data: userSub } = await supabase
-    .from("user_subscriptions")
+  const { data: planPathRows } = await supabase
+    .from("plan_paths")
     .select("plan_id")
-    .eq("user_id", user.id)
-    .in("status", ["active", "trial"])
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .eq("learning_path_id", path.id)
+    .limit(5);
 
-  if (userSub?.plan_id) {
+  const planIds = (planPathRows || []).map((p: any) => p.plan_id).filter(Boolean);
+
+  if (planIds.length > 0) {
     const { data: exam } = await supabase
       .from("certification_exams")
       .select("id, title, price_egp, plan_id, passing_score, time_limit_minutes, max_attempts")
-      .eq("plan_id", userSub.plan_id)
+      .in("plan_id", planIds)
       .eq("is_active", true)
       .maybeSingle();
 

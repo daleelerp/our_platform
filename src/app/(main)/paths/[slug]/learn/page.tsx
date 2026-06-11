@@ -225,23 +225,22 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
     }
   }
 
-  // Fetch certification exam for the user's active subscription plan
+  // Fetch certification exam via path → plan_paths (no subscription dependency)
   let certExamInfo: { examId: string; title: string; priceEgp: number; planId: string; purchaseStatus: string | null } | null = null;
   {
-    const { data: userSub } = await supabase
-      .from("user_subscriptions")
+    const { data: planPathRows } = await supabase
+      .from("plan_paths")
       .select("plan_id")
-      .eq("user_id", user.id)
-      .in("status", ["active", "trial"])
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .eq("learning_path_id", path.id)
+      .limit(5);
 
-    if (userSub?.plan_id) {
+    const planIds = (planPathRows || []).map((p: any) => p.plan_id).filter(Boolean);
+
+    if (planIds.length > 0) {
       const { data: certExam } = await supabase
         .from("certification_exams")
         .select("id, title, price_egp, plan_id")
-        .eq("plan_id", userSub.plan_id)
+        .in("plan_id", planIds)
         .eq("is_active", true)
         .maybeSingle();
 
