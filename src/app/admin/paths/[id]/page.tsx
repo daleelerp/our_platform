@@ -18,6 +18,7 @@ import AddMilestoneModal from "./components/AddMilestoneModal";
 import MilestoneItem from "./components/MilestoneItem";
 import MilestoneModal from "./components/MilestoneModal";
 import PathFinalQuizSection from "./components/PathFinalQuizSection";
+import CertificationExamSection from "../../plans/[id]/paths/components/CertificationExamSection";
 
 function sortVideosForMilestone(raw: VideoContent[]): VideoContent[] {
   return [...raw].sort((a, b) => {
@@ -93,6 +94,8 @@ export default function EditPathPage() {
   const [newResource, setNewResource] = useState<Record<string, any>>({});
   const [newQuiz, setNewQuiz] = useState<Record<string, any>>({});
   const [pathFinalQuiz, setPathFinalQuiz] = useState<Quiz | null>(null);
+  const [plansForPath, setPlansForPath] = useState<Array<{ planId: string; planName: string }>>([]);
+  const [certExamByPlanId, setCertExamByPlanId] = useState<Record<string, any>>({});
 
   const [showAddArticleModal, setShowAddArticleModal] = useState<string | null>(
     null
@@ -149,6 +152,35 @@ export default function EditPathPage() {
           const pathFinalJson = await pathFinalRes.json();
           const found = (pathFinalJson.data || []).find((q: Quiz) => q.quiz_type === "final");
           setPathFinalQuiz(found ?? null);
+        }
+
+        // Fetch which plans this path belongs to, and their cert exams
+        const planPathsRes2 = await fetch(
+          `/api/admin/data?table=plan_paths&filterColumn=learning_path_id&filterValue=${encodeURIComponent(pathId)}&limit=10`
+        );
+        if (planPathsRes2.ok) {
+          const planPathsJson2 = await planPathsRes2.json();
+          const planRows: Array<{ plan_id: string }> = planPathsJson2.data || [];
+          const plansArr: Array<{ planId: string; planName: string }> = [];
+          const certMap: Record<string, any> = {};
+          await Promise.all(
+            planRows.map(async (pp) => {
+              const [planRes, certRes] = await Promise.all([
+                fetch(`/api/admin/data?table=subscription_plans&id=${encodeURIComponent(pp.plan_id)}`),
+                fetch(`/api/admin/data?table=certification_exams&filterColumn=plan_id&filterValue=${encodeURIComponent(pp.plan_id)}`),
+              ]);
+              const planJson = await planRes.json();
+              const certJson = await certRes.json();
+              if (planRes.ok && planJson.data) {
+                plansArr.push({ planId: pp.plan_id, planName: planJson.data.display_name_en || planJson.data.name });
+              }
+              certMap[pp.plan_id] = certRes.ok && Array.isArray(certJson.data) && certJson.data.length > 0
+                ? certJson.data[0]
+                : null;
+            })
+          );
+          setPlansForPath(plansArr);
+          setCertExamByPlanId(certMap);
         }
 
         // Fetch all learning resources once for linking
@@ -844,6 +876,35 @@ export default function EditPathPage() {
           allVideos={Object.values(videosByMilestone).flat()}
         />
       </div>
+
+      {/* Certification Exam — one section per plan this path belongs to */}
+      {plansForPath.length > 0 ? (
+        plansForPath.map(({ planId, planName }) => (
+          <div key={planId} className="mt-6">
+            <CertificationExamSection
+              planId={planId}
+              planTitle={planName}
+              exam={certExamByPlanId[planId] ?? null}
+              onExamCreated={(exam) => setCertExamByPlanId((prev) => ({ ...prev, [planId]: exam }))}
+              onExamDeleted={() => setCertExamByPlanId((prev) => ({ ...prev, [planId]: null }))}
+              onExamUpdated={(exam) => setCertExamByPlanId((prev) => ({ ...prev, [planId]: exam }))}
+            />
+          </div>
+        ))
+      ) : (
+        <div className="mt-6 bg-white rounded-xl border border-slate-200 p-5">
+          <h2 className="text-sm font-semibold text-slate-900 flex items-center gap-2 mb-1">
+            🏆 Certification Exam
+          </h2>
+          <p className="text-xs text-slate-400">
+            This path is not assigned to any subscription plan yet.{" "}
+            <Link href="/admin/plans" className="text-teal-600 hover:text-teal-700 underline">
+              Assign it to a plan
+            </Link>{" "}
+            to set up a certification exam.
+          </p>
+        </div>
+      )}
 
       <AddMilestoneModal
         isOpen={showAddMilestoneModal}
