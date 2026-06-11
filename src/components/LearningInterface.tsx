@@ -535,12 +535,20 @@ export function LearningInterface({
                   );
                 })}
 
-                {/* Path Final Quiz — links to dedicated full page */}
+                {/* Path Final Quiz — opens inline like checkpoint */}
                 {finalQuiz && (
                   finalQuizUnlocked ? (
-                    <Link
-                      href={`/paths/${path.slug}/final-quiz`}
-                      className="block p-3 rounded-lg border border-teal-300 bg-gradient-to-r from-teal-50 to-blue-50 hover:border-teal-400 transition-colors"
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedQuiz(finalQuiz);
+                        setActiveTab("quiz");
+                      }}
+                      className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                        selectedQuiz?.id === finalQuiz.id
+                          ? "border-teal-500 bg-teal-50"
+                          : "border-teal-300 bg-linear-to-r from-teal-50 to-blue-50 hover:border-teal-400"
+                      }`}
                     >
                       <div className="flex items-center gap-2">
                         <span className="text-base">🏁</span>
@@ -549,11 +557,11 @@ export function LearningInterface({
                             {getText(finalQuiz.title, finalQuiz.title_ar) || (language === "ar" ? "الاختبار النهائي" : "Final Assessment")}
                           </p>
                           <p className="text-xs text-teal-600 mt-0.5">
-                            {language === "ar" ? "ابدأ الاختبار النهائي ←" : "Start final exam →"}
+                            {language === "ar" ? "ابدأ الاختبار النهائي" : "Start final exam"}
                           </p>
                         </div>
                       </div>
-                    </Link>
+                    </button>
                   ) : (
                     <div className="p-3 rounded-lg border border-slate-200 bg-slate-50 opacity-70 cursor-not-allowed select-none">
                       <div className="flex items-center gap-2">
@@ -1214,6 +1222,45 @@ export function LearningInterface({
                     {checkpointPassedLocally
                       ? (language === "ar" ? "مراجعة الاختبار" : "Review Quiz")
                       : (language === "ar" ? "ابدأ الاختبار" : "Start Quiz")}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Path Final Quiz Banner — shown when unlocked and not currently in quiz tab */}
+            {!isCurrentMilestoneLocked && finalQuizUnlocked && finalQuiz && activeTab !== "quiz" && (
+              <div className="rounded-xl border-2 border-teal-300 bg-linear-to-r from-teal-50 to-blue-50 p-5">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl mt-0.5">🏁</span>
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-semibold text-slate-900">
+                          {language === "ar" ? "الاختبار النهائي للمسار" : "Path Final Quiz"}
+                        </h3>
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-teal-700 bg-teal-100 px-2 py-0.5 rounded-full">
+                          {language === "ar" ? "متاح" : "Unlocked"}
+                        </span>
+                      </div>
+                      <p className="text-sm text-slate-700 font-medium">
+                        {getText(finalQuiz.title, finalQuiz.title_ar)}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {language === "ar"
+                          ? `درجة النجاح ${finalQuiz.passing_score}% — أكمل هذا الاختبار لإنهاء المسار.`
+                          : `Passing score ${finalQuiz.passing_score}% — complete this quiz to finish the path.`}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedQuiz(finalQuiz);
+                      setActiveTab("quiz");
+                    }}
+                    className="shrink-0 px-5 py-2.5 rounded-lg font-medium text-sm transition-colors bg-teal-600 text-white hover:bg-teal-700"
+                  >
+                    {language === "ar" ? "ابدأ الاختبار النهائي" : "Start Final Quiz"}
                   </button>
                 </div>
               </div>
