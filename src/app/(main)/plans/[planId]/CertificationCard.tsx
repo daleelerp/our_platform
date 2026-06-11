@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 interface CertExam {
   id: string;
@@ -19,9 +20,10 @@ interface Props {
   isSubscribed: boolean;
   purchaseStatus: "none" | "pending" | "paid";
   hasCertificate: boolean;
+  finalQuizUrl?: string;
 }
 
-export default function CertificationCard({ exam, planId, isSubscribed, purchaseStatus, hasCertificate }: Props) {
+export default function CertificationCard({ exam, planId, isSubscribed, purchaseStatus, hasCertificate, finalQuizUrl }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +53,7 @@ export default function CertificationCard({ exam, planId, isSubscribed, purchase
   };
 
   return (
-    <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-6">
+    <div className="bg-linear-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -94,11 +96,18 @@ export default function CertificationCard({ exam, planId, isSubscribed, purchase
             </div>
           </div>
         ) : purchaseStatus === "paid" ? (
-          <button
-            className="w-full sm:w-auto px-6 py-3 bg-amber-600 text-white rounded-xl font-semibold hover:bg-amber-700 transition-colors text-sm"
-          >
-            Start Certification Exam →
-          </button>
+          finalQuizUrl ? (
+            <Link
+              href={finalQuizUrl}
+              className="inline-flex w-full sm:w-auto px-6 py-3 bg-amber-600 text-white rounded-xl font-semibold hover:bg-amber-700 transition-colors text-sm justify-center"
+            >
+              Start Certification Exam →
+            </Link>
+          ) : (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700 font-medium">
+              ✅ Exam unlocked — go to your enrolled path to start.
+            </div>
+          )
         ) : purchaseStatus === "pending" ? (
           <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700">
             Your payment is being processed. Refresh this page in a moment.
@@ -109,6 +118,7 @@ export default function CertificationCard({ exam, planId, isSubscribed, purchase
           </div>
         ) : (
           <button
+            type="button"
             onClick={handleBuyExam}
             disabled={loading}
             className="w-full sm:w-auto px-6 py-3 bg-amber-600 text-white rounded-xl font-semibold hover:bg-amber-700 transition-colors disabled:opacity-50 flex items-center gap-2 text-sm"

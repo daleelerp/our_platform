@@ -302,6 +302,11 @@ export default async function PlanDetailsPage({ params }: Props) {
               isSubscribed={hasLiveAccess}
               purchaseStatus={certPurchaseStatus}
               hasCertificate={certPassed}
+              finalQuizUrl={
+                (uniquePaths[0] as any)?.slug
+                  ? `/paths/${(uniquePaths[0] as any).slug}/final-quiz`
+                  : undefined
+              }
             />
           </div>
         )}

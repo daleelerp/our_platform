@@ -837,7 +837,7 @@ export function LearningInterface({
 
             {certExamInfo?.purchaseStatus === "paid" && (
               <Link
-                href={`/plans/${certExamInfo.planId}`}
+                href={`/paths/${path.slug}/final-quiz`}
                 className="block bg-emerald-50 border border-emerald-200 rounded-xl p-4 hover:border-emerald-300 transition-colors"
               >
                 <div className="flex items-center gap-2 mb-1">
