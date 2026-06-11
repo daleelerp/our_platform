@@ -25,6 +25,81 @@ interface Props {
   onExamUpdated: (exam: CertExam) => void;
 }
 
+function FormGrid({
+  prefix,
+  form,
+  setForm,
+}: {
+  prefix: string;
+  form: { price_egp: number; passing_score: number; time_limit_minutes: number | string; max_attempts: number | string };
+  setForm: React.Dispatch<React.SetStateAction<typeof form>>;
+}) {
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+      <div>
+        <label htmlFor={`${prefix}-price`} className="text-[11px] text-slate-500 block mb-1">
+          Price (EGP)
+        </label>
+        <input
+          id={`${prefix}-price`}
+          type="number"
+          min="0"
+          title="Price in EGP"
+          value={form.price_egp}
+          onChange={(e) => setForm((f) => ({ ...f, price_egp: Number(e.target.value) }))}
+          className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs"
+        />
+      </div>
+      <div>
+        <label htmlFor={`${prefix}-passing`} className="text-[11px] text-slate-500 block mb-1">
+          Passing score (%)
+        </label>
+        <input
+          id={`${prefix}-passing`}
+          type="number"
+          min="0"
+          max="100"
+          title="Passing score percentage"
+          value={form.passing_score}
+          onChange={(e) => setForm((f) => ({ ...f, passing_score: Number(e.target.value) }))}
+          className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs"
+        />
+      </div>
+      <div>
+        <label htmlFor={`${prefix}-time`} className="text-[11px] text-slate-500 block mb-1">
+          Time limit (min)
+        </label>
+        <input
+          id={`${prefix}-time`}
+          type="number"
+          min="0"
+          placeholder="No limit"
+          title="Time limit in minutes (leave empty for no limit)"
+          value={form.time_limit_minutes}
+          onChange={(e) =>
+            setForm((f) => ({ ...f, time_limit_minutes: e.target.value ? Number(e.target.value) : "" }))
+          }
+          className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs"
+        />
+      </div>
+      <div>
+        <label htmlFor={`${prefix}-attempts`} className="text-[11px] text-slate-500 block mb-1">
+          Max attempts
+        </label>
+        <input
+          id={`${prefix}-attempts`}
+          type="number"
+          min="1"
+          title="Maximum number of attempts"
+          value={form.max_attempts}
+          onChange={(e) => setForm((f) => ({ ...f, max_attempts: Number(e.target.value) }))}
+          className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs"
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function CertificationExamSection({
   planId,
   planTitle,
@@ -42,8 +117,8 @@ export default function CertificationExamSection({
   const [form, setForm] = useState({
     price_egp: exam?.price_egp ?? 299,
     passing_score: exam?.passing_score ?? 70,
-    time_limit_minutes: exam?.time_limit_minutes ?? "",
-    max_attempts: exam?.max_attempts ?? 3,
+    time_limit_minutes: exam?.time_limit_minutes ?? ("" as number | string),
+    max_attempts: exam?.max_attempts ?? (3 as number | string),
   });
 
   const handleCreate = async () => {
@@ -112,7 +187,7 @@ export default function CertificationExamSection({
 
   return (
     <>
-      <div className="mt-8 bg-white rounded-xl border border-amber-200 p-5">
+      <div className="bg-white rounded-xl border border-amber-200 p-5">
         <div className="flex items-start justify-between mb-3">
           <div>
             <h2 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
@@ -120,9 +195,12 @@ export default function CertificationExamSection({
               <span className="px-2 py-0.5 text-[10px] bg-amber-100 text-amber-700 rounded-full font-medium">
                 Paid
               </span>
+              <span className="px-2 py-0.5 text-[10px] bg-slate-100 text-slate-500 rounded-full font-medium">
+                {planTitle}
+              </span>
             </h2>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              Students who complete all paths can purchase this exam to earn a certificate.
+              One exam per plan. Students who complete all paths in this plan can purchase it to earn a certificate.
             </p>
           </div>
         </div>
@@ -134,53 +212,10 @@ export default function CertificationExamSection({
         )}
 
         {!exam ? (
-          /* Setup form */
           <div className="space-y-3">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              <div>
-                <label className="text-[11px] text-slate-500 block mb-1">Price (EGP)</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={form.price_egp}
-                  onChange={(e) => setForm((f) => ({ ...f, price_egp: Number(e.target.value) }))}
-                  className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] text-slate-500 block mb-1">Passing score (%)</label>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={form.passing_score}
-                  onChange={(e) => setForm((f) => ({ ...f, passing_score: Number(e.target.value) }))}
-                  className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] text-slate-500 block mb-1">Time limit (min)</label>
-                <input
-                  type="number"
-                  min="0"
-                  placeholder="No limit"
-                  value={form.time_limit_minutes}
-                  onChange={(e) => setForm((f) => ({ ...f, time_limit_minutes: e.target.value ? Number(e.target.value) : "" }))}
-                  className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] text-slate-500 block mb-1">Max attempts</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={form.max_attempts}
-                  onChange={(e) => setForm((f) => ({ ...f, max_attempts: Number(e.target.value) }))}
-                  className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs"
-                />
-              </div>
-            </div>
+            <FormGrid prefix={`create-${planId}`} form={form} setForm={setForm} />
             <button
+              type="button"
               onClick={handleCreate}
               disabled={creating}
               className="text-xs px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50 flex items-center gap-2"
@@ -196,54 +231,11 @@ export default function CertificationExamSection({
             </button>
           </div>
         ) : editing ? (
-          /* Edit form */
           <div className="space-y-3">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              <div>
-                <label className="text-[11px] text-slate-500 block mb-1">Price (EGP)</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={form.price_egp}
-                  onChange={(e) => setForm((f) => ({ ...f, price_egp: Number(e.target.value) }))}
-                  className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] text-slate-500 block mb-1">Passing score (%)</label>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={form.passing_score}
-                  onChange={(e) => setForm((f) => ({ ...f, passing_score: Number(e.target.value) }))}
-                  className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] text-slate-500 block mb-1">Time limit (min)</label>
-                <input
-                  type="number"
-                  min="0"
-                  placeholder="No limit"
-                  value={form.time_limit_minutes}
-                  onChange={(e) => setForm((f) => ({ ...f, time_limit_minutes: e.target.value ? Number(e.target.value) : "" }))}
-                  className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] text-slate-500 block mb-1">Max attempts</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={form.max_attempts}
-                  onChange={(e) => setForm((f) => ({ ...f, max_attempts: Number(e.target.value) }))}
-                  className="w-full px-2 py-1.5 border border-slate-300 rounded text-xs"
-                />
-              </div>
-            </div>
+            <FormGrid prefix={`edit-${planId}`} form={form} setForm={setForm} />
             <div className="flex gap-2">
               <button
+                type="button"
                 onClick={handleSaveSettings}
                 disabled={saving}
                 className="text-xs px-3 py-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50"
@@ -251,6 +243,7 @@ export default function CertificationExamSection({
                 {saving ? "Saving…" : "Save Changes"}
               </button>
               <button
+                type="button"
                 onClick={() => { setEditing(false); setError(null); }}
                 className="text-xs px-3 py-1.5 border border-slate-300 text-slate-600 rounded-lg hover:bg-slate-50"
               >
@@ -259,7 +252,6 @@ export default function CertificationExamSection({
             </div>
           </div>
         ) : (
-          /* Exam exists — display */
           <div className="flex items-center justify-between p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs">
             <div>
               <div className="flex items-center gap-2 mb-0.5">
@@ -278,12 +270,14 @@ export default function CertificationExamSection({
             </div>
             <div className="flex items-center gap-2 shrink-0 ml-3">
               <button
+                type="button"
                 onClick={() => setQuestionsModal(true)}
                 className="text-[11px] px-2.5 py-1 bg-violet-50 text-violet-700 border border-violet-200 rounded-lg hover:bg-violet-100 transition-colors font-medium"
               >
                 ✨ Manage Questions
               </button>
               <button
+                type="button"
                 onClick={() => {
                   setForm({
                     price_egp: exam.price_egp,
@@ -298,6 +292,7 @@ export default function CertificationExamSection({
                 Edit Settings
               </button>
               <button
+                type="button"
                 onClick={handleDelete}
                 className="text-[11px] text-red-500 hover:text-red-700 px-1"
               >

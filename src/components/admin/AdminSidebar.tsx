@@ -119,6 +119,12 @@ const menuItems = [
     permission: "manage_users",
   },
   {
+    name: "Cert Exams",
+    href: "/admin/certification-exams",
+    icon: "🎓",
+    permission: "manage_users",
+  },
+  {
     name: "Analytics",
     href: "/admin/analytics",
     icon: "📈",
