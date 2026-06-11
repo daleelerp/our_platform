@@ -141,8 +141,9 @@ export default function EditPathPage() {
         setMilestones(ms);
 
         // Fetch path-level final quiz (quiz_type = 'final', path_id = pathId, no milestone_id)
+        // No limit so all path-scoped quizzes are returned; find the final one client-side
         const pathFinalRes = await fetch(
-          `/api/admin/data?table=quizzes&filterColumn=path_id&filterValue=${encodeURIComponent(pathId)}&limit=1`
+          `/api/admin/data?table=quizzes&filterColumn=path_id&filterValue=${encodeURIComponent(pathId)}&limit=20`
         );
         if (pathFinalRes.ok) {
           const pathFinalJson = await pathFinalRes.json();
@@ -840,6 +841,7 @@ export default function EditPathPage() {
           quiz={pathFinalQuiz}
           onQuizCreated={(q) => setPathFinalQuiz(q)}
           onDeleteQuiz={() => setPathFinalQuiz(null)}
+          allVideos={Object.values(videosByMilestone).flat()}
         />
       </div>
 

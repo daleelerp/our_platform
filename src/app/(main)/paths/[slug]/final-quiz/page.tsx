@@ -89,14 +89,7 @@ export default async function PathFinalQuizRoute({ params }: Props) {
 
   if (!quiz) redirect(`/paths/${slug}/learn`);
 
-  // Fetch ALL questions explicitly — avoids PostgREST embedded join limits
-  const { data: questions } = await supabase
-    .from("quiz_questions")
-    .select("id, question_type, question_text, question_text_ar, options, correct_answers, explanation, explanation_ar, points, question_order, image_url")
-    .eq("quiz_id", quiz.id)
-    .order("question_order");
-
-  // Previous attempts count
+  // Previous attempts count (always tracked against path quiz ID for FK safety)
   const { count: attemptCount } = await supabase
     .from("user_quiz_attempts")
     .select("*", { count: "exact", head: true })
@@ -104,7 +97,15 @@ export default async function PathFinalQuizRoute({ params }: Props) {
     .eq("quiz_id", quiz.id);
 
   // Certification exam gate — check if user's plan has a cert exam and if they purchased it
-  let certExam: { id: string; title: string; priceEgp: number; planId: string } | null = null;
+  let certExam: {
+    id: string;
+    title: string;
+    priceEgp: number;
+    planId: string;
+    passingScore: number;
+    timeLimitMinutes: number | null;
+    maxAttempts: number;
+  } | null = null;
   let hasPurchasedCert = false;
 
   const { data: userSub } = await supabase
@@ -119,13 +120,21 @@ export default async function PathFinalQuizRoute({ params }: Props) {
   if (userSub?.plan_id) {
     const { data: exam } = await supabase
       .from("certification_exams")
-      .select("id, title, price_egp, plan_id")
+      .select("id, title, price_egp, plan_id, passing_score, time_limit_minutes, max_attempts")
       .eq("plan_id", userSub.plan_id)
       .eq("is_active", true)
       .maybeSingle();
 
     if (exam) {
-      certExam = { id: exam.id, title: exam.title ?? "Certification Exam", priceEgp: exam.price_egp ?? 0, planId: exam.plan_id };
+      certExam = {
+        id: exam.id,
+        title: exam.title ?? "Certification Exam",
+        priceEgp: exam.price_egp ?? 0,
+        planId: exam.plan_id,
+        passingScore: exam.passing_score ?? 70,
+        timeLimitMinutes: exam.time_limit_minutes ?? null,
+        maxAttempts: exam.max_attempts ?? 3,
+      };
       const { data: purchase } = await supabase
         .from("user_certification_purchases")
         .select("status")
@@ -136,10 +145,47 @@ export default async function PathFinalQuizRoute({ params }: Props) {
     }
   }
 
-  return (
-    <FinalQuizPage
-      path={{ id: path.id, title: path.title, title_ar: path.title_ar, slug: path.slug }}
-      quiz={{
+  // Determine question source:
+  // - Paid cert exam → use certification_exam_questions (the 43 proper questions)
+  // - Otherwise → use quiz_questions (path-level fallback)
+  let questions: any[] = [];
+
+  if (certExam && hasPurchasedCert) {
+    const { data: certQuestions } = await supabase
+      .from("certification_exam_questions")
+      .select("id, question_type, question_text, question_text_ar, options, correct_answers, explanation, explanation_ar, points, sort_order")
+      .eq("exam_id", certExam.id)
+      .order("sort_order");
+
+    questions = (certQuestions || []).map((q) => ({
+      ...q,
+      question_order: q.sort_order ?? 0,
+      image_url: null,
+    }));
+  } else {
+    const { data: pathQuestions } = await supabase
+      .from("quiz_questions")
+      .select("id, question_type, question_text, question_text_ar, options, correct_answers, explanation, explanation_ar, points, question_order, image_url")
+      .eq("quiz_id", quiz.id)
+      .order("question_order");
+
+    questions = pathQuestions || [];
+  }
+
+  // Quiz settings: prefer cert exam settings when using cert questions
+  const quizSettings = certExam && hasPurchasedCert
+    ? {
+        id: quiz.id, // path quiz ID for FK-safe attempt tracking
+        title: certExam.title,
+        title_ar: null as string | null,
+        passing_score: certExam.passingScore,
+        time_limit_minutes: certExam.timeLimitMinutes,
+        max_attempts: certExam.maxAttempts,
+        randomize_questions: true,
+        show_correct_answers: false,
+        total_points: questions.length,
+      }
+    : {
         id: quiz.id,
         title: quiz.title,
         title_ar: quiz.title_ar,
@@ -148,9 +194,14 @@ export default async function PathFinalQuizRoute({ params }: Props) {
         max_attempts: quiz.max_attempts ?? null,
         randomize_questions: quiz.randomize_questions ?? false,
         show_correct_answers: quiz.show_correct_answers ?? true,
-        total_points: quiz.total_points ?? (questions?.length ?? 0),
-      }}
-      questions={questions || []}
+        total_points: quiz.total_points ?? questions.length,
+      };
+
+  return (
+    <FinalQuizPage
+      path={{ id: path.id, title: path.title, title_ar: path.title_ar, slug: path.slug }}
+      quiz={quizSettings}
+      questions={questions}
       userId={user.id}
       isLocked={unpassedMilestones.length > 0}
       unpassedMilestones={unpassedMilestones}

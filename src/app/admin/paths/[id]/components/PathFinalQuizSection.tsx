@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Quiz } from "../types";
+import { Quiz, VideoContent } from "../types";
 import QuizQuestionsModal from "./QuizQuestionsModal";
 
 interface PathFinalQuizSectionProps {
@@ -10,6 +10,7 @@ interface PathFinalQuizSectionProps {
     quiz: Quiz | null;
     onQuizCreated: (quiz: Quiz) => void;
     onDeleteQuiz: () => void;
+    allVideos?: VideoContent[];
 }
 
 export default function PathFinalQuizSection({
@@ -18,6 +19,7 @@ export default function PathFinalQuizSection({
     quiz,
     onQuizCreated,
     onDeleteQuiz,
+    allVideos = [],
 }: PathFinalQuizSectionProps) {
     const [creating, setCreating] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -167,7 +169,7 @@ export default function PathFinalQuizSection({
                     milestoneTitle={`${pathTitle} — Final Assessment`}
                     milestoneDescription="Comprehensive end-of-path assessment covering all milestones"
                     pathTitle={pathTitle}
-                    videos={[]}
+                    videos={allVideos}
                     onClose={() => setQuestionsModal(null)}
                 />
             )}

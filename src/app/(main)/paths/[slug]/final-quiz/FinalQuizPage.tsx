@@ -37,7 +37,15 @@ type Question = {
 
 type Milestone = { id: string; milestone_number: number; title: string; title_ar: string | null };
 
-type CertExam = { id: string; title: string; priceEgp: number; planId: string };
+type CertExam = {
+  id: string;
+  title: string;
+  priceEgp: number;
+  planId: string;
+  passingScore?: number;
+  timeLimitMinutes?: number | null;
+  maxAttempts?: number;
+};
 
 type Props = {
   path: Path;
