@@ -140,17 +140,11 @@ export async function GET(request: NextRequest) {
         : 0;
     }
 
-    // 8. Write back to path_enrollments so the next server render is accurate
-    const writebacks = pathIds.map((pathId) => {
-      const enrollmentId = enrollmentByPathId.get(pathId);
-      if (!enrollmentId) return Promise.resolve();
-      return admin
-        .from("path_enrollments")
-        .update({ progress_percentage: progress[pathId] })
-        .eq("id", enrollmentId)
-        .eq("user_id", user.id);
-    });
-    await Promise.all(writebacks);
+    // Note: we intentionally do NOT write back to path_enrollments here.
+    // path_enrollments.progress_percentage is written only by /api/progress/recalculate
+    // (triggered by actual completion events). Writing from the dashboard API would
+    // corrupt the stored value whenever the user views the dashboard in a different
+    // language than the one they used while learning.
 
     return NextResponse.json({ progress });
   } catch (error: any) {

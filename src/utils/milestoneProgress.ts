@@ -308,55 +308,90 @@ export async function calculatePathProgress(
   visibleVideos.forEach((v: any) => milestonesWithContent.add(v.milestone_id));
   (allQuizzes || []).forEach((q: any) => milestonesWithContent.add(q.milestone_id));
 
-  // Get completion status and progress for all milestones
-  const { data: milestoneProgress } = await supabase
-    .from("user_milestone_progress")
-    .select("milestone_id, status, progress_percentage")
-    .eq("user_id", userId)
-    .in("milestone_id", milestoneIds);
-
-  const progressMap = new Map<string, { status: string; progress: number }>();
-  (milestoneProgress || []).forEach((mp: any) => {
-    progressMap.set(mp.milestone_id, {
-      status: mp.status || "not_started",
-      progress: mp.progress_percentage || 0
-    });
-  });
-
-  // Calculate total progress based on actual milestone progress percentages
   let totalProgress = 0;
   let totalMilestonesToCount = 0;
 
-  for (const milestone of milestones) {
-    const hasContent = milestonesWithContent.has(milestone.id);
-    
-    if (hasContent) {
+  if (language) {
+    // Language-aware path: calculate directly from user_video_progress to avoid
+    // relying on user_milestone_progress records that were saved without language filtering.
+    const visibleVideoIds = visibleVideos.map((v: any) => v.id);
+
+    let videoProgressRows: any[] = [];
+    if (visibleVideoIds.length > 0) {
+      const { data } = await supabase
+        .from("user_video_progress")
+        .select("video_id, completion_percentage, is_completed")
+        .eq("user_id", userId)
+        .in("video_id", visibleVideoIds);
+      videoProgressRows = data ?? [];
+    }
+
+    const vpMap = new Map(
+      videoProgressRows.map((vp: any) => [vp.video_id, vp])
+    );
+
+    const videosByMilestone = new Map<string, string[]>();
+    for (const v of visibleVideos) {
+      const mid = (v as any).milestone_id;
+      if (!videosByMilestone.has(mid)) videosByMilestone.set(mid, []);
+      videosByMilestone.get(mid)!.push((v as any).id);
+    }
+
+    for (const milestone of milestones) {
       totalMilestonesToCount++;
-      // Get milestone progress (0-100)
-      const milestoneData = progressMap.get(milestone.id);
-      if (milestoneData) {
-        // Use actual progress percentage
-        // If status is completed, use 100%, otherwise use saved progress_percentage
-        if (milestoneData.status === "completed") {
-          totalProgress += 100;
+      const mVideoIds = videosByMilestone.get(milestone.id) ?? [];
+
+      if (mVideoIds.length === 0) {
+        // Milestone has no language-visible videos → auto-complete
+        totalProgress += 100;
+      } else {
+        const doneCount = mVideoIds.filter((vid) => {
+          const vp = vpMap.get(vid);
+          return vp && (vp.is_completed || Number(vp.completion_percentage ?? 0) >= 90);
+        }).length;
+        totalProgress += (doneCount / mVideoIds.length) * 100;
+      }
+    }
+  } else {
+    // No language filter: use stored user_milestone_progress (fast, uses cached values)
+    const { data: milestoneProgress } = await supabase
+      .from("user_milestone_progress")
+      .select("milestone_id, status, progress_percentage")
+      .eq("user_id", userId)
+      .in("milestone_id", milestoneIds);
+
+    const progressMap = new Map<string, { status: string; progress: number }>();
+    (milestoneProgress || []).forEach((mp: any) => {
+      progressMap.set(mp.milestone_id, {
+        status: mp.status || "not_started",
+        progress: mp.progress_percentage || 0
+      });
+    });
+
+    for (const milestone of milestones) {
+      const hasContent = milestonesWithContent.has(milestone.id);
+
+      if (hasContent) {
+        totalMilestonesToCount++;
+        const milestoneData = progressMap.get(milestone.id);
+        if (milestoneData) {
+          if (milestoneData.status === "completed") {
+            totalProgress += 100;
+          } else {
+            totalProgress += milestoneData.progress;
+          }
         } else {
-          totalProgress += milestoneData.progress;
+          const completionStatus = await checkMilestoneCompletion(userId, milestone.id, supabase);
+          totalProgress += completionStatus.progressPercentage;
+          await updateMilestoneProgress(userId, milestone.id, completionStatus, supabase);
         }
       } else {
-        // No progress record yet - calculate it on the fly
-        const completionStatus = await checkMilestoneCompletion(userId, milestone.id, supabase, language);
-        totalProgress += completionStatus.progressPercentage;
-        // Save it for next time
-        await updateMilestoneProgress(userId, milestone.id, completionStatus, supabase);
+        totalProgress += 100;
+        totalMilestonesToCount++;
       }
-    } else {
-      // Milestone has no content - count as completed automatically
-      totalProgress += 100;
-      totalMilestonesToCount++;
     }
   }
 
-  // Calculate average progress across all milestones
   if (totalMilestonesToCount === 0) {
     return 0;
   }
