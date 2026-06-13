@@ -98,7 +98,10 @@ async function generateBatch(
   planTitle: string,
   planContent: string,
   count: number,
-  batchLabel: string
+  batchLabel: string,
+  provider: "groq" | "gemini",
+  batchNumber: number = 1,
+  totalBatches: number = 1,
 ): Promise<GeneratedQuestion[]> {
   const res = await fetch("/api/admin/ai-generate-questions", {
     method: "POST",
@@ -111,6 +114,9 @@ async function generateBatch(
       planContent,
       videos: [],
       count,
+      provider,
+      batchNumber,
+      totalBatches,
     }),
   });
   const json = await res.json();
@@ -131,6 +137,7 @@ export default function CertificationQuestionsModal({ exam, planTitle, onClose }
   const [systemName, setSystemName] = useState(planTitle);
   const [planContent, setPlanContent] = useState("");
   const [loadingContent, setLoadingContent] = useState(false);
+  const [provider, setProvider] = useState<"groq" | "gemini">("gemini");
 
   useEffect(() => {
     loadQuestions();
@@ -172,7 +179,7 @@ export default function CertificationQuestionsModal({ exam, planTitle, onClose }
 
       if (genCount <= BATCH_SIZE) {
         setGenProgress(`Generating ${genCount} questions…`);
-        all = await generateBatch(systemName, planTitle, planContent, genCount, "Part 1");
+        all = await generateBatch(systemName, planTitle, planContent, genCount, "Part 1", provider, 1, 1);
       } else {
         const batches: number[] = [];
         let remaining = genCount;
@@ -182,7 +189,7 @@ export default function CertificationQuestionsModal({ exam, planTitle, onClose }
         }
         for (let i = 0; i < batches.length; i++) {
           setGenProgress(`Generating batch ${i + 1} of ${batches.length} (${batches[i]} questions)…`);
-          const batch = await generateBatch(systemName, planTitle, planContent, batches[i], `Part ${i + 1} of ${batches.length}`);
+          const batch = await generateBatch(systemName, planTitle, planContent, batches[i], `Part ${i + 1} of ${batches.length}`, provider, i + 1, batches.length);
           all = [...all, ...batch];
         }
       }
@@ -402,14 +409,14 @@ export default function CertificationQuestionsModal({ exam, planTitle, onClose }
                   {/* System name */}
                   <div>
                     <label className="text-[11px] font-medium text-slate-600 block mb-1">
-                      ERP System Name{" "}
-                      <span className="text-slate-400 font-normal">(used in question text — use the short product name)</span>
+                      System / Technology Name{" "}
+                      <span className="text-slate-400 font-normal">(short name used in question text, e.g. "ERPNext", "Python")</span>
                     </label>
                     <input
                       type="text"
                       value={systemName}
                       onChange={(e) => setSystemName(e.target.value)}
-                      placeholder="e.g. ERPNext, Oracle Fusion, SAP S/4HANA"
+                      placeholder="e.g. ERPNext, Python, Oracle Fusion, SAP S/4HANA"
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
                     />
                   </div>
@@ -432,7 +439,37 @@ export default function CertificationQuestionsModal({ exam, planTitle, onClose }
                     </p>
                   </div>
 
-                  <div className="p-4 bg-violet-50 border border-violet-200 rounded-xl">
+                  <div className="p-4 bg-violet-50 border border-violet-200 rounded-xl space-y-3">
+                    {/* Provider toggle */}
+                    <div>
+                      <p className="text-[11px] text-slate-500 mb-1.5">AI Provider</p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setProvider("gemini")}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-colors ${
+                            provider === "gemini"
+                              ? "bg-blue-600 text-white border-blue-600"
+                              : "bg-white text-slate-600 border-slate-300 hover:border-blue-400"
+                          }`}
+                        >
+                          <span>🔵</span> Google Gemini
+                          <span className="text-[10px] opacity-70">(recommended)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setProvider("groq")}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-colors ${
+                            provider === "groq"
+                              ? "bg-orange-500 text-white border-orange-500"
+                              : "bg-white text-slate-600 border-slate-300 hover:border-orange-400"
+                          }`}
+                        >
+                          <span>⚡</span> Groq
+                        </button>
+                      </div>
+                    </div>
+
                     <div className="flex items-end gap-3 flex-wrap">
                       <div>
                         <label htmlFor="cert-gen-count" className="text-[11px] text-slate-500 block mb-1">
@@ -463,12 +500,12 @@ export default function CertificationQuestionsModal({ exam, planTitle, onClose }
                             {genProgress || "Generating…"}
                           </>
                         ) : (
-                          "✨ Generate"
+                          `✨ Generate with ${provider === "gemini" ? "Gemini" : "Groq"}`
                         )}
                       </button>
                     </div>
                     {generating && genProgress && (
-                      <p className="mt-2 text-[11px] text-violet-600">{genProgress} — if rate limited, the server waits and retries automatically.</p>
+                      <p className="text-[11px] text-violet-600">{genProgress}</p>
                     )}
                   </div>
                 </div>

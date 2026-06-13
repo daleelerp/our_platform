@@ -4,6 +4,10 @@ import { getAdminSession } from "@/utils/admin-auth";
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+const GEMINI_MODEL = "gemini-2.0-flash";
+
 // Allow up to 3 minutes so retry waits don't hit Vercel's default 60s timeout
 export const maxDuration = 180;
 
@@ -12,6 +16,64 @@ const FALLBACK_MODEL = "llama-3.1-8b-instant"; // 500k TPD vs 100k on primary
 
 function isDailyLimit(errorText: string): boolean {
   return errorText.includes("tokens per day") || errorText.includes("TPD");
+}
+
+function isGeminiQuotaExceeded(errorText: string): boolean {
+  return (
+    errorText.includes("RESOURCE_EXHAUSTED") ||
+    errorText.includes("free_tier_requests") ||
+    errorText.includes("generativelanguage.googleapis.com")
+  );
+}
+
+function extractGeminiError(errorText: string): { message: string; retryAfterSeconds: number | null } {
+  try {
+    const raw = JSON.parse(errorText);
+    // Gemini wraps errors as an array: [{error:{...}}]
+    const errObj = Array.isArray(raw) ? raw[0]?.error : raw?.error;
+    const message: string = errObj?.message || "";
+    let retryAfterSeconds: number | null = null;
+    const details: any[] = Array.isArray(errObj?.details) ? errObj.details : [];
+    for (const detail of details) {
+      if (detail["@type"]?.includes("RetryInfo") && detail.retryDelay) {
+        const match = String(detail.retryDelay).match(/(\d+)/);
+        if (match) { retryAfterSeconds = parseInt(match[1]); break; }
+      }
+    }
+    if (retryAfterSeconds === null) {
+      const retryMatch = message.match(/retry in (\d+\.?\d*)s/i);
+      if (retryMatch) retryAfterSeconds = Math.ceil(parseFloat(retryMatch[1]));
+    }
+    return { message, retryAfterSeconds };
+  } catch {
+    return { message: "", retryAfterSeconds: null };
+  }
+}
+
+async function callGemini(messages: object[], temperature: number, max_tokens: number): Promise<Response> {
+  if (!GEMINI_API_KEY) {
+    return new Response(JSON.stringify({ error: "GEMINI_API_KEY is not configured" }), { status: 500 });
+  }
+
+  const res = await fetch(GEMINI_API_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${GEMINI_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: GEMINI_MODEL,
+      messages,
+      temperature,
+      max_tokens,
+      response_format: { type: "json_object" },
+    }),
+  });
+
+  // Return immediately on any error — do not sleep-retry on the server.
+  // Long server-side waits block the client with a spinner and encourage
+  // the user to keep clicking Generate, which burns through quota faster.
+  return res;
 }
 
 function isOversizedRequest(errorText: string): boolean {
@@ -103,6 +165,9 @@ export async function POST(request: NextRequest) {
       planContent,
       videos,
       count = 8,
+      provider = "groq",
+      batchNumber = 1,
+      totalBatches = 1,
     } = await request.json();
 
     if (!milestoneTitle) {
@@ -113,44 +178,120 @@ export async function POST(request: NextRequest) {
 
     // systemName is the short product name (e.g. "ERPNext", "Oracle Fusion") set by the admin.
     // pathTitle is the full course name — never use it verbatim in questions.
-    const erpSystem = systemName || pathTitle || "ERP";
+    const erpSystem = systemName || pathTitle || "the system";
+
+    // Detect whether the course content is technical/programming vs ERP-functional
+    function detectContentType(content: string | null | undefined): "technical" | "erp-functional" | "general" {
+      if (!content) return "general";
+      const lower = content.toLowerCase();
+      const technicalHits = [
+        "python", "javascript", "html", "css", "jinja", "programming", "coding",
+        "function", "class", "variable", "loop", "algorithm", "oop", "object-oriented",
+        "object oriented", "framework", "syntax", "react", "node.js", "django", "flask",
+        "sql", "api endpoint", "git", "debugging",
+      ].filter((kw) => lower.includes(kw)).length;
+      const erpFunctionalHits = [
+        "purchase order", "supplier invoice", "accounts payable", "accounts receivable",
+        "period close", "3-way match", "vendor payment", "journal entry", "general ledger",
+        "procurement workflow", "ap module", "ar module",
+      ].filter((kw) => lower.includes(kw)).length;
+      if (technicalHits >= 2 && technicalHits > erpFunctionalHits) return "technical";
+      if (erpFunctionalHits >= 2) return "erp-functional";
+      return "general";
+    }
+
+    const contentType = detectContentType(planContent);
 
     const conceptualKeywords = ["what is", "introduction", "overview", "basics", "fundamentals", "getting started", "ما هو", "مقدمة", "نظرة عامة", "أساسيات"];
     const milestoneKey = milestoneTitle.toLowerCase();
     const isConceptual = conceptualKeywords.some((kw) => milestoneKey.includes(kw));
 
-    const questionGuidelines = isConceptual
-      ? `This is a CONCEPTUAL / INTRODUCTORY milestone. Questions must test understanding of what the system is, its modules, architecture, and purpose — not hands-on navigation or configuration.
+    let questionGuidelines: string;
 
-✅ REQUIRED question types for this level:
-- Definition: "What does ERP stand for and what is its primary purpose in ${erpSystem}?"
-- Module identification: "Which ${erpSystem} module is responsible for managing supplier invoices?"
-- Architecture: "Which technology stack or platform is ${erpSystem} built on?"
-- Scope: "Which of the following business processes does ${erpSystem} cover?"
-- Comparison: "What is the key difference between ${erpSystem} and a traditional ERP system?"
-- Business value: "A company with 10 subsidiaries in 5 countries would use ${erpSystem}'s ___ feature to manage intercompany transactions."
-- Terminology: "In ${erpSystem}, a 'Legal Entity' refers to..."
+    if (contentType === "technical") {
+      questionGuidelines = isConceptual
+        ? `This is a CONCEPTUAL / INTRODUCTORY section about technical topics. Questions test understanding of concepts, not hands-on coding.
 
-❌ FORBIDDEN for this level:
-- Step-by-step navigation questions ("navigate to Module > Submenu")
-- Error-handling scenarios requiring system experience
-- Profile option names or technical configuration details`
-      : `This is a FUNCTIONAL / PRACTICAL milestone. Questions must test real hands-on knowledge of daily ${erpSystem} work.
+✅ REQUIRED question types — base each question on the specific topics listed in the plan content above:
+- Definition: "What is the primary purpose of [specific concept from plan content]?"
+- Identification: "Which of the following best describes [technology/tool/concept from plan content]?"
+- Scope: "Which of the following is a feature or characteristic of [topic from plan content]?"
+- Comparison: "What is the key difference between [concept A] and [concept B] from the plan?"
+- Use cases: "When would you use [feature/tool from plan content] instead of an alternative?"
 
-✅ REQUIRED question types for this level:
-- Navigation: "In ${erpSystem}, to approve a supplier invoice, you navigate to: ..."
-- Process sequences: "What is the correct order of steps to close an AP period in ${erpSystem}?"
-- Error handling: "A user receives an error during PO approval in ${erpSystem}. The FIRST step to resolve this is..."
-- Configuration: "Which setting in ${erpSystem} controls the number of open accounting periods?"
-- Data entry rules: "When creating a new supplier site in ${erpSystem}, which fields are MANDATORY?"
-- Matching rules: "In 3-way matching, ${erpSystem} compares the PO, the receipt, and the ___"
-- Role-based: "Which ${erpSystem} role or responsibility allows a user to run the accounting process?"
-- Real scenarios: "An invoice was matched to a PO but the quantity received is less than invoiced. ${erpSystem} will..."
+❌ FORBIDDEN — do NOT generate:
+- Questions about ERP business processes (supplier invoices, POs, accounting periods, 3-way matching, vendor management) unless those exact topics appear in the plan content
+- Any topic not explicitly mentioned in the plan content above`
+        : `This is a PRACTICAL / SKILLS-BASED assessment. Questions must test real working knowledge of the specific technologies and concepts taught in this course.
 
-❌ FORBIDDEN for this level:
-- "Why would a company choose ${erpSystem}?" — too vague, not practical
-- "What is the benefit of ERP?" — theoretical, not useful
-- Any question a person unfamiliar with ${erpSystem} could guess from common sense`;
+✅ REQUIRED question types — draw EVERY question from the plan content above:
+- Syntax/Usage: "Which of the following is the correct way to [perform task] in [language/tool from content]?"
+- Code behavior: "What will the following [code/template/expression] produce?" (include a short, relevant snippet)
+- Error identification: "The following code has an issue — what needs to be fixed?"
+- Concept application: "To achieve [goal from content], you would use [feature/method] because..."
+- Tool or command: "Which method, command, or decorator is used to [perform task from content]?"
+- Best practice: "What is the recommended approach for [programming scenario from content]?"
+- Workflow: "What is the correct order of steps to [accomplish task from content]?"
+
+❌ STRICTLY FORBIDDEN — do NOT generate:
+- Questions about supplier invoices, purchase order approval, 3-way matching (PO/receipt/invoice), AP period closing, vendor site creation, accounting roles, or ANY ERP financial/procurement workflow unless those exact terms appear in the plan content
+- Generic filler questions a student could answer without studying this course
+- Questions about topics NOT listed in the plan content above`;
+    } else if (contentType === "erp-functional") {
+      questionGuidelines = isConceptual
+        ? `This is a CONCEPTUAL / INTRODUCTORY milestone. Questions must test understanding of what the system is, its modules, architecture, and purpose.
+
+✅ REQUIRED question types — base each question on the topics listed in the plan content above:
+- Definition: "What does [term from plan content] mean in ${erpSystem}?"
+- Module identification: "Which ${erpSystem} module handles [business function from plan content]?"
+- Architecture: "What is the technology foundation of ${erpSystem}?"
+- Scope: "Which business processes does [module from plan content] cover?"
+- Business value: "A company needing [capability from plan content] would use ${erpSystem}'s ___ feature."
+
+❌ FORBIDDEN:
+- Step-by-step navigation questions requiring hands-on experience
+- Questions about processes not mentioned in the plan content`
+        : `This is a FUNCTIONAL / PRACTICAL milestone. Questions must test hands-on ${erpSystem} knowledge of the exact processes covered in this course.
+
+✅ REQUIRED question types — use ONLY processes and features mentioned in the plan content above:
+- Navigation: "In ${erpSystem}, to [task from plan content], you navigate to..."
+- Process sequence: "What is the correct order of steps to [process from plan content]?"
+- Error handling: "During [process from plan content], a user sees an error. The first step to resolve it is..."
+- Configuration: "Which ${erpSystem} setting controls [feature from plan content]?"
+- Data rules: "When creating [entity from plan content], which fields are mandatory?"
+
+❌ FORBIDDEN:
+- Questions about ${erpSystem} features or processes NOT mentioned in the plan content above
+- Generic ERP theory questions unrelated to what was taught`;
+    } else {
+      questionGuidelines = isConceptual
+        ? `This is a CONCEPTUAL section. Questions must test understanding of the concepts covered in the plan content above.
+
+✅ Create questions about: definitions, key concepts, purpose, and terminology of the specific topics taught.
+❌ Do NOT generate questions about topics outside the plan content above.`
+        : `This is a PRACTICAL section. Questions must test applied knowledge of the topics covered in the plan content above.
+
+✅ Create questions about: practical application, correct usage, workflows, troubleshooting, and implementation details of the specific topics taught.
+❌ Do NOT generate questions about topics NOT listed in the plan content above.`;
+    }
+
+    // Dynamic persona and explanation style based on content type
+    const persona = contentType === "technical"
+      ? `You are a senior software development trainer and technical curriculum expert. You create rigorous certification exam questions for software developers and technical professionals.`
+      : contentType === "erp-functional"
+      ? `You are a senior ${erpSystem} consultant and trainer with deep hands-on implementation experience. You create certification exam questions for ERP professionals.`
+      : `You are a senior curriculum expert and trainer. You create rigorous certification exam questions based on specific course content.`;
+
+    const explanationInstruction = contentType === "technical"
+      ? `Explanations must reference the specific concept, syntax rule, or behavior being tested — explain WHY the correct answer is right, not just restate it.`
+      : contentType === "erp-functional"
+      ? `Explanations must reference the specific ${erpSystem} module, process step, or configuration rule — not just restate the answer.`
+      : `Explanations must explain WHY the correct answer is right, referencing the specific concept or rule from the course content.`;
+
+    // Batch diversity instruction to prevent duplicate questions across batches
+    const batchDiversityInstruction = totalBatches > 1
+      ? `\nBATCH DIVERSITY (CRITICAL): This is batch ${batchNumber} of ${totalBatches}. Each batch covers DIFFERENT topics.\n- Distribute questions evenly across ALL paths and milestones in the plan content\n- For this batch, emphasize topics from the ${batchNumber === 1 ? "first" : batchNumber === totalBatches ? "last" : "middle"} section of the plan content\n- Do NOT repeat the same topics or question angles that other batches would cover\n- Every question in this batch must test a UNIQUE topic not covered by the same question in another batch\n`
+      : "";
 
     const videoLines = Array.isArray(videos) && videos.length > 0
       ? videos.map((v: any, i: number) => {
@@ -173,20 +314,22 @@ export async function POST(request: NextRequest) {
       : null;
 
     const planContentBlock = planContent && planContent.trim()
-      ? `\nPlan content (paths and milestones actually taught — questions MUST be based on these topics):\n${planContent.trim()}\n\nCRITICAL: Every question must test knowledge of the specific topics listed above. Do not generate generic questions that could apply to any ERP system.`
+      ? `\n⚠️ COURSE CONTENT (this is what was actually taught — ALL questions MUST come from these specific topics ONLY):\n${planContent.trim()}\n\nDo NOT generate questions about topics not listed above.`
       : "";
 
-    const prompt = `You are a senior ${erpSystem} consultant and trainer with 15+ years of hands-on implementation experience. You are creating certification exam questions for professionals who work or want to work with ${erpSystem} daily.
+    const systemNameRule = systemName && systemName !== pathTitle
+      ? `\nIMPORTANT — naming rule: Always refer to the system/technology as "${erpSystem}" in questions. Never use the full course title verbatim.`
+      : "";
 
-IMPORTANT — System name rule: Always refer to the ERP system as "${erpSystem}" in questions. NEVER use a full course title or any variation like "(Technical)" in question text.
-
+    const prompt = `${persona}
+${systemNameRule}
 Context:
-- ERP System: ${erpSystem}
+- Course/System: ${erpSystem}
 - Exam: ${milestoneTitle}
 - Description: ${milestoneDescription || "No description provided"}
 - Learning Objectives: ${Array.isArray(learningObjectives) && learningObjectives.length > 0 ? learningObjectives.join(", ") : "Not specified"}
-${videoLines ? `\nVideos in this milestone (questions MUST align with these specific videos and their content):\n${videoLines}\n\nIMPORTANT: Base your questions on the actual topics, tools, and concepts covered in these videos. Do not invent topics that are not represented in the video list above.` : ""}${planContentBlock}
-
+${planContentBlock}
+${videoLines ? `\nVideos/lessons (questions MUST align with what is covered in these):\n${videoLines}\n` : ""}${batchDiversityInstruction}
 Generate exactly ${count} quiz questions with this distribution:
 - ${mcqCount} multiple_choice questions (4 options each, ids: "a", "b", "c", "d")
 - 1 true_false question (options: null, correct_answers: ["true"] or ["false"])
@@ -194,8 +337,8 @@ Generate exactly ${count} quiz questions with this distribution:
 
 ${questionGuidelines}
 
-ALL text must be in both English and Arabic. Arabic must be professional technical ERP Arabic (not literal translation).
-Explanations must reference the specific Oracle concept, module, or rule — not just restate the answer.
+ALL text must be in both English and Arabic. Arabic must be professional and accurate — not a literal word-by-word translation.
+${explanationInstruction}
 
 Return ONLY valid JSON, no markdown, no extra text:
 {
@@ -246,7 +389,7 @@ Return ONLY valid JSON, no markdown, no extra text:
     const messages = [
       {
         role: "system",
-        content: `You are an expert ${erpSystem} trainer. Generate quiz questions as valid JSON only. No markdown, no explanations outside the JSON.`,
+        content: `${persona} Generate quiz questions as valid JSON only. No markdown, no explanations outside the JSON. Only generate questions about the specific course content provided — do not default to generic domain examples.`,
       },
       {
         role: "user",
@@ -254,30 +397,59 @@ Return ONLY valid JSON, no markdown, no extra text:
       },
     ];
 
-    const groqRes = await callGroq(messages, 0.7, 6000, PRIMARY_MODEL);
+    const groqRes = provider === "gemini"
+      ? await callGemini(messages, 0.7, 6000)
+      : await callGroq(messages, 0.7, 6000, PRIMARY_MODEL);
 
     if (!groqRes.ok) {
       const errorText = await groqRes.text();
-      console.error("Groq API error:", errorText);
-      let groqMessage = "Groq API request failed.";
-      if (isDailyLimit(errorText)) {
-        groqMessage = "Daily token limit reached on all available models. Please try again tomorrow or upgrade your Groq plan at console.groq.com/settings/billing.";
-      } else if (isOversizedRequest(errorText)) {
-        groqMessage = "Prompt is too large for the fallback model. Try shortening the plan content in the textarea before generating.";
+      const isGemini = provider === "gemini";
+      // Log the full raw error so you can see exactly what the API returned
+      console.error(`[AI Questions] ${isGemini ? "Gemini" : "Groq"} HTTP ${groqRes.status}:`, errorText);
+
+      let userMessage: string;
+
+      if (isGemini && groqRes.status === 429) {
+        const { retryAfterSeconds, message: rawMsg } = extractGeminiError(errorText);
+        const isDailyQuota =
+          errorText.includes("GenerateRequestsPerDayPerProjectPerModel-FreeTier") ||
+          (errorText.includes("free_tier_requests") && !retryAfterSeconds);
+        if (isDailyQuota) {
+          userMessage = "Gemini daily free-tier quota exhausted. Switch to Groq (⚡) or add billing at aistudio.google.com to continue.";
+        } else {
+          userMessage = `Gemini rate limit hit (resets in ~${retryAfterSeconds ?? 60}s). Switch to Groq (⚡) — it has no wait.${rawMsg ? `\n\nGemini said: ${rawMsg}` : ""}`;
+        }
+      } else if (isGemini && groqRes.status === 403) {
+        userMessage = "Gemini API key is not authorized. Check that the key is valid and the Generative Language API is enabled in your Google Cloud project.";
+      } else if (isGemini && groqRes.status === 400) {
+        const { message: rawMsg } = extractGeminiError(errorText);
+        userMessage = `Gemini rejected the request (bad request). ${rawMsg || errorText.slice(0, 200)}`;
+      } else if (!isGemini && isDailyLimit(errorText)) {
+        userMessage = "Daily token limit reached on all Groq models. Please try again tomorrow or upgrade at console.groq.com/settings/billing.";
+      } else if (!isGemini && isOversizedRequest(errorText)) {
+        userMessage = "Prompt is too large for the fallback model. Try shortening the plan content in the textarea before generating.";
       } else {
         try {
-          const errJson = JSON.parse(errorText);
-          groqMessage = errJson?.error?.message || groqMessage;
-        } catch {}
+          if (isGemini) {
+            const { message } = extractGeminiError(errorText);
+            userMessage = `Gemini error (HTTP ${groqRes.status}): ${message || errorText.slice(0, 300)}`;
+          } else {
+            const errJson = JSON.parse(errorText);
+            userMessage = errJson?.error?.message || "Groq API request failed.";
+          }
+        } catch {
+          userMessage = `${isGemini ? "Gemini" : "Groq"} API error (HTTP ${groqRes.status}): ${errorText.slice(0, 200)}`;
+        }
       }
-      return NextResponse.json({ error: `Groq error: ${groqMessage}` }, { status: 500 });
+
+      return NextResponse.json({ error: userMessage }, { status: 500 });
     }
 
     const data = await groqRes.json();
     const content = data.choices?.[0]?.message?.content;
 
     if (!content) {
-      return NextResponse.json({ error: "No content returned from Groq" }, { status: 500 });
+      return NextResponse.json({ error: `No content returned from ${provider === "gemini" ? "Gemini" : "Groq"}` }, { status: 500 });
     }
 
     let questions;

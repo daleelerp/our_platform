@@ -20,7 +20,6 @@ type FormValues = {
   price_egp: number | string;
   passing_score: number | string;
   time_limit_minutes: number | string;
-  max_attempts: number | string;
 };
 
 type PathEntry = {
@@ -43,7 +42,6 @@ const DEFAULT_FORM: FormValues = {
   price_egp: 299,
   passing_score: 70,
   time_limit_minutes: "",
-  max_attempts: 3,
 };
 
 export default function CertificationExamsPage() {
@@ -96,7 +94,6 @@ export default function CertificationExamsPage() {
                   price_egp: exam.price_egp,
                   passing_score: exam.passing_score,
                   time_limit_minutes: exam.time_limit_minutes ?? "",
-                  max_attempts: exam.max_attempts ?? 3,
                 }
               : { ...DEFAULT_FORM },
           };
@@ -128,7 +125,7 @@ export default function CertificationExamsPage() {
           price_egp: Number(pd.form.price_egp),
           passing_score: Number(pd.form.passing_score),
           time_limit_minutes: pd.form.time_limit_minutes !== "" ? Number(pd.form.time_limit_minutes) : null,
-          max_attempts: pd.form.max_attempts !== "" ? Number(pd.form.max_attempts) : 3,
+          max_attempts: 2,
           is_active: true,
         }),
       });
@@ -153,7 +150,6 @@ export default function CertificationExamsPage() {
           price_egp: Number(pd.form.price_egp),
           passing_score: Number(pd.form.passing_score),
           time_limit_minutes: pd.form.time_limit_minutes !== "" ? Number(pd.form.time_limit_minutes) : null,
-          max_attempts: pd.form.max_attempts !== "" ? Number(pd.form.max_attempts) : 3,
         }),
       });
       const json = await res.json();
@@ -303,11 +299,7 @@ export default function CertificationExamsPage() {
                           value={pd.exam!.time_limit_minutes ? `${pd.exam!.time_limit_minutes} min` : "No limit"}
                           color="slate"
                         />
-                        <StatPill
-                          label="Attempts"
-                          value={pd.exam!.max_attempts ? `${pd.exam!.max_attempts}×` : "Unlimited"}
-                          color="slate"
-                        />
+                        <StatPill label="Attempts" value="2 per cycle (auto)" color="slate" />
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <button
@@ -339,7 +331,7 @@ export default function CertificationExamsPage() {
                       {pd.editing && (
                         <p className="text-xs font-medium text-slate-500">Edit exam settings</p>
                       )}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                         <FormField
                           label="Price (EGP)"
                           type="number"
@@ -359,12 +351,12 @@ export default function CertificationExamsPage() {
                           value={pd.form.time_limit_minutes}
                           onChange={(v) => setForm(pd.plan.id, { time_limit_minutes: v })}
                         />
-                        <FormField
-                          label="Max attempts"
-                          type="number"
-                          value={pd.form.max_attempts}
-                          onChange={(v) => setForm(pd.plan.id, { max_attempts: v })}
-                        />
+                      </div>
+                      <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1">
+                        <span className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded font-medium text-slate-600">
+                          2 attempts per cycle
+                        </span>
+                        <span>— automatic, not editable. 2-day gap after cycle 1, then 8/16/32… day gaps with help offer.</span>
                       </div>
                       <div className="flex gap-2">
                         {pd.editing ? (
@@ -387,7 +379,6 @@ export default function CertificationExamsPage() {
                                     price_egp: pd.exam!.price_egp,
                                     passing_score: pd.exam!.passing_score,
                                     time_limit_minutes: pd.exam!.time_limit_minutes ?? "",
-                                    max_attempts: pd.exam!.max_attempts ?? 3,
                                   },
                                 })
                               }

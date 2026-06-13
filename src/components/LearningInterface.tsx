@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAppStore } from "@/store/useAppStore";
 import { VideoPlayer } from "./VideoPlayer";
 import { QuizPlayer } from "./Quiz/QuizPlayer";
+import { CertExamPlayer } from "./Quiz/CertExamPlayer";
 import { ResourceViewer } from "./ResourceViewer";
 import { ContentTierBadge } from "./ContentTierBadge";
 import { LockedContent } from "./LockedContent";
@@ -12,7 +13,7 @@ import { getContentTierFromBudget, hasAccessToTier, type ContentTier } from "@/u
 import { createClient } from "@/utils/supabase/client";
 import { checkMilestoneCompletion, updateMilestoneProgress, calculatePathProgress } from "@/utils/milestoneProgress";
 import Link from "next/link";
-import { CheckCircleIcon, DocumentTextIcon, PlayIcon, LockClosedIcon, ExclamationCircleIcon } from "@heroicons/react/24/outline";
+import { CheckCircleIcon, DocumentTextIcon, PlayIcon, LockClosedIcon, ExclamationCircleIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 import { LearningResource } from "@/types/learning";
 import { Modal } from "./admin/Modal";
 import {
@@ -191,6 +192,7 @@ export function LearningInterface({
   const [isArticleModalOpen, setIsArticleModalOpen] = useState(false);
   const [articleToShow, setArticleToShow] = useState<LearningResource | null>(null);
   const [buyingCert, setBuyingCert] = useState(false);
+  const [showCertExam, setShowCertExam] = useState(false);
 
   // Update selected resource when resources change or when switching to resources tab
   useEffect(() => {
@@ -272,6 +274,11 @@ export function LearningInterface({
     const ordered = orderVideosForLearning(accessibleVideos);
     return groupOrderedVideosForSidebar(ordered);
   }, [accessibleVideos]);
+
+  const flatAccessibleVideos = useMemo(
+    () => accessibleVideoGroups.flatMap((g) => g.videos),
+    [accessibleVideoGroups]
+  );
 
   useEffect(() => {
     if (!selectedVideo?.id || !sidebarScrollRef.current) return;
@@ -442,6 +449,23 @@ export function LearningInterface({
     return !hasAccessToTier(userTier, video.content_tier as ContentTier);
   });
 
+  // The next video to watch: the one right after the current selection, or the first incomplete
+  const nextVideoId = (() => {
+    if (flatAccessibleVideos.length === 0) return null;
+    if (selectedVideo) {
+      const idx = flatAccessibleVideos.findIndex((v) => v.id === selectedVideo.id);
+      return idx !== -1 && idx < flatAccessibleVideos.length - 1
+        ? flatAccessibleVideos[idx + 1].id
+        : null;
+    }
+    return (
+      flatAccessibleVideos.find((v) => !videoProgressMap.get(v.id)?.is_completed)?.id ?? null
+    );
+  })();
+  const nextVideo = nextVideoId
+    ? (flatAccessibleVideos.find((v) => v.id === nextVideoId) ?? null)
+    : null;
+
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
@@ -535,51 +559,62 @@ export function LearningInterface({
                   );
                 })}
 
-                {/* Path Final Quiz — opens inline like checkpoint */}
-                {finalQuiz && (
-                  finalQuizUnlocked ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedQuiz(finalQuiz);
-                        setActiveTab("quiz");
-                      }}
-                      className={`w-full text-left p-3 rounded-lg border transition-colors ${
-                        selectedQuiz?.id === finalQuiz.id
-                          ? "border-teal-500 bg-teal-50"
-                          : "border-teal-300 bg-linear-to-r from-teal-50 to-blue-50 hover:border-teal-400"
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-base">🏁</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-teal-800 truncate">
+              </div>
+            </div>
+
+            {/* Final Assessment — separate section, visually distinct from milestones */}
+            {finalQuiz && (
+              <div className="bg-white rounded-xl border-2 border-teal-200 p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-teal-600 mb-3">
+                  {language === "ar" ? "الاختبار النهائي" : "Final Assessment"}
+                </p>
+                {finalQuizUnlocked ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedQuiz(finalQuiz);
+                      setActiveTab("quiz");
+                    }}
+                    className={`w-full text-left rounded-lg p-3 transition-colors ${
+                      selectedQuiz?.id === finalQuiz.id
+                        ? "bg-teal-600 text-white"
+                        : "bg-teal-50 hover:bg-teal-100 text-teal-900"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="text-lg shrink-0">🏁</span>
+                        <div className="min-w-0">
+                          <p className={`text-sm font-semibold truncate ${selectedQuiz?.id === finalQuiz.id ? "text-white" : "text-teal-900"}`}>
                             {getText(finalQuiz.title, finalQuiz.title_ar) || (language === "ar" ? "الاختبار النهائي" : "Final Assessment")}
                           </p>
-                          <p className="text-xs text-teal-600 mt-0.5">
-                            {language === "ar" ? "ابدأ الاختبار النهائي" : "Start final exam"}
+                          <p className={`text-xs mt-0.5 ${selectedQuiz?.id === finalQuiz.id ? "text-teal-100" : "text-teal-600"}`}>
+                            {language === "ar" ? "اختبر معرفتك الكاملة" : "Test your full knowledge"}
                           </p>
                         </div>
                       </div>
-                    </button>
-                  ) : (
-                    <div className="p-3 rounded-lg border border-slate-200 bg-slate-50 opacity-70 cursor-not-allowed select-none">
-                      <div className="flex items-center gap-2">
-                        <LockClosedIcon className="w-4 h-4 text-slate-400 shrink-0" />
-                        <div className="flex-1 min-w-0">
+                      <ChevronRightIcon className={`w-4 h-4 shrink-0 ${selectedQuiz?.id === finalQuiz.id ? "text-white" : "text-teal-500"}`} />
+                    </div>
+                  </button>
+                ) : (
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 cursor-not-allowed">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <LockClosedIcon className="w-5 h-5 text-slate-400 shrink-0" />
+                        <div className="min-w-0">
                           <p className="text-sm font-medium text-slate-500 truncate">
                             {language === "ar" ? "الاختبار النهائي" : "Final Assessment"}
                           </p>
                           <p className="text-xs text-slate-400 mt-0.5">
-                            {language === "ar" ? "أكمل جميع نقاط التحقق أولاً" : "Pass all checkpoints first"}
+                            {language === "ar" ? "أكمل جميع نقاط التحقق أولاً" : "Pass all checkpoints to unlock"}
                           </p>
                         </div>
                       </div>
                     </div>
-                  )
+                  </div>
                 )}
               </div>
-            </div>
+            )}
 
             {/* Videos List */}
             <div className="bg-white rounded-xl border border-slate-200 p-4">
@@ -604,7 +639,17 @@ export function LearningInterface({
                         {group.videos.map((video) => {
                           const progress = videoProgressMap.get(video.id);
                           const isSelected = selectedVideo?.id === video.id;
+                          const isNext = video.id === nextVideoId && !isSelected;
+                          const isCompleted = progress?.is_completed === true;
                           const videoTitle = getText(video.title, video.title_ar);
+                          const flatIdx = flatAccessibleVideos.findIndex((v) => v.id === video.id);
+                          const inProgressPct = (() => {
+                            const rt = currentVideoProgress.get(video.id);
+                            if (rt !== undefined) return rt;
+                            if (progress?.completion_percentage && progress.completion_percentage >= 100 && !playedVideos.has(video.id)) return 0;
+                            return progress?.completion_percentage ?? 0;
+                          })();
+                          const showProgress = inProgressPct > 0 && !isCompleted;
 
                           return (
                             <button
@@ -617,57 +662,50 @@ export function LearningInterface({
                                 setSelectedQuiz(null);
                                 setSelectedResource(null);
                               }}
-                              className={`w-full text-left p-3 rounded-lg border transition-colors ${isSelected
+                              className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                                isSelected
                                   ? "border-teal-500 bg-teal-50"
+                                  : isNext
+                                  ? "border-teal-200 hover:border-teal-400"
                                   : "border-slate-200 hover:border-slate-300"
-                                }`}
+                              }`}
                             >
-                              <div className="flex items-start gap-2">
-                                <PlayIcon className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                              <div className="flex items-center gap-2.5">
+                                {isCompleted ? (
+                                  <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center shrink-0">
+                                    <CheckCircleIcon className="w-4 h-4 text-white" />
+                                  </div>
+                                ) : isSelected ? (
+                                  <div className="w-6 h-6 rounded-full bg-teal-500 flex items-center justify-center shrink-0">
+                                    <PlayIcon className="w-3.5 h-3.5 text-white" />
+                                  </div>
+                                ) : (
+                                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 text-xs font-bold ${
+                                    isNext ? "border-teal-400 text-teal-600 bg-teal-50" : "border-slate-300 text-slate-500"
+                                  }`}>
+                                    {flatIdx + 1}
+                                  </div>
+                                )}
                                 <div className="flex-1 min-w-0">
-                                  <p
-                                    className={`text-sm ${isSelected ? "font-semibold text-teal-900" : "text-slate-700"
-                                      }`}
-                                  >
-                                    {videoTitle}
-                                  </p>
-                                  {progress && (
-                                    <div className="mt-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <p className={`text-sm truncate ${
+                                      isSelected ? "font-semibold text-teal-900" : isCompleted ? "text-slate-400" : "text-slate-700"
+                                    }`}>
+                                      {videoTitle}
+                                    </p>
+                                    {isNext && (
+                                      <span className="shrink-0 text-[10px] font-semibold bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded-full">
+                                        {language === "ar" ? "التالي" : "Next"}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {showProgress && (
+                                    <div className="mt-1.5">
                                       <div className="h-1 bg-slate-200 rounded-full overflow-hidden">
-                                        <div
-                                          className="h-full bg-teal-500"
-                                          style={{
-                                            width: `${(() => {
-                                              const realTimeProgress = currentVideoProgress.get(video.id);
-                                              if (realTimeProgress !== undefined) {
-                                                return realTimeProgress;
-                                              }
-                                              if (
-                                                progress.completion_percentage >= 100 &&
-                                                !playedVideos.has(video.id)
-                                              ) {
-                                                return 0;
-                                              }
-                                              return progress.completion_percentage;
-                                            })()}%`,
-                                          }}
-                                        />
+                                        <div className="h-full bg-teal-500 rounded-full" style={{ width: `${inProgressPct}%` }} />
                                       </div>
-                                      <p className="text-xs text-slate-500 mt-1">
-                                        {(() => {
-                                          const realTimeProgress = currentVideoProgress.get(video.id);
-                                          if (realTimeProgress !== undefined) {
-                                            return `${realTimeProgress.toFixed(0)}%`;
-                                          }
-                                          if (
-                                            progress.completion_percentage >= 100 &&
-                                            !playedVideos.has(video.id)
-                                          ) {
-                                            return "0%";
-                                          }
-                                          return `${progress.completion_percentage.toFixed(0)}%`;
-                                        })()}{" "}
-                                        {language === "ar" ? "مكتمل" : "complete"}
+                                      <p className="text-[10px] text-slate-400 mt-0.5">
+                                        {inProgressPct.toFixed(0)}% {language === "ar" ? "مكتمل" : "complete"}
                                       </p>
                                     </div>
                                   )}
@@ -729,9 +767,9 @@ export function LearningInterface({
                       >
                         <div className="flex items-start gap-2">
                           {resource.resource_type === "article" ? (
-                            <DocumentTextIcon className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" aria-hidden />
+                            <DocumentTextIcon className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" aria-hidden />
                           ) : (
-                            <PlayIcon className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" aria-hidden />
+                            <PlayIcon className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" aria-hidden />
                           )}
                           <div className="flex-1 min-w-0">
                             <p
@@ -844,9 +882,10 @@ export function LearningInterface({
             )}
 
             {certExamInfo?.purchaseStatus === "paid" && (
-              <Link
-                href={`/paths/${path.slug}/final-quiz`}
-                className="block bg-emerald-50 border border-emerald-200 rounded-xl p-4 hover:border-emerald-300 transition-colors"
+              <button
+                type="button"
+                onClick={() => setShowCertExam(true)}
+                className="w-full text-left bg-emerald-50 border border-emerald-200 rounded-xl p-4 hover:border-emerald-300 transition-colors"
               >
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-lg">🏆</span>
@@ -855,14 +894,37 @@ export function LearningInterface({
                   </p>
                 </div>
                 <p className="text-sm text-emerald-800 font-medium">
-                  {language === "ar" ? "ابدأ اختبار الاعتماد →" : "Start certification exam →"}
+                  {language === "ar" ? "ابدأ اختبار الاعتماد ←" : "Start certification exam →"}
                 </p>
-              </Link>
+              </button>
             )}
           </div>
 
+          {/* Certification Exam — inline player (shown when student clicks sidebar button) */}
+          {showCertExam && certExamInfo?.purchaseStatus === "paid" && (
+            <div className="order-1 lg:order-0 lg:col-span-3">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-lg font-bold text-slate-900">
+                  {language === "ar" ? "🏆 اختبار الاعتماد" : "🏆 Certification Exam"}
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setShowCertExam(false)}
+                  className="text-sm text-slate-500 hover:text-slate-700"
+                >
+                  {language === "ar" ? "← العودة للمحتوى" : "← Back to content"}
+                </button>
+              </div>
+              <CertExamPlayer
+                examId={certExamInfo.examId}
+                userId={userId}
+                onContinue={() => setShowCertExam(false)}
+              />
+            </div>
+          )}
+
           {/* Main Content Area */}
-          <div className="order-1 space-y-6 lg:order-0 lg:col-span-3">
+          <div className={`order-1 space-y-6 lg:order-0 lg:col-span-3 ${showCertExam ? "hidden" : ""}`}>
             {/* Milestone Header */}
             <div className="bg-white rounded-xl border border-slate-200 p-6">
               <h2 className="text-2xl font-bold text-slate-900 mb-2">{milestoneTitle}</h2>
@@ -971,6 +1033,27 @@ export function LearningInterface({
                         {getText(selectedVideo.description, null)}
                       </p>
                     )}
+                    {nextVideo && (
+                      <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
+                        <p className="text-xs text-slate-400 shrink-0">
+                          {language === "ar" ? "التالي في الترتيب" : "Up next"}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedVideo(nextVideo);
+                            setSelectedQuiz(null);
+                            setSelectedResource(null);
+                          }}
+                          className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-medium hover:bg-slate-700 transition-colors min-w-0"
+                        >
+                          <span className="truncate max-w-[200px]">
+                            {getText(nextVideo.title, nextVideo.title_ar)}
+                          </span>
+                          <ChevronRightIcon className="w-4 h-4 shrink-0" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <LockedContent
@@ -1057,6 +1140,10 @@ export function LearningInterface({
                     }}
                     questions={selectedQuiz.quiz_questions}
                     userId={userId}
+                    isCheckpoint={!!(checkpointQuiz && selectedQuiz.id === checkpointQuiz.id)}
+                    isFinalQuiz={!!(finalQuiz && selectedQuiz.id === finalQuiz.id)}
+                    learningObjectives={currentMilestone?.learning_objectives ?? undefined}
+                    learningObjectivesAr={currentMilestone?.learning_objectives_ar ?? undefined}
                     onComplete={async (score, isPassed) => {
                       if (isPassed && checkpointQuiz && selectedQuiz.id === checkpointQuiz.id) {
                         setCheckpointPassedLocally(true);
