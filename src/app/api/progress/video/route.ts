@@ -31,6 +31,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "videoContentId is required" }, { status: 400 });
     }
 
+    console.log("[/api/progress/video] user:", user.id, "video:", videoContentId, "pct:", completionPct);
+
     const admin = getAdminSupabaseClient();
 
     // Preserve first_watched_at if already set
@@ -63,10 +65,11 @@ export async function POST(request: NextRequest) {
     );
 
     if (error) {
-      console.error("Video progress save error:", error.message);
+      console.error("[/api/progress/video] upsert error:", error.message, error.code);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    console.log("[/api/progress/video] saved OK for user:", user.id, "video:", videoContentId);
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("Video progress route error:", error?.message ?? error);

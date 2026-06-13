@@ -34,6 +34,7 @@ async function apiSaveProgress(payload: {
   playbackSpeed: number;
 }): Promise<void> {
   try {
+    console.log("[VideoPlayer] apiSaveProgress →", payload.videoContentId, payload.progressSeconds + "s", payload.completionPct.toFixed(1) + "%");
     const res = await fetch("/api/progress/video", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -42,8 +43,12 @@ async function apiSaveProgress(payload: {
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       console.error("[VideoPlayer] progress save failed:", res.status, body);
+    } else {
+      console.log("[VideoPlayer] progress saved OK");
     }
-  } catch { /* network failure — periodic saves will retry */ }
+  } catch (e) {
+    console.error("[VideoPlayer] progress save network error:", e);
+  }
 }
 
 export function VideoPlayer({
@@ -77,6 +82,11 @@ export function VideoPlayer({
   const progressBarRef = useRef<HTMLDivElement>(null);
   const lastSavedSecondsRef = useRef(0);
   const lastSavedAtRef = useRef(0);
+
+  // playerRef: always current player — avoids closure capture in intervals
+  const playerRef = useRef<any>(null);
+  // durationRef: always current duration — for reliable beforeunload saves
+  const durationRef = useRef(0);
 
   // Stable refs for callbacks so they don't break useCallback dep chains
   const onProgressRef = useRef(onProgress);
@@ -132,6 +142,7 @@ export function VideoPlayer({
   const handleReady = useCallback((event: any) => {
     try {
       const p = event.target;
+      playerRef.current = p;
       setPlayer(p);
 
       if (startAt > 0) {
@@ -150,6 +161,7 @@ export function VideoPlayer({
             clearInterval(poll);
             if (tot > 0) {
               setDuration(tot);
+              durationRef.current = tot;
               const cur = p.getCurrentTime();
               setCurrentTime(cur > 0 ? cur : startAt);
               setCompletionPct((cur / tot) * 100);
@@ -164,11 +176,12 @@ export function VideoPlayer({
 
   // ─── Completion notify (save first, then callback) ────────────────────────
   const notifyComplete = useCallback(async (seconds: number, pct: number) => {
-    if (hasTriggeredCompleteRef.current || !onCompleteRef.current) return;
+    const cb = onCompleteRef.current;
+    if (hasTriggeredCompleteRef.current || !cb) return;
     hasTriggeredCompleteRef.current = true;
     setIsCompleted(true);
     await saveProgress(seconds, pct, true, true); // force-save before recalculate
-    onCompleteRef.current();
+    cb();
   }, [saveProgress]); // onComplete excluded — read via ref to keep this stable
 
   // ─── State change ─────────────────────────────────────────────────────────
@@ -224,6 +237,7 @@ export function VideoPlayer({
 
       setCurrentTime(cur);
       setDuration(tot);
+      durationRef.current = tot;
       const pct = (cur / tot) * 100;
       setCompletionPct(pct);
 
@@ -236,58 +250,71 @@ export function VideoPlayer({
     } catch { /* player not ready */ }
   }, [player, notifyComplete]); // onProgress excluded — read via ref to keep this stable
 
-  // Polling for UI + periodic DB saves
+  // UI polling — fires every 200ms to update the progress bar display
   useEffect(() => {
     if (!player) return;
     const uiInterval = setInterval(() => { try { handleTimeUpdate(); } catch { /* ignore */ } }, 200);
-    const saveInterval = setInterval(() => {
-      if (!player) return;
+    return () => clearInterval(uiInterval);
+  }, [player, handleTimeUpdate]);
+
+  // Periodic DB save — fires every 5s, uses playerRef so the interval never resets
+  // due to React re-renders; only recreated when videoContentId or playbackSpeed change
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const p = playerRef.current;
+      if (!p) return;
       try {
-        const cur = player.getCurrentTime();
-        const tot = player.getDuration();
+        const cur = p.getCurrentTime();
+        const tot = p.getDuration();
         if (cur > 0 && tot > 0) {
+          console.log("[VideoPlayer] periodic save:", Math.floor(cur), "s /", Math.floor(tot), "s");
           saveProgress(cur, (cur / tot) * 100, (cur / tot) * 100 >= 90);
         }
       } catch { /* ignore */ }
-    }, isPlaying ? 10_000 : 30_000);
-
-    return () => { clearInterval(uiInterval); clearInterval(saveInterval); };
-  }, [player, isPlaying, handleTimeUpdate, saveProgress]);
+    }, 5_000);
+    return () => clearInterval(interval);
+  }, [saveProgress]); // stable — only re-creates when video or speed changes
 
   // Save on page close/refresh (beforeunload) — most reliable for catching reloads
   useEffect(() => {
-    if (!player || !videoContentId) return;
+    if (!videoContentId) return;
     const onBeforeUnload = () => {
       try {
-        const cur = player.getCurrentTime();
-        const tot = player.getDuration();
+        const p = playerRef.current;
+        if (!p) return;
+        const cur = p.getCurrentTime();
+        // Use cached durationRef — getDuration() may throw when iframe is unloading
+        const tot = durationRef.current || p.getDuration();
         if (cur > 0 && tot > 0) {
-          // Use sendBeacon so the request isn't cancelled when the page closes
+          console.log("[VideoPlayer] beforeunload save:", Math.floor(cur), "s /", Math.floor(tot), "s");
           const blob = new Blob(
             [JSON.stringify({ videoContentId, progressSeconds: Math.floor(cur), completionPct: (cur / tot) * 100, isCompleted: (cur / tot) >= 0.9, playbackSpeed })],
             { type: "application/json" }
           );
           navigator.sendBeacon("/api/progress/video", blob);
+        } else {
+          console.warn("[VideoPlayer] beforeunload: cur=", cur, "tot=", tot, "— skipped");
         }
-      } catch { /* ignore */ }
+      } catch (e) { console.error("[VideoPlayer] beforeunload error:", e); }
     };
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [player, videoContentId, playbackSpeed]);
+  }, [videoContentId, playbackSpeed]); // playerRef/durationRef are stable refs — no need in deps
 
   // Save on unmount (navigation within the SPA)
   useEffect(() => {
     return () => {
-      if (!player || !videoContentId) return;
+      const p = playerRef.current;
+      if (!p || !videoContentId) return;
       try {
-        const cur = player.getCurrentTime();
-        const tot = player.getDuration();
+        const cur = p.getCurrentTime();
+        const tot = durationRef.current || p.getDuration();
         if (cur > 0 && tot > 0) {
           saveProgress(cur, (cur / tot) * 100, (cur / tot) * 100 >= 90, true);
         }
       } catch { /* ignore */ }
     };
-  }, [player, videoContentId, saveProgress]);
+  }, [videoContentId, saveProgress]); // refs used directly — no need for player in deps
 
   // ─── Seek ──────────────────────────────────────────────────────────────────
   const seekTo = useCallback((clientX: number) => {
