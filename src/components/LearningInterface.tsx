@@ -193,6 +193,8 @@ export function LearningInterface({
   const [articleToShow, setArticleToShow] = useState<LearningResource | null>(null);
   const [buyingCert, setBuyingCert] = useState(false);
   const [showCertExam, setShowCertExam] = useState(false);
+  const [showMilestoneDetails, setShowMilestoneDetails] = useState(false);
+  const [showVideoDesc, setShowVideoDesc] = useState(false);
 
   // Update selected resource when resources change or when switching to resources tab
   useEffect(() => {
@@ -287,6 +289,11 @@ export function LearningInterface({
     );
     item?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [selectedVideo?.id, accessibleVideoGroups]);
+
+  // Collapse the video description whenever the user switches to a different video
+  useEffect(() => {
+    setShowVideoDesc(false);
+  }, [selectedVideo?.id]);
 
   // Get video progress map
   const videoProgressMap = new Map(
@@ -926,22 +933,48 @@ export function LearningInterface({
           {/* Main Content Area */}
           <div className={`order-1 space-y-6 lg:order-0 lg:col-span-3 ${showCertExam ? "hidden" : ""}`}>
             {/* Milestone Header */}
-            <div className="bg-white rounded-xl border border-slate-200 p-6">
-              <h2 className="text-2xl font-bold text-slate-900 mb-2">{milestoneTitle}</h2>
-              {milestoneDesc && (
-                <p className="text-slate-600 mb-4">{milestoneDesc}</p>
-              )}
-              {currentMilestone.learning_objectives && (
-                <div>
-                  <h3 className="font-semibold text-slate-900 mb-2">
-                    {language === "ar" ? "أهداف التعلم:" : "Learning Objectives:"}
-                  </h3>
-                  <ul className="list-disc list-inside space-y-1 text-slate-600">
+            <div className="bg-white rounded-xl border border-slate-200 p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3 min-w-0">
+                  <div className="w-7 h-7 rounded-full bg-teal-500 flex items-center justify-center text-sm font-bold text-white shrink-0 mt-0.5">
+                    {currentMilestone.milestone_number}
+                  </div>
+                  <div className="min-w-0">
+                    <h2 className="text-xl font-bold text-slate-900 leading-tight">{milestoneTitle}</h2>
+                    {milestoneDesc && (
+                      <p className={`text-slate-500 text-sm mt-1.5 ${showMilestoneDetails ? "" : "line-clamp-2"}`}>
+                        {milestoneDesc}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                {(milestoneDesc || currentMilestone.learning_objectives) && (
+                  <button
+                    type="button"
+                    onClick={() => setShowMilestoneDetails((d) => !d)}
+                    className="shrink-0 text-xs text-teal-600 hover:text-teal-800 font-semibold whitespace-nowrap mt-1"
+                  >
+                    {showMilestoneDetails
+                      ? (language === "ar" ? "إخفاء" : "Less")
+                      : (language === "ar" ? "عرض الأهداف" : "View objectives")}
+                  </button>
+                )}
+              </div>
+
+              {showMilestoneDetails && currentMilestone.learning_objectives && (
+                <div className="mt-4 pt-4 border-t border-slate-100">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
+                    {language === "ar" ? "أهداف التعلم" : "Learning Objectives"}
+                  </p>
+                  <ul className="space-y-1.5">
                     {(language === "ar" && currentMilestone.learning_objectives_ar
                       ? currentMilestone.learning_objectives_ar
                       : currentMilestone.learning_objectives
                     ).map((objective, i) => (
-                      <li key={i}>{objective}</li>
+                      <li key={i} className="flex items-start gap-2 text-sm text-slate-600">
+                        <CheckCircleIcon className="w-4 h-4 text-teal-500 mt-0.5 shrink-0" />
+                        <span>{objective}</span>
+                      </li>
                     ))}
                   </ul>
                 </div>
@@ -986,8 +1019,8 @@ export function LearningInterface({
                   (selectedVideo.content_tier || "free") as ContentTier
                 ) ? (
                   <div className="bg-white rounded-xl border border-slate-200 p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-semibold text-slate-900">
+                    <div className="flex items-start justify-between gap-3 mb-4">
+                      <h3 className="text-base font-semibold text-slate-900 line-clamp-2 flex-1">
                         {getText(selectedVideo.title, selectedVideo.title_ar)}
                       </h3>
                       {selectedVideo.content_tier && (
@@ -1028,10 +1061,21 @@ export function LearningInterface({
                         </p>
                       </div>
                     )}
-                    {selectedVideo.description && (
-                      <p className="mt-4 text-slate-600 text-sm">
-                        {getText(selectedVideo.description, null)}
-                      </p>
+                    {selectedVideo.description && getText(selectedVideo.description, null) && (
+                      <div className="mt-4 border-t border-slate-100 pt-3">
+                        <p className={`text-slate-500 text-sm leading-relaxed ${showVideoDesc ? "" : "line-clamp-2"}`}>
+                          {getText(selectedVideo.description, null)}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setShowVideoDesc((d) => !d)}
+                          className="mt-1 text-xs text-teal-600 hover:text-teal-800 font-medium"
+                        >
+                          {showVideoDesc
+                            ? (language === "ar" ? "إخفاء" : "Show less")
+                            : (language === "ar" ? "عرض المزيد" : "Show more")}
+                        </button>
+                      </div>
                     )}
                     {nextVideo && (
                       <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
