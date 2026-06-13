@@ -132,12 +132,9 @@ export function CertExamLanding({
             </span>
           </div>
 
-          {/* Scaled certificate — 600px native, scaled down to fit column */}
-          <div className="w-full overflow-hidden">
-            <div
-              className="origin-top-left"
-              style={{ transform: "scale(0.76)", width: "600px", marginBottom: "-112px" }}
-            >
+          {/* Certificate preview: 600px native scaled to 76% = 456×~390px visible */}
+          <div className="relative overflow-hidden rounded-xl w-[456px] h-[390px]">
+            <div className="absolute top-0 left-0 origin-top-left scale-[0.76]">
               <CertificateTemplate
                 certNumber="CERT-XXXXXXXX"
                 studentName={language === "ar" ? "اسمك هنا" : "Your Name"}

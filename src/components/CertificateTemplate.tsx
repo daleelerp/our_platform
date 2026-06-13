@@ -1,5 +1,7 @@
 "use client";
 
+import type React from "react";
+
 export type CertSettings = {
   org_name: string;
   cert_title: string;
@@ -27,32 +29,21 @@ function formatDate(raw: string | null | undefined): string {
   return `${d.getDate()} ${d.toLocaleString("en-US", { month: "long" })} ${d.getFullYear()}`;
 }
 
-function QRPattern() {
+function CornerAccent({ pos, top, left }: { pos: string; top: boolean; left: boolean }) {
   return (
-    <svg width="48" height="48" viewBox="0 0 48 48" fill="none" aria-hidden="true">
-      <rect x="2" y="2" width="16" height="16" rx="2" fill="none" stroke="#94a3b8" strokeWidth="2.5" />
-      <rect x="6" y="6" width="8" height="8" rx="1" fill="#94a3b8" />
-      <rect x="30" y="2" width="16" height="16" rx="2" fill="none" stroke="#94a3b8" strokeWidth="2.5" />
-      <rect x="34" y="6" width="8" height="8" rx="1" fill="#94a3b8" />
-      <rect x="2" y="30" width="16" height="16" rx="2" fill="none" stroke="#94a3b8" strokeWidth="2.5" />
-      <rect x="6" y="34" width="8" height="8" rx="1" fill="#94a3b8" />
-      {([
-        [30,22],[34,22],[38,22],[42,22],[30,26],[38,26],
-        [30,30],[34,30],[38,30],[42,30],[34,34],[42,34],
-        [30,38],[34,38],[42,38],[22,2],[22,6],[22,10],
-        [22,14],[22,18],[22,22],[22,26],[22,30],[22,34],[22,38],[22,42],
-      ] as [number,number][]).map(([x,y],i) => (
-        <rect key={i} x={x} y={y} width="3" height="3" rx="0.5" fill="#94a3b8" />
-      ))}
-    </svg>
+    <div
+      className={`absolute ${pos} w-5 h-5 border-2 border-(--cert-accent) ${left ? "border-r-0" : "border-l-0"} ${top ? "border-b-0" : "border-t-0"}`}
+    />
   );
 }
 
 /**
- * Canonical certificate — matches the admin Certificate Design preview.
- * Renders at 600 px wide. Wrap in a scaled container to embed at smaller sizes.
- * Only `primary_color` and `accent_color` are passed as inline styles because
- * they are runtime values fetched from the database.
+ * Canonical certificate design (corner-bracket style).
+ * Renders at 600 px wide — embed in a scaled container for previews.
+ *
+ * Dynamic DB colors are hoisted to CSS custom properties on the wrapper so
+ * no individual element needs an inline style (satisfying the linter).
+ * Tailwind [property:var(--x)] references those variables throughout.
  */
 export function CertificateTemplate({
   certNumber,
@@ -68,109 +59,86 @@ export function CertificateTemplate({
   const issueDate = formatDate(issuedAt);
   const displayScore = score != null ? `${Number(score).toFixed(1)}%` : "95.0%";
 
+  // One style prop on the root to expose all runtime color tokens
+  const cssVars = {
+    "--cert-primary": primary,
+    "--cert-accent": accent,
+    "--cert-primary-bg": `${primary}0f`,
+    "--cert-primary-border": `${primary}30`,
+    "--cert-primary-badge-border": `${primary}40`,
+    "--cert-primary-badge-bg": `${primary}08`,
+  } as React.CSSProperties;
+
   return (
     <div
-      className="relative font-serif bg-white overflow-hidden w-[600px] rounded-xl select-none"
-      style={{ border: `6px solid ${accent}`, boxShadow: `0 0 0 2px ${primary}22, 0 20px 48px rgba(0,0,0,0.12)` }}
+      className="relative bg-white rounded-xl w-[600px] select-none border-[5px] border-(--cert-primary) px-10 pt-8 pb-7 shadow-[0_12px_40px_rgba(0,0,0,0.10)]"
+      style={cssVars}
     >
-      {/* SAMPLE watermark — only dynamic value is color */}
       {isSample && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20 rotate-[-25deg]">
-          <span
-            className="text-[100px] font-black tracking-[0.15em] uppercase font-sans opacity-[0.07]"
-            style={{ color: primary }}
-          >
+          <span className="font-black tracking-[0.15em] uppercase font-sans opacity-[0.07] text-[96px] text-(--cert-primary)">
             SAMPLE
           </span>
         </div>
       )}
 
-      {/* Top stripe — dynamic color */}
-      <div className="h-1.5 w-full" style={{ background: primary }} />
+      <CornerAccent pos="top-3 left-3"     top={true}  left={true}  />
+      <CornerAccent pos="top-3 right-3"    top={true}  left={false} />
+      <CornerAccent pos="bottom-3 left-3"  top={false} left={true}  />
+      <CornerAccent pos="bottom-3 right-3" top={false} left={false} />
 
-      {/* Body */}
-      <div className="flex flex-col items-center text-center px-11 pt-8 pb-6">
+      <div className="flex flex-col items-center text-center">
 
-        {/* Org + trophy */}
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-[22px]" style={{ color: accent }}>🏆</span>
-          <span
-            className="text-[18px] font-bold tracking-[0.14em]"
-            style={{ color: primary }}
-          >
-            {settings.org_name}
-          </span>
-        </div>
-
-        {/* Accent divider */}
-        <div className="w-[72px] h-0.5 my-2" style={{ background: accent }} />
-
-        {/* Cert title */}
-        <p className="font-sans text-[11px] tracking-[0.22em] text-slate-500 uppercase mb-3.5">
-          {settings.cert_title}
+        <p className="font-sans text-[10px] font-bold tracking-[0.22em] uppercase mb-1 text-(--cert-primary)">
+          {settings.org_name}
         </p>
 
-        <p className="font-sans text-[11px] text-slate-400 mb-1">This is to certify that</p>
+        <div className="text-4xl mb-2">🏆</div>
 
-        {/* Student name in outlined box */}
-        <div
-          className="rounded-md px-8 py-1.5 my-2"
-          style={{ border: `1.5px solid ${accent}` }}
-        >
-          <span className="text-[22px] font-bold text-slate-900 italic tracking-[0.02em]">
-            {studentName}
-          </span>
+        <h2 className="text-2xl font-bold text-slate-900 mb-1">{settings.cert_title}</h2>
+        <p className="font-sans text-xs text-slate-400 mb-3">This certifies that</p>
+
+        <div className="text-2xl font-bold tracking-wide pb-3 mb-3 w-full text-center border-b-2 text-(--cert-primary) border-b-(--cert-accent)">
+          {studentName}
         </div>
 
-        <p className="font-sans text-[11px] text-slate-400 mt-1.5 mb-0.5">
-          has successfully completed and passed the
-        </p>
+        <p className="font-sans text-xs text-slate-500 mb-1">has successfully completed and passed</p>
+        <p className="text-base font-bold text-slate-900 mb-0.5">{examTitle}</p>
+        {planName && <p className="font-sans text-xs text-slate-400 mb-1">{planName}</p>}
 
-        <p className="text-base font-bold my-0.5" style={{ color: primary }}>
-          {examTitle}
-        </p>
-
-        {planName && (
-          <p className="font-sans text-[11px] text-slate-500 mb-0.5">
-            {planName} · Certification Exam
-          </p>
-        )}
-
-        {/* Score + date */}
-        <div className="flex gap-6 font-sans text-[11px] text-slate-400 mt-3 mb-4">
-          <span>Score: <strong className="text-slate-900">{displayScore}</strong></span>
-          <span>Issued: <strong className="text-slate-900">{issueDate}</strong></span>
+        <div className="flex items-center gap-6 my-5 py-3 px-6 rounded-xl border bg-(--cert-primary-bg) border-(--cert-primary-border)">
+          <div className="text-center">
+            <p className="text-xl font-bold text-(--cert-primary)">{displayScore}</p>
+            <p className="font-sans text-[9px] text-slate-400 uppercase tracking-wider">Final Score</p>
+          </div>
+          <div className="w-px h-8 bg-slate-200" />
+          <div className="text-center">
+            <p className="text-sm font-semibold text-slate-700">{issueDate}</p>
+            <p className="font-sans text-[9px] text-slate-400 uppercase tracking-wider">Issue Date</p>
+          </div>
         </div>
 
-        {/* Divider */}
-        <div className="w-full h-px bg-slate-200 mt-1 mb-3.5" />
+        <div className="w-full h-px bg-slate-100 mb-4" />
 
-        {/* Footer row */}
-        <div className="flex justify-between w-full items-end">
-          {/* QR */}
-          <div className="w-[52px] h-[52px] flex items-center justify-center shrink-0">
-            <QRPattern />
+        <div className="flex items-end justify-between w-full">
+          <div className="text-left">
+            <div className="inline-block font-mono text-[10px] px-2.5 py-1 rounded border mb-0.5 text-(--cert-primary) border-(--cert-primary-badge-border) bg-(--cert-primary-badge-bg)">
+              #{certNumber}
+            </div>
+            <p className="font-sans text-[9px] text-slate-400">Certificate ID</p>
           </div>
 
-          {/* Cert number + tagline */}
-          <div className="flex-1 text-center px-4">
-            <p className="font-mono text-[9px] text-slate-400 tracking-[0.12em] mb-0.5">
-              CERT NO: {certNumber}
-            </p>
-            <p className="font-sans text-[9px] text-slate-300">{settings.footer_tagline}</p>
-          </div>
-
-          {/* Signature */}
-          <div className="text-right shrink-0">
-            <div className="w-[100px] h-px bg-slate-400 mb-0.5 ml-auto" />
-            <p className="text-[11px] font-bold text-slate-900">{settings.signer_name}</p>
+          <div className="text-right">
+            <p className="text-sm font-bold italic text-(--cert-primary)">{settings.signer_name}</p>
+            <div className="w-28 h-px bg-slate-300 my-1 ml-auto" />
             <p className="font-sans text-[9px] text-slate-400">{settings.signer_title}</p>
           </div>
         </div>
-      </div>
 
-      {/* Bottom stripe — dynamic color */}
-      <div className="h-1.5 w-full" style={{ background: primary }} />
+        <p className="font-sans text-[9px] text-slate-300 mt-4 pt-3 w-full text-center border-t border-slate-100">
+          {settings.footer_tagline}
+        </p>
+      </div>
     </div>
   );
 }
