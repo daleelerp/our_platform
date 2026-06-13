@@ -162,9 +162,18 @@ export function DashboardContent({
   const [visiblePathCount, setVisiblePathCount] = useState(6);
   const [buyingCert, setBuyingCert] = useState<string | null>(null); // examId being purchased
 
-  // Live progress from the server — calculated fresh from user_video_progress so it
-  // reflects partial watch progress, not just the stale path_enrollments snapshot.
-  const [liveProgressMap, setLiveProgressMap] = useState<Map<string, number> | null>(null);
+  // Initialize from server data immediately so there is never a null/blank state.
+  // The useEffect then replaces it with fresh calculated values (same logic as
+  // the in-learning page) and writes the result back to path_enrollments so the
+  // next server render is already accurate.
+  const [liveProgressMap, setLiveProgressMap] = useState<Map<string, number>>(() => {
+    const m = new Map<string, number>();
+    for (const e of enrolledPaths) {
+      m.set(e.learning_paths.id, Number(e.progress_percentage ?? 0));
+    }
+    return m;
+  });
+
   useEffect(() => {
     fetch("/api/progress/dashboard")
       .then((r) => r.json())
@@ -176,7 +185,7 @@ export function DashboardContent({
         }
         setLiveProgressMap(m);
       })
-      .catch(() => { /* leave server-snapshot as fallback */ });
+      .catch(() => {}); // keep server snapshot on network failure
   }, []);
 
   const getText = (en: string | null, ar: string | null) => (language === "ar" && ar ? ar : en ?? "");
@@ -213,17 +222,8 @@ export function DashboardContent({
     [enrolledPaths, planPathIdSet]
   );
 
-  // Progress lookup: pathId → progress_percentage
-  // Prefers live client-side data over the server snapshot to avoid stale values.
-  const progressByPathId = useMemo(() => {
-    if (liveProgressMap) return liveProgressMap;
-    const m = new Map<string, number>();
-    for (const e of enrolledPaths) {
-      const pct = Number(e.progress_percentage ?? 0);
-      m.set(e.learning_paths.id, pct);
-    }
-    return m;
-  }, [enrolledPaths, liveProgressMap]);
+  // Always valid — initialized from server data, updated by dashboard API on mount.
+  const progressByPathId = liveProgressMap;
 
   const filteredStandalone = useMemo(() => {
     const q = pathSearch.trim().toLowerCase();
