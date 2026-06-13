@@ -114,6 +114,12 @@ export function VideoPlayer({
         if (!secChanged && !timePassed) return;
       }
 
+      // Never save position 0 — player hasn't seeked to startAt yet
+      if (seconds < 2 && !completed) {
+        console.log("[VideoPlayer] skipping save: position not ready yet", seconds);
+        return;
+      }
+
       lastSavedSecondsRef.current = seconds;
       lastSavedAtRef.current = Date.now();
 
@@ -180,17 +186,19 @@ export function VideoPlayer({
       setIsPlaying(state === 1);
 
       if (state === 1) {
-        // Force-save immediately on first play so we can see the indicator quickly
         if (!hasPlayedRef.current) {
           hasPlayedRef.current = true;
-          try {
-            const cur = player?.getCurrentTime() ?? 0;
-            const tot = player?.getDuration() ?? 0;
-            if (cur > 0 && tot > 0) {
-              console.log("[VideoPlayer] first-play save:", cur, "/", tot);
-              saveProgress(cur, (cur / tot) * 100, false, true);
-            }
-          } catch { /* ignore */ }
+          // Delay 1.5s so seekTo(startAt) has time to complete before we read position
+          setTimeout(() => {
+            try {
+              const cur = player?.getCurrentTime() ?? 0;
+              const tot = player?.getDuration() ?? 0;
+              if (cur > 1 && tot > 0) {
+                console.log("[VideoPlayer] first-play save:", cur, "/", tot);
+                saveProgress(cur, (cur / tot) * 100, false, true);
+              }
+            } catch { /* ignore */ }
+          }, 1500);
         }
       }
 
