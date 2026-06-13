@@ -29,15 +29,18 @@ export type MilestoneCompletionStatus = {
 };
 
 /**
- * Check if a milestone is completed based on all content requirements
+ * Check if a milestone is completed based on all content requirements.
+ * Pass `language` ("ar" | "en") to count only videos visible in that language.
+ * Resources/articles are never counted toward progress.
  */
 export async function checkMilestoneCompletion(
   userId: string,
   milestoneId: string,
-  supabaseClient?: any
+  supabaseClient?: any,
+  language?: string
 ): Promise<MilestoneCompletionStatus> {
   const supabase = supabaseClient || createClient();
-  
+
   const status: MilestoneCompletionStatus = {
     isCompleted: false,
     progressPercentage: 0,
@@ -54,17 +57,26 @@ export async function checkMilestoneCompletion(
     missingRequirements: [],
   };
 
-  // 1. Check Videos
-  const { data: videos } = await supabase
+  // 1. Check Videos (filtered by language when provided)
+  const { data: allVideos } = await supabase
     .from("video_content")
-    .select("id")
+    .select("id, primary_language")
     .eq("milestone_id", milestoneId)
     .eq("is_active", true);
 
-  status.videosTotal = videos?.length || 0;
+  const videos = language
+    ? (allVideos ?? []).filter((v: any) => {
+        const pl = String(v.primary_language ?? "").trim().toLowerCase();
+        if (!pl) return true;
+        if (language === "ar") return pl === "ar" || pl === "mixed";
+        return pl === "en" || pl === "mixed";
+      })
+    : (allVideos ?? []);
+
+  status.videosTotal = videos.length;
 
   if (status.videosTotal > 0) {
-    const videoIds = videos!.map((v: { id: string }) => v.id);
+    const videoIds = videos.map((v: { id: string }) => v.id);
     
     const { data: videoProgress } = await supabase
       .from("user_video_progress")
@@ -131,40 +143,9 @@ export async function checkMilestoneCompletion(
   status.articlesTotal = 0;
   status.articlesCompleted = 0;
 
-  // 4. Check Learning Resources (from milestone_resources)
-  const { data: milestoneResources } = await supabase
-    .from("milestone_resources")
-    .select("resource_id, is_required")
-    .eq("milestone_id", milestoneId);
-
-  // Only count explicitly required resources — optional resources don't block progress
-  const resourcesToCheck = milestoneResources?.filter((mr: any) => mr.is_required === true) || [];
-
-  status.resourcesTotal = resourcesToCheck.length;
-
-  if (status.resourcesTotal > 0) {
-    const resourceIds = resourcesToCheck.map((mr: any) => mr.resource_id);
-    
-    // Check if user has completed these resources
-    const { data: resourceInteractions } = await supabase
-      .from("user_resource_interactions")
-      .select("resource_id, interaction_type")
-      .eq("user_id", userId)
-      .in("resource_id", resourceIds)
-      .eq("interaction_type", "completed");
-
-    // Count unique completed resources
-    const completedResourceIds = new Set(
-      (resourceInteractions || []).map((ri: any) => ri.resource_id)
-    );
-    status.resourcesCompleted = completedResourceIds.size;
-    
-    if (status.resourcesCompleted < status.resourcesTotal) {
-      status.missingRequirements.push(
-        `${status.resourcesTotal - status.resourcesCompleted} resource(s) not completed`
-      );
-    }
-  }
+  // 4. Resources/articles are excluded from progress calculation
+  status.resourcesTotal = 0;
+  status.resourcesCompleted = 0;
 
   // 5. Check External Tests (via external_test_results table)
   const { data: externalTests } = await supabase
@@ -274,12 +255,14 @@ export async function updateMilestoneProgress(
 }
 
 /**
- * Calculate overall path progress based on completed milestones
+ * Calculate overall path progress based on completed milestones.
+ * Pass `language` to count only language-visible videos (same filter as checkMilestoneCompletion).
  */
 export async function calculatePathProgress(
   userId: string,
   pathId: string,
-  supabaseClient?: any
+  supabaseClient?: any,
+  language?: string
 ): Promise<number> {
   const supabase = supabaseClient || createClient();
 
@@ -296,10 +279,11 @@ export async function calculatePathProgress(
 
   const milestoneIds = milestones.map((m: { id: string }) => m.id);
   
-  // Get all videos, quizzes, and learning resources for all milestones in one query
+  // Get all videos and quizzes for all milestones in one query
+  // Resources are excluded from progress calculation
   const { data: allVideos } = await supabase
     .from("video_content")
-    .select("milestone_id")
+    .select("id, milestone_id, primary_language")
     .in("milestone_id", milestoneIds)
     .eq("is_active", true);
 
@@ -309,16 +293,20 @@ export async function calculatePathProgress(
     .in("milestone_id", milestoneIds)
     .eq("is_active", true);
 
-  const { data: allResources } = await supabase
-    .from("milestone_resources")
-    .select("milestone_id")
-    .in("milestone_id", milestoneIds);
+  // Filter videos by language when provided
+  const visibleVideos = language
+    ? (allVideos ?? []).filter((v: any) => {
+        const pl = String(v.primary_language ?? "").trim().toLowerCase();
+        if (!pl) return true;
+        if (language === "ar") return pl === "ar" || pl === "mixed";
+        return pl === "en" || pl === "mixed";
+      })
+    : (allVideos ?? []);
 
-  // Create a map of which milestones have content
+  // Create a map of which milestones have content (videos or quizzes only)
   const milestonesWithContent = new Set<string>();
-  (allVideos || []).forEach((v: any) => milestonesWithContent.add(v.milestone_id));
+  visibleVideos.forEach((v: any) => milestonesWithContent.add(v.milestone_id));
   (allQuizzes || []).forEach((q: any) => milestonesWithContent.add(q.milestone_id));
-  (allResources || []).forEach((r: any) => milestonesWithContent.add(r.milestone_id));
 
   // Get completion status and progress for all milestones
   const { data: milestoneProgress } = await supabase
@@ -356,7 +344,7 @@ export async function calculatePathProgress(
         }
       } else {
         // No progress record yet - calculate it on the fly
-        const completionStatus = await checkMilestoneCompletion(userId, milestone.id, supabase);
+        const completionStatus = await checkMilestoneCompletion(userId, milestone.id, supabase, language);
         totalProgress += completionStatus.progressPercentage;
         // Save it for next time
         await updateMilestoneProgress(userId, milestone.id, completionStatus, supabase);

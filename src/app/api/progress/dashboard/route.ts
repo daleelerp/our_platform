@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { getAdminSupabaseClient } from "@/utils/admin-supabase";
@@ -15,8 +15,10 @@ import { getAdminSupabaseClient } from "@/utils/admin-supabase";
  *
  * Response: { progress: { [pathId: string]: number } }
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const lang = new URL(request.url).searchParams.get("lang") ?? undefined;
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
     const { data: { user } } = await supabase.auth.getUser();
@@ -53,14 +55,24 @@ export async function GET() {
 
     const milestoneIds = milestones.map((m) => m.id);
 
-    // 3. All active videos across those milestones
-    const { data: videos } = await admin
+    // 3. All active videos across those milestones (with language field for filtering)
+    const { data: allVideosRaw } = await admin
       .from("video_content")
-      .select("id, milestone_id")
+      .select("id, milestone_id, primary_language")
       .in("milestone_id", milestoneIds)
       .neq("is_active", false);
 
-    const allVideoIds = (videos ?? []).map((v) => v.id);
+    // Filter by language when ?lang= is provided
+    const videos = lang
+      ? (allVideosRaw ?? []).filter((v) => {
+          const pl = String((v as any).primary_language ?? "").trim().toLowerCase();
+          if (!pl) return true;
+          if (lang === "ar") return pl === "ar" || pl === "mixed";
+          return pl === "en" || pl === "mixed";
+        })
+      : (allVideosRaw ?? []);
+
+    const allVideoIds = videos.map((v) => v.id);
 
     // 4. User video progress for all those videos (binary: ≥90% = complete)
     const { data: videoProgress } = allVideoIds.length > 0

@@ -361,6 +361,7 @@ export function LearningInterface({
           milestoneId: currentMilestone.id,
           pathId: path.id,
           enrollmentId: enrollment.id,
+          language,
         }),
       });
 
@@ -376,7 +377,7 @@ export function LearningInterface({
     } catch (error) {
       console.error("Error recalculating progress:", error);
     }
-  }, [currentMilestone?.id, path.id, enrollment.id, userId]);
+  }, [currentMilestone?.id, path.id, enrollment.id, userId, language]);
 
   // Reset reload guard when milestone changes (used for quiz reload after completion)
   useEffect(() => {

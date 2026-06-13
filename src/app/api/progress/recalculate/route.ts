@@ -29,10 +29,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { milestoneId, pathId, enrollmentId } = body as {
+    const { milestoneId, pathId, enrollmentId, language } = body as {
       milestoneId: string;
       pathId: string;
       enrollmentId: string;
+      language?: string;
     };
 
     if (!milestoneId || !pathId || !enrollmentId) {
@@ -42,14 +43,14 @@ export async function POST(request: NextRequest) {
     // All DB work uses the service-role client — bypasses all RLS policies
     const admin = getAdminSupabaseClient();
 
-    // 1. Calculate current milestone completion
-    const completionStatus = await checkMilestoneCompletion(user.id, milestoneId, admin);
+    // 1. Calculate current milestone completion (language-filtered)
+    const completionStatus = await checkMilestoneCompletion(user.id, milestoneId, admin, language);
 
     // 2. Persist milestone progress
     await updateMilestoneProgress(user.id, milestoneId, completionStatus, admin);
 
-    // 3. Recalculate overall path progress from all milestones
-    const pathProgress = await calculatePathProgress(user.id, pathId, admin);
+    // 3. Recalculate overall path progress from all milestones (language-filtered)
+    const pathProgress = await calculatePathProgress(user.id, pathId, admin, language);
 
     // 4. Update enrollment
     const { error: enrollmentError } = await admin
