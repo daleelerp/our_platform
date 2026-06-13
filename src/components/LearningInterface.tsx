@@ -11,7 +11,6 @@ import { ContentTierBadge } from "./ContentTierBadge";
 import { LockedContent } from "./LockedContent";
 import { getContentTierFromBudget, hasAccessToTier, type ContentTier } from "@/utils/contentTiers";
 import { createClient } from "@/utils/supabase/client";
-import { checkMilestoneCompletion, updateMilestoneProgress, calculatePathProgress } from "@/utils/milestoneProgress";
 import Link from "next/link";
 import { CheckCircleIcon, DocumentTextIcon, PlayIcon, LockClosedIcon, ExclamationCircleIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 import { LearningResource } from "@/types/learning";
@@ -352,37 +351,34 @@ export function LearningInterface({
     return en || "";
   };
 
-  // Function to recalculate and update progress
+  // Function to recalculate and update progress via server API (uses admin client, bypasses RLS)
   const recalculateProgress = useCallback(async () => {
     if (!currentMilestone || !userId) return;
 
     try {
-      const completionStatus = await checkMilestoneCompletion(userId, currentMilestone.id);
+      const res = await fetch("/api/progress/recalculate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          milestoneId: currentMilestone.id,
+          pathId: path.id,
+          enrollmentId: enrollment.id,
+        }),
+      });
 
-      // Update milestone progress in database
-      await updateMilestoneProgress(userId, currentMilestone.id, completionStatus);
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        console.error("Progress recalculate failed:", json.error ?? res.status);
+        return;
+      }
 
-      // Update local state
-      setCurrentMilestoneProgress(completionStatus.progressPercentage);
-
-      // Calculate and update path progress
-      const overallProgress = await calculatePathProgress(userId, path.id);
-
-      // Update enrollment progress
-      await supabase
-        .from("path_enrollments")
-        .update({
-          progress_percentage: overallProgress,
-          last_accessed_at: new Date().toISOString(),
-        })
-        .eq("id", enrollment.id);
-
-      // Update local enrollment progress state
-      setCurrentEnrollmentProgress(overallProgress);
+      const { milestoneProgress, pathProgress } = await res.json();
+      setCurrentMilestoneProgress(milestoneProgress);
+      setCurrentEnrollmentProgress(pathProgress);
     } catch (error) {
-      console.debug("Error calculating progress:", error);
+      console.error("Error recalculating progress:", error);
     }
-  }, [currentMilestone?.id, userId, path.id, enrollment.id, supabase]);
+  }, [currentMilestone?.id, path.id, enrollment.id, userId]);
 
   // Calculate milestone progress on mount and when milestone changes
   useEffect(() => {
