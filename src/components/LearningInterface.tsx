@@ -295,6 +295,40 @@ export function LearningInterface({
     setShowVideoDesc(false);
   }, [selectedVideo?.id]);
 
+  // Build a map of video id → display title with the shared playlist prefix stripped.
+  // e.g. all 11 videos starting with "كورس جافاسكريبت" → strip that prefix so the
+  // sidebar shows "#0 Intro", "Operators", "Arrays #4" etc. instead.
+  const videoDisplayTitles = useMemo<Map<string, string>>(() => {
+    const result = new Map<string, string>();
+    const raw = flatAccessibleVideos.map((v) => ({
+      id: v.id,
+      title: (language === "ar" && v.title_ar ? v.title_ar : v.title) || "",
+    }));
+
+    if (raw.length <= 1) {
+      raw.forEach(({ id, title }) => result.set(id, title));
+      return result;
+    }
+
+    const words0 = raw[0].title.trim().split(/\s+/);
+    let commonWords = 0;
+    for (let w = 1; w <= words0.length; w++) {
+      const prefix = words0.slice(0, w).join(" ");
+      if (raw.every(({ title }) => title.startsWith(prefix))) {
+        commonWords = w;
+      } else {
+        break;
+      }
+    }
+
+    const prefixLen = commonWords > 0 ? words0.slice(0, commonWords).join(" ").length : 0;
+    raw.forEach(({ id, title }) => {
+      const stripped = prefixLen > 0 ? title.slice(prefixLen).trim() : title;
+      result.set(id, stripped || title);
+    });
+    return result;
+  }, [flatAccessibleVideos, language]);
+
   // Get video progress map
   const videoProgressMap = new Map(
     videoProgress.map((vp) => [vp.video_id, vp])
@@ -648,7 +682,7 @@ export function LearningInterface({
                           const isSelected = selectedVideo?.id === video.id;
                           const isNext = video.id === nextVideoId && !isSelected;
                           const isCompleted = progress?.is_completed === true;
-                          const videoTitle = getText(video.title, video.title_ar);
+                          const videoTitle = videoDisplayTitles.get(video.id) || getText(video.title, video.title_ar);
                           const flatIdx = flatAccessibleVideos.findIndex((v) => v.id === video.id);
                           const inProgressPct = (() => {
                             const rt = currentVideoProgress.get(video.id);
