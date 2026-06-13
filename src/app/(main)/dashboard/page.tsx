@@ -1,6 +1,7 @@
 import { unstable_noStore as noStore } from "next/cache";
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
+import { getAdminSupabaseClient } from "@/utils/admin-supabase";
 import { redirect } from "next/navigation";
 import { DashboardContent } from "@/components/DashboardContent";
 import { filterPathsByPlan } from "@/utils/pathAccess";
@@ -309,18 +310,19 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   // certByPathId: pathId → cert data (for enrolled-path cards — works even without subscriptions)
   const certByPathId: Record<string, PlanCertData> = {};
 
-  // Helper: given a list of exam rows + user id, fetch purchase + certificate status
+  // Use admin client for cert tables — user session client is blocked by RLS on these tables.
+  // We filter by user_id explicitly so this is safe.
+  const supabaseAdmin = getAdminSupabaseClient();
+
+  // Helper: fetch purchase + certificate status for a list of exam IDs
   async function loadCertStatusForExams(
     examRows: Array<{ id: string; plan_id: string; price_egp: number | null }>
-  ): Promise<{
-    purchaseByExam: Map<string, string>;
-    certByExam: Map<string, string>;
-  }> {
+  ): Promise<{ purchaseByExam: Map<string, string>; certByExam: Map<string, string> }> {
     if (!examRows.length) return { purchaseByExam: new Map(), certByExam: new Map() };
     const examIds = examRows.map((e) => e.id);
     const [{ data: certPurchases }, { data: certs }] = await Promise.all([
-      supabase.from("user_certification_purchases").select("exam_id, status").eq("user_id", userId).in("exam_id", examIds),
-      supabase.from("certificates").select("exam_id, certificate_number").eq("user_id", userId).in("exam_id", examIds),
+      supabaseAdmin.from("user_certification_purchases").select("exam_id, status").eq("user_id", userId).in("exam_id", examIds),
+      supabaseAdmin.from("certificates").select("exam_id, certificate_number").eq("user_id", userId).in("exam_id", examIds),
     ]);
     return {
       purchaseByExam: new Map((certPurchases ?? []).map((p: any) => [p.exam_id as string, p.status as string])),
@@ -329,7 +331,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   }
 
   if (shownPlanIds.length > 0) {
-    // Paths per plan (batch)
+    // Paths per plan (batch) — plan_paths is public, user client is fine
     const { data: planPathRows } = await supabase
       .from("plan_paths")
       .select("plan_id, sort_order, learning_path_id, learning_paths(id, slug, title, title_ar)")
@@ -344,8 +346,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       planPathsMap[planId].push({ pathId: lp.id, slug: lp.slug, title: lp.title, title_ar: lp.title_ar ?? null, sort_order: Number(row.sort_order ?? 0) });
     }
 
-    // Cert exams per plan (batch)
-    const { data: certExams } = await supabase
+    // Cert exams — use admin client to bypass RLS
+    const { data: certExams } = await supabaseAdmin
       .from("certification_exams")
       .select("id, plan_id, price_egp")
       .in("plan_id", shownPlanIds)
@@ -364,7 +366,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         const certData: PlanCertData = { examId, priceEgp: Number(exam.price_egp ?? 0), purchaseStatus, certificateNumber, firstPathSlug: firstPath?.slug ?? null };
 
         planCertMap[planId] = certData;
-        // Also map to every path in this plan so path cards can show the CTA
         for (const pp of planPathsMap[planId] ?? []) {
           certByPathId[pp.pathId] = certData;
         }
@@ -372,8 +373,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     }
   }
 
-  // For enrolled paths NOT already covered above (user has no plan subscription),
-  // look up cert exams via plan_paths → certification_exams
+  // For enrolled paths not yet covered (no plan subscription), look up cert via plan_paths
   const uncoveredPathIds = enrolledPathIds.filter((id) => !certByPathId[id]);
   if (uncoveredPathIds.length > 0) {
     const { data: linkRows } = await supabase
@@ -385,7 +385,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     const pathToPlan = new Map((linkRows ?? []).map((r: any) => [r.learning_path_id as string, r.plan_id as string]));
 
     if (extraPlanIds.length > 0) {
-      const { data: extraExams } = await supabase
+      const { data: extraExams } = await supabaseAdmin
         .from("certification_exams")
         .select("id, plan_id, price_egp")
         .in("plan_id", extraPlanIds)

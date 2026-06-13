@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
+import { getAdminSupabaseClient } from "@/utils/admin-supabase";
 import { redirect } from "next/navigation";
 import { LearningInterface } from "@/components/LearningInterface";
 import { orderVideosForLearning } from "@/lib/learningPlaylistOrder";
@@ -237,7 +238,9 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
     const planIds = (planPathRows || []).map((p: any) => p.plan_id).filter(Boolean);
 
     if (planIds.length > 0) {
-      const { data: certExam } = await supabase
+      // Admin client bypasses RLS — certification_exams has no student read policy
+      const supabaseAdmin = getAdminSupabaseClient();
+      const { data: certExam } = await supabaseAdmin
         .from("certification_exams")
         .select("id, title, price_egp, plan_id")
         .in("plan_id", planIds)
@@ -245,7 +248,7 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
         .maybeSingle();
 
       if (certExam) {
-        const { data: certPurchase } = await supabase
+        const { data: certPurchase } = await supabaseAdmin
           .from("user_certification_purchases")
           .select("status")
           .eq("user_id", user.id)
