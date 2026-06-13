@@ -287,6 +287,91 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   });
 
 
+  // ── Per-plan extra data: paths + cert exam ──────────────────────────────────
+  const activePlanIds = dedupedPurchasedPlans
+    .filter((r) => ["active", "trial", "paused"].includes(r.status) && r.subscription_plans?.id)
+    .map((r) => r.subscription_plans!.id);
+
+  // planPathsMap: planId → ordered array of { pathId, slug, title, title_ar, sort_order }
+  const planPathsMap: Record<string, Array<{ pathId: string; slug: string; title: string; title_ar: string | null; sort_order: number }>> = {};
+  // planCertMap: planId → cert exam info + status
+  type PlanCertData = {
+    examId: string;
+    priceEgp: number;
+    purchaseStatus: "paid" | "pending" | null;
+    certificateNumber: string | null;
+    firstPathSlug: string | null;
+  };
+  const planCertMap: Record<string, PlanCertData> = {};
+
+  if (activePlanIds.length > 0) {
+    // Paths per plan (batch)
+    const { data: planPathRows } = await supabase
+      .from("plan_paths")
+      .select("plan_id, sort_order, learning_path_id, learning_paths(id, slug, title, title_ar)")
+      .in("plan_id", activePlanIds)
+      .order("sort_order", { ascending: true });
+
+    for (const row of (planPathRows ?? []) as any[]) {
+      const planId = row.plan_id as string;
+      const lp = Array.isArray(row.learning_paths) ? row.learning_paths[0] : row.learning_paths;
+      if (!planId || !lp?.slug) continue;
+      if (!planPathsMap[planId]) planPathsMap[planId] = [];
+      planPathsMap[planId].push({
+        pathId: lp.id,
+        slug: lp.slug,
+        title: lp.title,
+        title_ar: lp.title_ar ?? null,
+        sort_order: Number(row.sort_order ?? 0),
+      });
+    }
+
+    // Cert exams per plan (batch)
+    const { data: certExams } = await supabase
+      .from("certification_exams")
+      .select("id, plan_id, price_egp, is_active")
+      .in("plan_id", activePlanIds)
+      .eq("is_active", true);
+
+    if (certExams && certExams.length > 0) {
+      const examIds = certExams.map((e: any) => e.id as string);
+
+      // Purchases + certificates in parallel
+      const [{ data: certPurchases }, { data: certs }] = await Promise.all([
+        supabase
+          .from("user_certification_purchases")
+          .select("exam_id, status")
+          .eq("user_id", user.id)
+          .in("exam_id", examIds),
+        supabase
+          .from("certificates")
+          .select("exam_id, certificate_number")
+          .eq("user_id", user.id)
+          .in("exam_id", examIds),
+      ]);
+
+      const purchaseByExam = new Map((certPurchases ?? []).map((p: any) => [p.exam_id as string, p.status as string]));
+      const certByExam = new Map((certs ?? []).map((c: any) => [c.exam_id as string, c.certificate_number as string]));
+
+      for (const exam of certExams as any[]) {
+        const planId = exam.plan_id as string;
+        const examId = exam.id as string;
+        const rawStatus = purchaseByExam.get(examId) ?? null;
+        const purchaseStatus = rawStatus === "paid" ? "paid" : rawStatus === "pending" ? "pending" : null;
+        const certificateNumber = certByExam.get(examId) ?? null;
+        const firstPath = planPathsMap[planId]?.[0] ?? null;
+
+        planCertMap[planId] = {
+          examId,
+          priceEgp: Number(exam.price_egp ?? 0),
+          purchaseStatus,
+          certificateNumber,
+          firstPathSlug: firstPath?.slug ?? null,
+        };
+      }
+    }
+  }
+
   // Fetch saved path finder recommendations
   const { data: savedPreferences } = await supabase
     .from("user_path_preferences")
@@ -324,7 +409,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   }
 
   return (
-    <DashboardContent 
+    <DashboardContent
       profile={profile}
       enrolledPaths={sortedEnrollments}
       enrolledPathPlanMap={enrolledPathPlanMap}
@@ -332,6 +417,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       recommendedPaths={recommendedPaths}
       savedPreferences={savedPreferences}
       subscriptionActivated={subscriptionActivated}
+      planPathsMap={planPathsMap}
+      planCertMap={planCertMap}
     />
   );
 }

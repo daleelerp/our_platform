@@ -4,8 +4,9 @@ import { useMemo, useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/store/useAppStore";
 import { useSubscription } from "@/hooks/useSubscription";
-// Subscription system removed - using free plan only
 import Link from "next/link";
+
+// ── Types ────────────────────────────────────────────────────────────────────
 
 type Profile = {
   id: string;
@@ -36,6 +37,7 @@ type SavedPreferences = {
 
 type EnrolledPath = {
   id: string;
+  progress_percentage?: number | null;
   learning_paths: {
     id: string;
     title: string;
@@ -56,17 +58,6 @@ type EnrolledPathPlanBadge = {
   is_free: boolean;
 };
 
-type Props = {
-  profile: Profile | null;
-  enrolledPaths?: EnrolledPath[];
-  enrolledPathPlanMap?: Record<string, EnrolledPathPlanBadge[]>;
-  purchasedPlans?: PurchasedPlanRecord[];
-  recommendedPaths: Path[];
-  savedPreferences?: SavedPreferences;
-  /** Set after payment redirect — refresh subscription state from DB (activation via callback/webhook). */
-  subscriptionActivated?: boolean;
-};
-
 type PurchasedPlanRecord = {
   id: string;
   status: string;
@@ -85,11 +76,55 @@ type PurchasedPlanRecord = {
   } | null;
 };
 
-const difficultyConfig: Record<string, { labelEn: string; labelAr: string; color: string }> = {
-  beginner: { labelEn: "Beginner", labelAr: "مبتدئ", color: "bg-green-100 text-green-700" },
-  intermediate: { labelEn: "Intermediate", labelAr: "متوسط", color: "bg-yellow-100 text-yellow-700" },
-  advanced: { labelEn: "Advanced", labelAr: "متقدم", color: "bg-orange-100 text-orange-700" },
+type PlanPathItem = {
+  pathId: string;
+  slug: string;
+  title: string;
+  title_ar: string | null;
+  sort_order: number;
 };
+
+type PlanCertData = {
+  examId: string;
+  priceEgp: number;
+  purchaseStatus: "paid" | "pending" | null;
+  certificateNumber: string | null;
+  firstPathSlug: string | null;
+};
+
+type Props = {
+  profile: Profile | null;
+  enrolledPaths?: EnrolledPath[];
+  enrolledPathPlanMap?: Record<string, EnrolledPathPlanBadge[]>;
+  purchasedPlans?: PurchasedPlanRecord[];
+  recommendedPaths: Path[];
+  savedPreferences?: SavedPreferences;
+  subscriptionActivated?: boolean;
+  planPathsMap?: Record<string, PlanPathItem[]>;
+  planCertMap?: Record<string, PlanCertData>;
+};
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+const difficultyConfig: Record<string, { labelEn: string; labelAr: string; color: string }> = {
+  beginner:     { labelEn: "Beginner",     labelAr: "مبتدئ",  color: "bg-green-100 text-green-700" },
+  intermediate: { labelEn: "Intermediate", labelAr: "متوسط",  color: "bg-yellow-100 text-yellow-700" },
+  advanced:     { labelEn: "Advanced",     labelAr: "متقدم",  color: "bg-orange-100 text-orange-700" },
+};
+
+function ProgressBar({ value }: { value: number }) {
+  const pct = Math.min(100, Math.max(0, value));
+  return (
+    <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+      <div
+        className={`h-full rounded-full transition-all ${pct === 100 ? "bg-green-600" : "bg-teal-500"}`}
+        style={{ width: `${pct}%` }}
+      />
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 
 export function DashboardContent({
   profile,
@@ -99,12 +134,13 @@ export function DashboardContent({
   recommendedPaths,
   savedPreferences,
   subscriptionActivated = false,
+  planPathsMap = {},
+  planCertMap = {},
 }: Props) {
   const router = useRouter();
-  const language = useAppStore((state) => state.language);
-  const isHydrated = useAppStore((state) => state.isHydrated);
+  const language = useAppStore((s) => s.language);
+  const isHydrated = useAppStore((s) => s.isHydrated);
   const { refresh: refreshSubscription } = useSubscription();
-
   const paymentReturnRef = useRef(false);
 
   useEffect(() => {
@@ -118,144 +154,119 @@ export function DashboardContent({
         router.replace("/dashboard", { scroll: false });
       });
   }, [subscriptionActivated, router, refreshSubscription]);
+
   const [pathSearch, setPathSearch] = useState("");
   const [difficultyFilter, setDifficultyFilter] = useState<"all" | "beginner" | "intermediate" | "advanced">("all");
   const [visiblePathCount, setVisiblePathCount] = useState(6);
-  const activePaidPlans = purchasedPlans.filter((record) => {
-    const plan = record.subscription_plans;
-    if (!plan) return false;
-    const isPaid =
-      (plan.price_monthly_egp ?? 0) > 0 ||
-      (plan.price_yearly_egp ?? 0) > 0 ||
-      (plan.price_one_time_egp ?? 0) > 0;
-    return isPaid && ["active", "trial", "paused"].includes(record.status);
-  });
-  const planIdsWithLiveAccess = useMemo(() => {
-    const ids = new Set<string>();
-    for (const record of purchasedPlans) {
-      const plan = record.subscription_plans;
-      if (!plan) continue;
-      if (["active", "trial", "paused"].includes(record.status)) {
-        ids.add(plan.id);
-      }
-    }
-    return ids;
-  }, [purchasedPlans]);
+  const [buyingCert, setBuyingCert] = useState<string | null>(null); // examId being purchased
 
-  const displayPurchasedPlans = purchasedPlans.filter((record) => {
-    const plan = record.subscription_plans;
+  const getText = (en: string | null, ar: string | null) => (language === "ar" && ar ? ar : en ?? "");
+
+  // Active paid plans
+  const activePaidPlans = purchasedPlans.filter((r) => {
+    const plan = r.subscription_plans;
     if (!plan) return false;
-    const isPaid =
-      (plan.price_monthly_egp ?? 0) > 0 ||
-      (plan.price_yearly_egp ?? 0) > 0 ||
-      (plan.price_one_time_egp ?? 0) > 0;
-    if (!isPaid || !["active", "trial", "paused", "pending", "expired"].includes(record.status)) {
-      return false;
-    }
-    if (record.status === "pending" && planIdsWithLiveAccess.has(plan.id)) {
-      return false;
-    }
-    return true;
+    const isPaid = (plan.price_monthly_egp ?? 0) > 0 || (plan.price_yearly_egp ?? 0) > 0 || (plan.price_one_time_egp ?? 0) > 0;
+    return isPaid && ["active", "trial", "paused"].includes(r.status);
   });
   const isFreePlan = activePaidPlans.length === 0;
 
-  const getText = (en: string | null, ar: string | null): string => {
-    if (language === "ar" && ar) return ar;
-    return en || "";
-  };
+  // Plans to show in the Plans section
+  const displayPlans = purchasedPlans.filter((r) => {
+    const plan = r.subscription_plans;
+    if (!plan) return false;
+    const isPaid = (plan.price_monthly_egp ?? 0) > 0 || (plan.price_yearly_egp ?? 0) > 0 || (plan.price_one_time_egp ?? 0) > 0;
+    if (!isPaid) return false;
+    if (!["active", "trial", "paused", "pending", "expired"].includes(r.status)) return false;
+    // hide pending if an active row exists for same plan
+    if (r.status === "pending") {
+      return !activePaidPlans.some((ap) => ap.subscription_plans?.id === plan.id);
+    }
+    return true;
+  });
 
-  const t = {
-    welcomeBack: language === "ar" ? "مرحباً بعودتك" : "Welcome back",
-    continueJourney: language === "ar" ? "تابع رحلة تعلم ERP الخاصة بك" : "Continue your ERP learning journey",
-    readyToStart: language === "ar" ? "هل أنت مستعد للبدء؟" : "Ready to start learning?",
-    explorePathsDesc: language === "ar" 
-      ? "استكشف مسارات التعلم المنسقة لدينا وابدأ رحلة إتقان ERP الخاصة بك."
-      : "Explore our curated learning paths and begin your ERP mastery journey.",
-    browsePaths: language === "ar" ? "تصفح مسارات التعلم" : "Browse Learning Paths",
-    findYourPath: language === "ar" ? "اكتشف مسارك المثالي" : "Find Your Ideal Path",
-    notSureWhere: language === "ar" 
-      ? "غير متأكد من أين تبدأ؟ دع الذكاء الاصطناعي يساعدك في اختيار المسار المناسب."
-      : "Not sure where to start? Let AI help you choose the right path.",
-    takeQuiz: language === "ar" ? "أجب على الاختبار" : "Take the Quiz",
-    recommendedForYou: language === "ar" ? "موصى به لك" : "Recommended for You",
-    hours: language === "ar" ? "ساعة" : "hours",
-    viewPath: language === "ar" ? "عرض المسار" : "View Path",
-    purchasedPlans: language === "ar" ? "الخطط المشتراة" : "Purchased Plans",
-    purchasedOn: language === "ar" ? "تاريخ الشراء" : "Purchased On",
-    noPurchasedPlans: language === "ar" ? "لا توجد خطط مشتراة بعد" : "No purchased plans yet",
-    active: language === "ar" ? "نشط" : "Active",
-    trial: language === "ar" ? "تجريبي" : "Trial",
-    paused: language === "ar" ? "متوقف" : "Paused",
-    pending: language === "ar" ? "قيد المعالجة" : "Pending",
-    cancelled: language === "ar" ? "ملغي" : "Cancelled",
-    expired: language === "ar" ? "منتهي" : "Expired",
-    monthly: language === "ar" ? "شهري" : "Monthly",
-    yearly: language === "ar" ? "سنوي" : "Yearly",
-    oneTime: language === "ar" ? "دفعة واحدة" : "One-Time",
-    viewIncludedPaths: language === "ar" ? "عرض المسارات المتاحة" : "View Included Paths",
-    plan: language === "ar" ? "الخطة" : "Plan",
-    freePlanLabel: language === "ar" ? "الخطة المجانية" : "Free Plan",
-    searchPaths: language === "ar" ? "ابحث في المسارات..." : "Search enrolled paths...",
-    allLevels: language === "ar" ? "كل المستويات" : "All levels",
-    showing: language === "ar" ? "عرض" : "Showing",
-    of: language === "ar" ? "من" : "of",
-    loadMore: language === "ar" ? "عرض المزيد" : "Load more",
-    paymentIncomplete:
-      language === "ar" ? "دفع غير مكتمل" : "Payment incomplete",
-    completePayment: language === "ar" ? "إكمال الدفع" : "Complete payment",
-  };
+  // Enrolled paths that belong to none of the active plans (truly "standalone")
+  const planPathIdSet = useMemo(() => {
+    const s = new Set<string>();
+    for (const paths of Object.values(planPathsMap)) paths.forEach((p) => s.add(p.pathId));
+    return s;
+  }, [planPathsMap]);
 
-  const filteredEnrolledPaths = useMemo(() => {
-    const query = pathSearch.trim().toLowerCase();
-    return enrolledPaths.filter((enrollment) => {
-      const path = enrollment.learning_paths;
-      const pathTitle = getText(path.title, path.title_ar).toLowerCase();
-      const pathDescription = getText(path.description, path.description_ar).toLowerCase();
-      const matchesSearch =
-        !query || pathTitle.includes(query) || pathDescription.includes(query);
-      const matchesDifficulty =
-        difficultyFilter === "all" || (path.difficulty_level || "beginner") === difficultyFilter;
-      return matchesSearch && matchesDifficulty;
+  const standaloneEnrolledPaths = useMemo(
+    () => enrolledPaths.filter((e) => !planPathIdSet.has(e.learning_paths.id)),
+    [enrolledPaths, planPathIdSet]
+  );
+
+  // Progress lookup: pathId → progress_percentage
+  const progressByPathId = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const e of enrolledPaths) {
+      const pct = Number(e.progress_percentage ?? 0);
+      m.set(e.learning_paths.id, pct);
+    }
+    return m;
+  }, [enrolledPaths]);
+
+  const filteredStandalone = useMemo(() => {
+    const q = pathSearch.trim().toLowerCase();
+    return standaloneEnrolledPaths.filter((e) => {
+      const p = e.learning_paths;
+      const matchSearch = !q || getText(p.title, p.title_ar).toLowerCase().includes(q);
+      const matchDiff = difficultyFilter === "all" || (p.difficulty_level ?? "beginner") === difficultyFilter;
+      return matchSearch && matchDiff;
     });
-  }, [enrolledPaths, pathSearch, difficultyFilter, language]);
+  }, [standaloneEnrolledPaths, pathSearch, difficultyFilter, language]);
 
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return "-";
-    const date = new Date(dateString);
-    return date.toLocaleDateString(language === "ar" ? "ar-EG" : "en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
+  const formatDate = (d?: string) =>
+    d ? new Date(d).toLocaleDateString(language === "ar" ? "ar-EG" : "en-US", { year: "numeric", month: "short", day: "numeric" }) : "—";
+
+  const statusBadge = (status: string) => {
+    const map: Record<string, { label: string; labelAr: string; cls: string }> = {
+      active:    { label: "Active",    labelAr: "نشط",        cls: "bg-green-100 text-green-700" },
+      trial:     { label: "Trial",     labelAr: "تجريبي",     cls: "bg-blue-100 text-blue-700" },
+      paused:    { label: "Paused",    labelAr: "متوقف",      cls: "bg-amber-100 text-amber-700" },
+      pending:   { label: "Pending",   labelAr: "قيد الدفع",  cls: "bg-orange-100 text-orange-700" },
+      expired:   { label: "Expired",   labelAr: "منتهي",      cls: "bg-red-100 text-red-600" },
+      cancelled: { label: "Cancelled", labelAr: "ملغي",       cls: "bg-slate-100 text-slate-500" },
+    };
+    const cfg = map[status] ?? { label: status, labelAr: status, cls: "bg-slate-100 text-slate-500" };
+    return (
+      <span className={`text-[11px] px-2 py-0.5 rounded-full font-semibold ${cfg.cls}`}>
+        {language === "ar" ? cfg.labelAr : cfg.label}
+      </span>
+    );
   };
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case "pending":
-        return t.paymentIncomplete;
-      case "active":
-        return t.active;
-      case "trial":
-        return t.trial;
-      case "paused":
-        return t.paused;
-      case "cancelled":
-        return t.cancelled;
-      case "expired":
-        return t.expired;
-      default:
-        return status;
+  const billingLabel = (record: PurchasedPlanRecord) => {
+    const plan = record.subscription_plans!;
+    if (plan.payment_type === "one_time" || ((plan.price_one_time_egp ?? 0) > 0 && !(plan.price_monthly_egp ?? 0) && !(plan.price_yearly_egp ?? 0))) {
+      return language === "ar" ? "دفعة واحدة" : "One-time";
+    }
+    return record.billing_cycle === "yearly" ? (language === "ar" ? "سنوي" : "Yearly") : (language === "ar" ? "شهري" : "Monthly");
+  };
+
+  const handleBuyCert = async (examId: string) => {
+    setBuyingCert(examId);
+    try {
+      const res = await fetch("/api/certification/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ examId }),
+      });
+      const json = await res.json();
+      if (json.redirectUrl) window.location.href = json.redirectUrl;
+      else if (json.sessionUrl) window.location.href = json.sessionUrl;
+    } finally {
+      setBuyingCert(null);
     }
   };
 
   if (!isHydrated) {
     return (
       <main className="min-h-screen bg-slate-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="animate-pulse">
-            <div className="h-8 w-64 bg-slate-200 rounded mb-2" />
-            <div className="h-5 w-48 bg-slate-200 rounded" />
-          </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-pulse">
+          <div className="h-8 w-64 bg-slate-200 rounded mb-2" />
+          <div className="h-5 w-48 bg-slate-200 rounded" />
         </div>
       </main>
     );
@@ -263,58 +274,37 @@ export function DashboardContent({
 
   return (
     <main className="min-h-screen bg-slate-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
         {/* Header */}
-        <div className="mb-8">
+        <div>
           <h1 className="text-2xl font-bold text-slate-900">
-            {t.welcomeBack}{profile?.full_name ? `, ${profile.full_name}` : ""}! 👋
+            {language === "ar" ? "مرحباً بعودتك" : "Welcome back"}{profile?.full_name ? `, ${profile.full_name}` : ""}! 👋
           </h1>
-          <p className="text-slate-600 mt-1">{t.continueJourney}</p>
+          <p className="text-slate-500 mt-1 text-sm">
+            {language === "ar" ? "تابع رحلة تعلم ERP الخاصة بك" : "Continue your ERP learning journey"}
+          </p>
         </div>
 
-        {/* Upgrade Prompt for Free Plan Users */}
+        {/* Upgrade banner — free plan only */}
         {isFreePlan && (
-          <div className="mb-8 bg-gradient-to-r from-[#429874] to-[#357a5d] rounded-xl p-6 text-white shadow-lg">
+          <div className="bg-linear-to-r from-[#429874] to-primary-green-600 rounded-2xl p-6 text-white shadow-lg">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div className="flex-1">
-                <h3 className="text-xl font-bold mb-2">
+              <div>
+                <h3 className="text-lg font-bold mb-1">
                   {language === "ar" ? "🚀 ارفع مستوى تعلمك!" : "🚀 Level Up Your Learning!"}
                 </h3>
-                <p className="text-white/90 mb-1">
-                  {language === "ar" 
-                    ? "أنت حالياً على الخطة المجانية. ترقية إلى Professional لفتح جميع المسارات والموارد والمساعدة بالذكاء الاصطناعي."
-                    : "You're currently on the free plan. Upgrade to Professional to unlock all paths, resources, and AI assistance."}
+                <p className="text-white/80 text-sm">
+                  {language === "ar"
+                    ? "ترقية لفتح جميع المسارات والاختبارات والشهادات الرسمية."
+                    : "Upgrade to unlock all paths, quizzes, and official certifications."}
                 </p>
-                <ul className="text-sm text-white/80 space-y-1 mt-3">
-                  <li className="flex items-center gap-2">
-                    <span>✓</span>
-                    <span>{language === "ar" ? "مسارات غير محدودة" : "Unlimited learning paths"}</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span>✓</span>
-                    <span>{language === "ar" ? "جميع الموارد مفتوحة" : "All resources unlocked"}</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span>✓</span>
-                    <span>{language === "ar" ? "مساعد ذكاء اصطناعي" : "AI Chat Assistant"}</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span>✓</span>
-                    <span>{language === "ar" ? "ساعات تعلم غير محدودة" : "Unlimited learning hours"}</span>
-                  </li>
-                </ul>
               </div>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <Link
-                  href="/paths"
-                  className="px-6 py-3 bg-white text-[#429874] rounded-lg font-semibold hover:bg-slate-50 transition-colors text-center shadow-md hover:shadow-lg"
-                >
-                  {language === "ar" ? "المسارات المتاحة" : "Available paths"}
+              <div className="flex gap-3 shrink-0">
+                <Link href="/paths" className="px-5 py-2.5 bg-white text-[#429874] rounded-lg font-semibold text-sm hover:bg-slate-50 transition text-center">
+                  {language === "ar" ? "المسارات" : "Browse Paths"}
                 </Link>
-                <Link
-                  href="/plans"
-                  className="px-6 py-3 bg-white/10 backdrop-blur-sm border-2 border-white/30 text-white rounded-lg font-semibold hover:bg-white/20 transition-colors text-center"
-                >
+                <Link href="/plans" className="px-5 py-2.5 bg-white/10 border border-white/30 text-white rounded-lg font-semibold text-sm hover:bg-white/20 transition text-center">
                   {language === "ar" ? "عرض الخطط" : "View Plans"}
                 </Link>
               </div>
@@ -322,296 +312,382 @@ export function DashboardContent({
           </div>
         )}
 
-        {/* Getting started / AI Path Finder */}
-        <div className="grid md:grid-cols-2 gap-6 mb-8">
-          <div className="bg-gradient-to-br from-teal-500 to-emerald-600 rounded-xl p-6 text-white">
-            <h2 className="text-xl font-semibold mb-2">{t.readyToStart}</h2>
-            <p className="text-teal-100 mb-4">{t.explorePathsDesc}</p>
-            <Link
-              href="/paths"
-              className="inline-block bg-white text-teal-600 px-4 py-2 rounded-lg font-medium hover:bg-teal-50 transition"
-            >
-              {t.browsePaths}
-            </Link>
-          </div>
+        {/* ── MY PLANS ──────────────────────────────────────────────────────── */}
+        {displayPlans.length > 0 && (
+          <section>
+            <h2 className="text-base font-bold text-slate-900 mb-4">
+              {language === "ar" ? "خططي التعليمية" : "My Learning Plans"}
+            </h2>
+            <div className="space-y-4">
+              {displayPlans.map((record) => {
+                const plan = record.subscription_plans!;
+                const planName = getText(plan.display_name_en, plan.display_name_ar) || plan.name;
+                const planPaths = planPathsMap[plan.id] ?? [];
+                const certData = planCertMap[plan.id] ?? null;
+                const isPending = record.status === "pending";
 
-          <div className="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl p-6 text-white">
-            <h2 className="text-xl font-semibold mb-2">{t.findYourPath}</h2>
-            <p className="text-purple-100 mb-4">{t.notSureWhere}</p>
-            <Link
-              href="/path-finder"
-              className="inline-block bg-white text-purple-600 px-4 py-2 rounded-lg font-medium hover:bg-purple-50 transition"
-            >
-              {t.takeQuiz}
-            </Link>
-          </div>
-        </div>
+                return (
+                  <div
+                    key={record.id}
+                    className={`bg-white rounded-2xl border shadow-sm overflow-hidden ${
+                      isPending ? "border-amber-200" : "border-slate-200"
+                    }`}
+                  >
+                    {/* Plan header */}
+                    <div className="px-5 py-4 flex items-center justify-between gap-4 border-b border-slate-100">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-xl bg-teal-50 border border-teal-200 flex items-center justify-center text-lg shrink-0">
+                          📚
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-bold text-slate-900 text-sm leading-tight truncate">{planName}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {statusBadge(record.status)}
+                            <span className="text-[11px] text-slate-400">{billingLabel(record)}</span>
+                            {record.current_period_end && !isPending && (
+                              <span className="text-[11px] text-slate-400">
+                                · {language === "ar" ? "ينتهي" : "Renews"} {formatDate(record.current_period_end)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      {!isPending && (
+                        <Link
+                          href={`/paths?planId=${plan.id}`}
+                          className="shrink-0 text-xs text-teal-600 hover:text-teal-700 font-medium whitespace-nowrap"
+                        >
+                          {language === "ar" ? "كل المسارات" : "All paths"} →
+                        </Link>
+                      )}
+                    </div>
 
-        {/* Enrolled Paths */}
+                    {isPending ? (
+                      <div className="px-5 py-4">
+                        <p className="text-sm text-slate-600 mb-3">
+                          {language === "ar"
+                            ? "لم يكتمل الدفع بعد. أكمل الدفع لفتح المسارات والمحتوى."
+                            : "Payment not completed yet. Finish checkout to unlock paths and content."}
+                        </p>
+                        <Link
+                          href={`/checkout?planId=${plan.id}&billingCycle=${record.billing_cycle ?? "monthly"}`}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-semibold hover:bg-amber-600 transition"
+                        >
+                          {language === "ar" ? "إكمال الدفع" : "Complete payment"} →
+                        </Link>
+                      </div>
+                    ) : (
+                      <div className="px-5 py-4 grid md:grid-cols-3 gap-5">
+                        {/* Left: Paths list */}
+                        <div className="md:col-span-2 space-y-2.5">
+                          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-3">
+                            {language === "ar" ? "المسارات المشمولة" : "Included Paths"}
+                          </p>
+                          {planPaths.length === 0 ? (
+                            <p className="text-sm text-slate-400 italic">
+                              {language === "ar" ? "لا مسارات مضافة بعد" : "No paths assigned yet"}
+                            </p>
+                          ) : (
+                            planPaths.map((pp) => {
+                              const progress = progressByPathId.get(pp.pathId) ?? 0;
+                              const isEnrolled = progressByPathId.has(pp.pathId);
+                              const isComplete = progress >= 100;
+                              return (
+                                <Link
+                                  key={pp.pathId}
+                                  href={`/paths/${pp.slug}/learn`}
+                                  className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:border-teal-200 hover:bg-teal-50/40 transition group"
+                                >
+                                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm shrink-0 ${
+                                    isComplete ? "bg-green-100 text-green-600" : isEnrolled ? "bg-teal-100 text-teal-600" : "bg-slate-100 text-slate-400"
+                                  }`}>
+                                    {isComplete ? "✓" : isEnrolled ? "▶" : "○"}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-slate-800 group-hover:text-teal-700 truncate">
+                                      {getText(pp.title, pp.title_ar)}
+                                    </p>
+                                    {isEnrolled && (
+                                      <div className="mt-1.5 flex items-center gap-2">
+                                        <ProgressBar value={progress} />
+                                        <span className="text-[10px] text-slate-400 shrink-0 w-8 text-right">
+                                          {Math.round(progress)}%
+                                        </span>
+                                      </div>
+                                    )}
+                                    {!isEnrolled && (
+                                      <p className="text-[11px] text-slate-400 mt-0.5">
+                                        {language === "ar" ? "لم تبدأ بعد" : "Not started"}
+                                      </p>
+                                    )}
+                                  </div>
+                                </Link>
+                              );
+                            })
+                          )}
+                        </div>
+
+                        {/* Right: Cert exam card */}
+                        <div className="md:col-span-1">
+                          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-3">
+                            {language === "ar" ? "الشهادة الرسمية" : "Certification"}
+                          </p>
+                          {!certData ? (
+                            <div className="p-4 rounded-xl border border-dashed border-slate-200 text-center">
+                              <span className="text-2xl">🎓</span>
+                              <p className="text-xs text-slate-400 mt-2">
+                                {language === "ar" ? "لا يوجد اختبار شهادة لهذه الخطة بعد" : "No certification exam set up yet"}
+                              </p>
+                            </div>
+                          ) : certData.certificateNumber ? (
+                            // Already certified
+                            <div className="p-4 rounded-xl bg-green-50 border border-green-200 text-center">
+                              <span className="text-2xl">🏆</span>
+                              <p className="text-xs font-bold text-green-800 mt-2 mb-1">
+                                {language === "ar" ? "حصلت على الشهادة!" : "Certified!"}
+                              </p>
+                              <p className="text-[10px] text-green-600 font-mono mb-3">
+                                #{certData.certificateNumber}
+                              </p>
+                              <a
+                                href={`/cert/${certData.certificateNumber}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700 transition"
+                              >
+                                🖨 {language === "ar" ? "تحميل الشهادة" : "Download"}
+                              </a>
+                            </div>
+                          ) : certData.purchaseStatus === "paid" ? (
+                            // Purchased — can start exam
+                            <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-center">
+                              <span className="text-2xl">📝</span>
+                              <p className="text-xs font-bold text-amber-900 mt-2 mb-1">
+                                {language === "ar" ? "الاختبار متاح" : "Exam Unlocked"}
+                              </p>
+                              <p className="text-[11px] text-amber-700 mb-3">
+                                {language === "ar" ? "ابدأ الاختبار الرسمي" : "Start your certification exam"}
+                              </p>
+                              {certData.firstPathSlug ? (
+                                <Link
+                                  href={`/paths/${certData.firstPathSlug}/learn`}
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-semibold hover:bg-amber-700 transition"
+                                >
+                                  🏆 {language === "ar" ? "ابدأ الاختبار" : "Start Exam"}
+                                </Link>
+                              ) : (
+                                <p className="text-[11px] text-amber-600">
+                                  {language === "ar" ? "افتح أي مسار لبدء الاختبار" : "Open any path to start the exam"}
+                                </p>
+                              )}
+                            </div>
+                          ) : certData.purchaseStatus === "pending" ? (
+                            // Payment pending
+                            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-center">
+                              <span className="text-2xl">⏳</span>
+                              <p className="text-xs font-medium text-slate-700 mt-2 mb-3">
+                                {language === "ar" ? "الدفع قيد المعالجة" : "Payment processing"}
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => handleBuyCert(certData.examId)}
+                                className="px-3 py-1.5 bg-slate-200 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-300 transition"
+                              >
+                                {language === "ar" ? "إعادة المحاولة" : "Retry payment"}
+                              </button>
+                            </div>
+                          ) : (
+                            // Not purchased yet
+                            <div className="p-4 rounded-xl bg-linear-to-br from-amber-50 to-orange-50 border border-amber-200 text-center">
+                              <span className="text-2xl">🎓</span>
+                              <p className="text-xs font-bold text-slate-800 mt-2 mb-0.5">
+                                {language === "ar" ? "احصل على الشهادة الرسمية" : "Get Certified"}
+                              </p>
+                              <p className="text-[11px] text-slate-500 mb-3">
+                                {language === "ar"
+                                  ? "اجتز الاختبار الرسمي واحصل على شهادة معتمدة"
+                                  : "Pass the official exam and earn a verified certificate"}
+                              </p>
+                              <button
+                                type="button"
+                                disabled={buyingCert === certData.examId}
+                                onClick={() => handleBuyCert(certData.examId)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white rounded-lg text-xs font-semibold hover:bg-amber-600 transition disabled:opacity-50"
+                              >
+                                {buyingCert === certData.examId ? (
+                                  <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                ) : "🏆"}
+                                {buyingCert === certData.examId
+                                  ? (language === "ar" ? "جاري التحميل…" : "Loading…")
+                                  : certData.priceEgp > 0
+                                  ? `${language === "ar" ? "احصل عليها" : "Get Certified"} — ${Number(certData.priceEgp).toLocaleString()} EGP`
+                                  : (language === "ar" ? "ابدأ مجاناً" : "Start Free")}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* ── STANDALONE ENROLLED PATHS (not part of any active plan) ──────── */}
         {enrolledPaths.length > 0 && (
-          <div className="mb-8">
-            <div className="mb-4 flex flex-col gap-3">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <h2 className="text-lg font-semibold text-slate-900">
-                  {language === "ar" ? "المسارات المسجلة" : "Enrolled Paths"}
-                </h2>
-                <span className="text-sm text-slate-500">
-                  {t.showing} {Math.min(visiblePathCount, filteredEnrolledPaths.length)} {t.of} {filteredEnrolledPaths.length}
-                </span>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-2">
+          <section>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+              <h2 className="text-base font-bold text-slate-900">
+                {displayPlans.length > 0
+                  ? (language === "ar" ? "مسارات أخرى" : "Other Enrolled Paths")
+                  : (language === "ar" ? "مساراتي" : "My Enrolled Paths")}
+                <span className="ml-2 text-xs font-normal text-slate-400">({enrolledPaths.length})</span>
+              </h2>
+              <div className="flex gap-2">
                 <input
                   value={pathSearch}
-                  onChange={(e) => {
-                    setPathSearch(e.target.value);
-                    setVisiblePathCount(6);
-                  }}
-                  placeholder={t.searchPaths}
-                  className="w-full sm:flex-1 px-3 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400"
+                  onChange={(e) => { setPathSearch(e.target.value); setVisiblePathCount(6); }}
+                  placeholder={language === "ar" ? "ابحث في المسارات..." : "Search paths..."}
+                  className="flex-1 sm:w-44 px-3 py-1.5 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400"
                 />
                 <select
                   value={difficultyFilter}
-                  onChange={(e) => {
-                    setDifficultyFilter(e.target.value as "all" | "beginner" | "intermediate" | "advanced");
-                    setVisiblePathCount(6);
-                  }}
-                  className="sm:w-44 px-3 py-2 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/40 focus:border-teal-400"
+                  aria-label={language === "ar" ? "تصفية حسب المستوى" : "Filter by difficulty"}
+                  title={language === "ar" ? "تصفية حسب المستوى" : "Filter by difficulty"}
+                  onChange={(e) => { setDifficultyFilter(e.target.value as any); setVisiblePathCount(6); }}
+                  className="sm:w-36 px-3 py-1.5 text-sm rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/40"
                 >
-                  <option value="all">{t.allLevels}</option>
+                  <option value="all">{language === "ar" ? "كل المستويات" : "All levels"}</option>
                   <option value="beginner">{language === "ar" ? "مبتدئ" : "Beginner"}</option>
                   <option value="intermediate">{language === "ar" ? "متوسط" : "Intermediate"}</option>
                   <option value="advanced">{language === "ar" ? "متقدم" : "Advanced"}</option>
                 </select>
               </div>
             </div>
+
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredEnrolledPaths.slice(0, visiblePathCount).map((enrollment) => {
+              {(displayPlans.length > 0 ? filteredStandalone : filteredStandalone).slice(0, visiblePathCount).map((enrollment) => {
                 const path = enrollment.learning_paths;
-                const difficulty = difficultyConfig[path.difficulty_level || "beginner"];
-                const pathPlans = enrolledPathPlanMap[path.id] || [];
+                const progress = progressByPathId.get(path.id) ?? 0;
+                const isComplete = progress >= 100;
+                const difficulty = difficultyConfig[path.difficulty_level ?? "beginner"];
+                const pathPlans = enrolledPathPlanMap[path.id] ?? [];
                 const primaryPlan = pathPlans[0];
-                const primaryPlanName = primaryPlan
-                  ? (getText(primaryPlan.display_name_en, primaryPlan.display_name_ar) || primaryPlan.name)
-                  : null;
-                const enrolledPathHref = primaryPlan
-                  ? `/paths/${path.slug}?planId=${primaryPlan.id}`
-                  : `/paths/${path.slug}`;
+                const planName = primaryPlan ? getText(primaryPlan.display_name_en, primaryPlan.display_name_ar) || primaryPlan.name : null;
+                const href = primaryPlan ? `/paths/${path.slug}?planId=${primaryPlan.id}` : `/paths/${path.slug}`;
+
                 return (
                   <Link
                     key={enrollment.id}
-                    href={enrolledPathHref}
-                    className="group bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md transition hover:border-teal-300"
+                    href={href}
+                    className="group bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md hover:border-teal-300 transition flex flex-col gap-3"
                   >
-                    <div className="flex items-center justify-between gap-2 mb-3">
-                      <h3 className="font-semibold text-slate-900 group-hover:text-teal-700 transition-colors leading-tight">
+                    {/* Title + difficulty */}
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="font-semibold text-slate-900 group-hover:text-teal-700 transition-colors leading-snug text-sm">
                         {getText(path.title, path.title_ar)}
                       </h3>
-                      <span className={`text-xs px-2 py-1 rounded-full ${difficulty.color} flex-shrink-0`}>
+                      <span className={`text-[11px] px-2 py-0.5 rounded-full shrink-0 ${difficulty.color}`}>
                         {language === "ar" ? difficulty.labelAr : difficulty.labelEn}
                       </span>
                     </div>
-                    {primaryPlanName && (
-                      <div className="mb-3">
-                        <span
-                          className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200 px-2.5 py-1 text-[11px] font-medium"
-                          title={`${t.plan}: ${primaryPlanName}`}
-                        >
-                          <span className="shrink-0">{primaryPlan.is_free ? t.freePlanLabel : `${t.plan}:`}</span>
-                          <span className="truncate">{primaryPlanName}</span>
-                          {pathPlans.length > 1 && (
-                            <span className="shrink-0 rounded-full bg-teal-100 px-1.5 py-0.5 text-[10px] font-semibold">
-                              +{pathPlans.length - 1}
-                            </span>
-                          )}
-                        </span>
-                      </div>
+
+                    {/* Plan badge */}
+                    {planName && (
+                      <span className="self-start inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-100 text-[11px] font-medium">
+                        {primaryPlan.is_free ? (language === "ar" ? "مجاني" : "Free") : "📚"} {planName}
+                      </span>
                     )}
+
+                    {/* Description */}
                     {path.description && (
-                      <p className="text-sm text-slate-500 line-clamp-2 mb-3">
+                      <p className="text-xs text-slate-500 line-clamp-2 flex-1">
                         {getText(path.description, path.description_ar)}
                       </p>
                     )}
-                    {path.estimated_duration_hours && (
-                      <p className="text-xs text-slate-400">
-                        {path.estimated_duration_hours} {language === "ar" ? "ساعة" : "hours"}
-                      </p>
-                    )}
+
+                    {/* Progress */}
+                    <div className="mt-auto space-y-1.5">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-slate-400">
+                          {isComplete
+                            ? (language === "ar" ? "✓ مكتمل" : "✓ Completed")
+                            : progress > 0
+                            ? (language === "ar" ? "جاري" : "In progress")
+                            : (language === "ar" ? "لم تبدأ" : "Not started")}
+                        </span>
+                        <span className={`font-semibold ${isComplete ? "text-green-600" : "text-teal-600"}`}>
+                          {Math.round(progress)}%
+                        </span>
+                      </div>
+                      <ProgressBar value={progress} />
+                    </div>
                   </Link>
                 );
               })}
             </div>
-            {visiblePathCount < filteredEnrolledPaths.length && (
+
+            {/* All paths empty state when filtering */}
+            {filteredStandalone.length === 0 && enrolledPaths.length > 0 && (
+              <div className="py-8 text-center text-sm text-slate-400">
+                {language === "ar" ? "لا مسارات مطابقة للبحث" : "No matching paths"}
+              </div>
+            )}
+
+            {visiblePathCount < filteredStandalone.length && (
               <div className="mt-4 text-center">
                 <button
-                  onClick={() => setVisiblePathCount((count) => count + 6)}
-                  className="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 hover:bg-white hover:border-teal-300 transition-colors text-sm font-medium"
+                  type="button"
+                  onClick={() => setVisiblePathCount((c) => c + 6)}
+                  className="px-4 py-2 rounded-lg border border-slate-200 text-slate-700 hover:bg-white hover:border-teal-300 transition text-sm font-medium"
                 >
-                  {t.loadMore}
+                  {language === "ar" ? "عرض المزيد" : "Load more"}
                 </button>
               </div>
             )}
-          </div>
+          </section>
         )}
 
-        {/* Purchased Plans - separate from enrolled paths */}
-        <div className="mb-8">
-          <h2 className="text-lg font-semibold text-slate-900 mb-4">{t.purchasedPlans}</h2>
-          {displayPurchasedPlans.length === 0 ? (
-            <div className="bg-white rounded-xl border border-slate-200 p-5 text-sm text-slate-600">
-              {t.noPurchasedPlans}
-            </div>
-          ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {displayPurchasedPlans.map((record) => {
-                const plan = record.subscription_plans;
-                if (!plan) return null;
-                const planName = getText(plan.display_name_en, plan.display_name_ar) || plan.name;
-                const planTargetHref = `/paths?planId=${plan.id}`;
-                const isOneTime =
-                  plan.payment_type === "one_time" ||
-                  ((plan.price_one_time_egp ?? 0) > 0 &&
-                    (plan.price_monthly_egp ?? 0) === 0 &&
-                    (plan.price_yearly_egp ?? 0) === 0);
-                const billingType = isOneTime
-                  ? t.oneTime
-                  : record.billing_cycle === "yearly"
-                    ? t.yearly
-                    : t.monthly;
-                const checkoutHref = isOneTime
-                  ? `/checkout?planId=${plan.id}`
-                  : `/checkout?planId=${plan.id}&billingCycle=${
-                      record.billing_cycle === "yearly" ? "yearly" : "monthly"
-                    }`;
+        {/* ── QUICK ACTIONS ─────────────────────────────────────────────────── */}
+        <section className="grid md:grid-cols-2 gap-4">
+          <Link
+            href="/paths"
+            className="group bg-linear-to-br from-teal-500 to-emerald-600 rounded-2xl p-6 text-white hover:shadow-lg transition"
+          >
+            <p className="text-lg font-bold mb-1">
+              {language === "ar" ? "تصفح مسارات التعلم" : "Browse Learning Paths"}
+            </p>
+            <p className="text-teal-100 text-sm mb-4">
+              {language === "ar"
+                ? "استكشف جميع المسارات المتاحة وابدأ التعلم"
+                : "Explore all available paths and start learning"}
+            </p>
+            <span className="inline-flex items-center gap-1 text-sm font-semibold bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition">
+              {language === "ar" ? "استكشف ←" : "Explore →"}
+            </span>
+          </Link>
 
-                const cardClass =
-                  "bg-white rounded-xl border border-slate-200 p-5 hover:border-teal-300 hover:shadow-md transition";
+          <Link
+            href="/path-finder"
+            className="group bg-linear-to-br from-purple-500 to-indigo-600 rounded-2xl p-6 text-white hover:shadow-lg transition"
+          >
+            <p className="text-lg font-bold mb-1">
+              {language === "ar" ? "اكتشف مسارك المثالي" : "Find Your Ideal Path"}
+            </p>
+            <p className="text-purple-100 text-sm mb-4">
+              {language === "ar"
+                ? "دع الذكاء الاصطناعي يساعدك في اختيار المسار المناسب"
+                : "Let AI help you choose the right learning path"}
+            </p>
+            <span className="inline-flex items-center gap-1 text-sm font-semibold bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition">
+              {language === "ar" ? "أجب على الاختبار ←" : "Take the Quiz →"}
+            </span>
+          </Link>
+        </section>
 
-                if (record.status === "pending") {
-                  return (
-                    <div key={record.id} className={cardClass}>
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <h3 className="font-semibold text-slate-900">{planName}</h3>
-                        <span className="text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-800">
-                          {getStatusLabel(record.status)}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-500 mb-1">
-                        {t.purchasedOn}: {formatDate(record.created_at)}
-                      </p>
-                      <p className="text-xs text-slate-500 mb-3">{billingType}</p>
-                      <p className="text-xs text-slate-600 mb-3">
-                        {language === "ar"
-                          ? "لم يكتمل الدفع بعد. أكمل الدفع لفتح المسارات."
-                          : "Payment not completed yet. Finish checkout to unlock paths."}
-                      </p>
-                      <Link
-                        href={checkoutHref}
-                        className="inline-flex text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 px-4 py-2 rounded-lg transition-colors"
-                      >
-                        {t.completePayment}
-                      </Link>
-                    </div>
-                  );
-                }
-
-                return (
-                  <Link key={record.id} href={planTargetHref} className={cardClass}>
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <h3 className="font-semibold text-slate-900">{planName}</h3>
-                      <span className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-700">
-                        {getStatusLabel(record.status)}
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-500 mb-1">
-                      {t.purchasedOn}: {formatDate(record.created_at)}
-                    </p>
-                    <p className="text-xs text-slate-500 mb-3">{billingType}</p>
-                    <p className="text-sm font-medium text-teal-600">{t.viewIncludedPaths}</p>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Recommended Paths - Show saved path finder results or generic recommendations */}
-        {/* {recommendedPaths.length > 0 && (
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-slate-900">
-                {savedPreferences && savedPreferences.quiz_completed_at
-                  ? (language === "ar" ? "✨ مساراتك الموصى بها من الاختبار" : "✨ Your Path Finder Recommendations")
-                  : t.recommendedForYou}
-              </h2>
-              {savedPreferences && savedPreferences.quiz_completed_at && (
-                <Link
-                  href="/path-finder"
-                  className="text-sm text-teal-600 hover:text-teal-700 font-medium"
-                >
-                  {language === "ar" ? "عرض التفاصيل" : "View Details"} →
-                </Link>
-              )}
-            </div>
-            
-            {savedPreferences && savedPreferences.ai_insight && (
-              <div className="bg-teal-50 border border-teal-200 rounded-lg p-4 mb-4">
-                <p className="text-sm text-teal-800">
-                  <span className="font-medium">✨ {language === "ar" ? "رؤية الذكاء الاصطناعي:" : "AI Insight:"} </span>
-                  {savedPreferences.ai_insight}
-                </p>
-              </div>
-            )}
-
-            <div className="grid md:grid-cols-3 gap-4">
-              {recommendedPaths.map((path, index) => {
-                const difficulty = difficultyConfig[path.difficulty_level || "beginner"];
-                const isBestMatch = savedPreferences && savedPreferences.recommended_path_ids && 
-                                   savedPreferences.recommended_path_ids[0] === path.id;
-                return (
-                  <div 
-                    key={path.id} 
-                    className={`bg-white rounded-xl border p-5 hover:shadow-md transition ${
-                      isBestMatch ? "border-teal-400 border-2" : "border-slate-200"
-                    }`}
-                  >
-                    {isBestMatch && (
-                      <span className="inline-block px-2 py-1 bg-teal-100 text-teal-700 rounded-full text-xs font-medium mb-2">
-                        ⭐ {language === "ar" ? "الأفضل لك" : "Best Match"}
-                      </span>
-                    )}
-                    <div className="flex items-center justify-between mb-2">
-                      <span className={`text-xs px-2 py-1 rounded-full ${difficulty.color}`}>
-                        {language === "ar" ? difficulty.labelAr : difficulty.labelEn}
-                      </span>
-                      {path.estimated_duration_hours && (
-                        <span className="text-xs text-slate-500">
-                          {path.estimated_duration_hours} {t.hours}
-                        </span>
-                      )}
-                    </div>
-                    <h3 className="font-medium text-slate-900 mb-2">
-                      {getText(path.title, path.title_ar)}
-                    </h3>
-                    <p className="text-sm text-slate-500 line-clamp-2 mb-3">
-                      {getText(path.description, path.description_ar)}
-                    </p>
-                    <Link
-                      href={`/paths/${path.slug}`}
-                      className="inline-flex items-center gap-1 text-sm font-medium text-teal-600 hover:text-teal-700"
-                    >
-                      {t.viewPath}
-                      <svg className="w-4 h-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </Link>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )} */}
       </div>
     </main>
   );
 }
-
