@@ -25,6 +25,8 @@ type VideoPlayerProps = {
 
 type PlayerState = -1 | 0 | 1 | 2 | 3 | 5;
 
+type SaveResult = { ok: true } | { ok: false; status: number; error: string };
+
 // Saves video progress via the server-side API (admin client — bypasses RLS).
 async function apiSaveProgress(payload: {
   videoContentId: string;
@@ -32,15 +34,22 @@ async function apiSaveProgress(payload: {
   completionPct: number;
   isCompleted: boolean;
   playbackSpeed: number;
-}): Promise<void> {
+}): Promise<SaveResult> {
   try {
-    await fetch("/api/progress/video", {
+    const res = await fetch("/api/progress/video", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-  } catch {
-    // Network failure — silently skip (periodic saves will retry)
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      console.error("[VideoPlayer] save failed:", res.status, body);
+      return { ok: false, status: res.status, error: body?.error ?? String(res.status) };
+    }
+    return { ok: true };
+  } catch (e: any) {
+    console.error("[VideoPlayer] save network error:", e?.message ?? e);
+    return { ok: false, status: 0, error: e?.message ?? "network error" };
   }
 }
 
@@ -67,6 +76,7 @@ export function VideoPlayer({
   const [isSeeking, setIsSeeking] = useState(false);
   const [hoverTime, setHoverTime] = useState<number | null>(null);
   const [hoverPercent, setHoverPercent] = useState<number | null>(null);
+  const [lastSaveStatus, setLastSaveStatus] = useState<SaveResult | null>(null);
 
   const hasTriggeredCompleteRef = useRef(false);
   const hasPlayedRef = useRef(false);
@@ -107,13 +117,14 @@ export function VideoPlayer({
       lastSavedSecondsRef.current = seconds;
       lastSavedAtRef.current = Date.now();
 
-      await apiSaveProgress({
+      const result = await apiSaveProgress({
         videoContentId,
         progressSeconds: seconds,
         completionPct: pct,
         isCompleted: completed,
         playbackSpeed,
       });
+      setLastSaveStatus(result);
     },
     [videoContentId, playbackSpeed]
   );
@@ -401,10 +412,17 @@ export function VideoPlayer({
             </div>
           </div>
 
-          <div className="mt-1.5 text-center">
+          <div className="mt-1.5 flex items-center justify-center gap-3">
             <span className="text-[10px] text-slate-400">
               {completionPct.toFixed(1)}% {language === "ar" ? "مكتمل" : "complete"}
             </span>
+            {lastSaveStatus && (
+              <span className={`text-[10px] font-medium ${lastSaveStatus.ok ? "text-green-400" : "text-red-400"}`}>
+                {lastSaveStatus.ok
+                  ? "✓ saved"
+                  : `✗ save failed: ${lastSaveStatus.status === 401 ? "not authenticated" : lastSaveStatus.status === 0 ? "network error" : `error ${lastSaveStatus.status}`}`}
+              </span>
+            )}
           </div>
         </div>
       </div>

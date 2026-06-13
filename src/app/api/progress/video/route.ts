@@ -21,8 +21,12 @@ export async function POST(request: NextRequest) {
   try {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError) {
+      console.error("[/api/progress/video] auth error:", authError.message);
+    }
     if (!user) {
+      console.error("[/api/progress/video] no user in session");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -34,6 +38,8 @@ export async function POST(request: NextRequest) {
       isCompleted: boolean;
       playbackSpeed: number;
     };
+
+    console.log("[/api/progress/video] user:", user.id, "video:", videoContentId, "seconds:", progressSeconds, "pct:", completionPct);
 
     if (!videoContentId) {
       return NextResponse.json({ error: "videoContentId is required" }, { status: 400 });
@@ -71,10 +77,11 @@ export async function POST(request: NextRequest) {
     );
 
     if (error) {
-      console.error("Video progress save error:", error.message);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("[/api/progress/video] upsert error:", error.message, error.code, error.details);
+      return NextResponse.json({ error: error.message, code: error.code }, { status: 500 });
     }
 
+    console.log("[/api/progress/video] saved OK for user:", user.id, "video:", videoContentId);
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("Video progress route error:", error?.message ?? error);
