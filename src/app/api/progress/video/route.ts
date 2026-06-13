@@ -30,7 +30,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
+    // sendBeacon sends Content-Type: text/plain but still valid JSON body
+    const rawText = await request.text();
+    let body: any;
+    try { body = JSON.parse(rawText); } catch {
+      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    }
     const { videoContentId, progressSeconds, completionPct, isCompleted, playbackSpeed } = body as {
       videoContentId: string;
       progressSeconds: number;

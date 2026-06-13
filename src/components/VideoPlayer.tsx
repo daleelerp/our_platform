@@ -245,7 +245,29 @@ export function VideoPlayer({
     return () => { clearInterval(uiInterval); clearInterval(saveInterval); };
   }, [player, isPlaying, handleTimeUpdate, saveProgress]);
 
-  // Save on unmount
+  // Save on page close/refresh (beforeunload) — most reliable for catching reloads
+  useEffect(() => {
+    if (!player || !videoContentId) return;
+    const onBeforeUnload = () => {
+      try {
+        const cur = player.getCurrentTime();
+        const tot = player.getDuration();
+        if (cur > 0 && tot > 0) {
+          // Use sendBeacon so the request isn't cancelled when the page closes
+          const blob = new Blob(
+            [JSON.stringify({ videoContentId, progressSeconds: Math.floor(cur), completionPct: (cur / tot) * 100, isCompleted: (cur / tot) >= 0.9, playbackSpeed })],
+            { type: "application/json" }
+          );
+          navigator.sendBeacon("/api/progress/video", blob);
+          console.log("[VideoPlayer] beacon sent on unload:", Math.floor(cur), "s");
+        }
+      } catch { /* ignore */ }
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [player, videoContentId, playbackSpeed]);
+
+  // Save on unmount (navigation within the SPA)
   useEffect(() => {
     return () => {
       if (!player || !videoContentId) return;
