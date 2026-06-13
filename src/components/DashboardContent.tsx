@@ -4,6 +4,7 @@ import { useMemo, useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/store/useAppStore";
 import { useSubscription } from "@/hooks/useSubscription";
+import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -162,6 +163,23 @@ export function DashboardContent({
   const [visiblePathCount, setVisiblePathCount] = useState(6);
   const [buyingCert, setBuyingCert] = useState<string | null>(null); // examId being purchased
 
+  // Client-side progress override — fetches fresh path_enrollments on mount so the
+  // dashboard always reflects the latest progress even if the server snapshot was stale.
+  const [liveProgressMap, setLiveProgressMap] = useState<Map<string, number> | null>(null);
+  useEffect(() => {
+    const supabase = createClient();
+    supabase
+      .from("path_enrollments")
+      .select("learning_path_id, progress_percentage")
+      .eq("status", "active")
+      .then(({ data }) => {
+        if (!data) return;
+        const m = new Map<string, number>();
+        for (const row of data) m.set(row.learning_path_id, Number(row.progress_percentage ?? 0));
+        setLiveProgressMap(m);
+      });
+  }, []);
+
   const getText = (en: string | null, ar: string | null) => (language === "ar" && ar ? ar : en ?? "");
 
   // Plans with an active/good status (used for upgrade banner logic)
@@ -197,14 +215,16 @@ export function DashboardContent({
   );
 
   // Progress lookup: pathId → progress_percentage
+  // Prefers live client-side data over the server snapshot to avoid stale values.
   const progressByPathId = useMemo(() => {
+    if (liveProgressMap) return liveProgressMap;
     const m = new Map<string, number>();
     for (const e of enrolledPaths) {
       const pct = Number(e.progress_percentage ?? 0);
       m.set(e.learning_paths.id, pct);
     }
     return m;
-  }, [enrolledPaths]);
+  }, [enrolledPaths, liveProgressMap]);
 
   const filteredStandalone = useMemo(() => {
     const q = pathSearch.trim().toLowerCase();

@@ -50,6 +50,7 @@ export function VideoPlayer({
   const [captionsEnabled, setCaptionsEnabled] = useState(true);
   const [isSeeking, setIsSeeking] = useState(false);
   const [hoverTime, setHoverTime] = useState<number | null>(null);
+  const [hoverPercent, setHoverPercent] = useState<number | null>(null);
   const [isMounted, setIsMounted] = useState(false);
 
   const progressBarRef = useRef<HTMLDivElement>(null);
@@ -71,14 +72,16 @@ export function VideoPlayer({
 
   // ─── Progress save ────────────────────────────────────────────────────────
   const saveProgress = useCallback(
-    async (progressSeconds: number, completionPercent: number, isComplete: boolean) => {
+    async (progressSeconds: number, completionPercent: number, isComplete: boolean, force = false) => {
       if (!userId || !videoContentId || !player) return;
 
-      const timeSinceLastSave = lastSavedProgressTimeRef.current > 0
-        ? Date.now() - lastSavedProgressTimeRef.current
-        : 30001;
-      const progressChanged = Math.abs(progressSeconds - lastSavedProgressSecondsRef.current) >= 5;
-      if (!progressChanged && timeSinceLastSave < 30000) return;
+      if (!force) {
+        const timeSinceLastSave = lastSavedProgressTimeRef.current > 0
+          ? Date.now() - lastSavedProgressTimeRef.current
+          : 30001;
+        const progressChanged = Math.abs(progressSeconds - lastSavedProgressSecondsRef.current) >= 5;
+        if (!progressChanged && timeSinceLastSave < 30000) return;
+      }
 
       lastSavedProgressTimeRef.current = Date.now();
       lastSavedProgressSecondsRef.current = progressSeconds;
@@ -199,12 +202,16 @@ export function VideoPlayer({
       if (state === 0) {
         setIsCompleted(true);
         setCompletionPercentage(100);
-        if (onComplete && !hasTriggeredComplete) {
-          setHasTriggeredComplete(true);
-          onComplete();
-        }
+        // Save completion to DB first so checkMilestoneCompletion sees is_completed=true,
+        // then trigger onComplete so recalculateProgress reads fresh data.
+        const notifyComplete = onComplete && !hasTriggeredComplete;
+        if (notifyComplete) setHasTriggeredComplete(true);
         if (userId && videoContentId && duration > 0) {
-          saveProgress(duration, 100, true);
+          saveProgress(duration, 100, true, true).then(() => {
+            if (notifyComplete) onComplete!();
+          });
+        } else if (notifyComplete) {
+          onComplete!();
         }
       }
     } catch (error) {
@@ -226,9 +233,14 @@ export function VideoPlayer({
 
         if (percent >= 90 && !isCompleted && hasPlayedRef.current) {
           setIsCompleted(true);
-          if (onComplete && !hasTriggeredComplete && current > 10 && current < total * 0.98) {
-            setHasTriggeredComplete(true);
-            onComplete();
+          const notifyComplete = onComplete && !hasTriggeredComplete && current > 10 && current < total * 0.98;
+          if (notifyComplete) setHasTriggeredComplete(true);
+          if (userId && videoContentId) {
+            saveProgress(current, percent, true, true).then(() => {
+              if (notifyComplete) onComplete!();
+            });
+          } else if (notifyComplete) {
+            onComplete!();
           }
         }
         if (onProgress) onProgress(percent, current);
@@ -297,11 +309,11 @@ export function VideoPlayer({
     } catch (e) { /* ignore */ }
   }, [player, duration]);
 
-  const getHoverTime = useCallback((clientX: number): number | null => {
+  const getHoverInfo = useCallback((clientX: number): { time: number; pct: number } | null => {
     if (!progressBarRef.current || duration <= 0) return null;
     const rect = progressBarRef.current.getBoundingClientRect();
     const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-    return ratio * duration;
+    return { time: ratio * duration, pct: ratio * 100 };
   }, [duration]);
 
   const handleProgressMouseDown = useCallback((e: React.MouseEvent) => {
@@ -398,7 +410,7 @@ export function VideoPlayer({
     <div className={`relative ${className}`}>
       {/* Transparent drag capture overlay — sits over iframe during scrub */}
       {isSeeking && (
-        <div className="fixed inset-0 z-50 cursor-grabbing" style={{ pointerEvents: "all" }} />
+        <div className="fixed inset-0 z-50 cursor-grabbing pointer-events-auto" />
       )}
 
       {/* Video + controls */}
@@ -412,16 +424,22 @@ export function VideoPlayer({
         />
 
         {/* Controls overlay */}
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent px-4 pt-6 pb-3">
+        <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/80 to-transparent px-4 pt-6 pb-3">
 
-          {/* ── Progress bar ── */}
-          <div className="mb-3 group">
+          {/* ── Progress bar ──
+              All dynamic values flow through CSS custom properties on this div.
+              --vpct: current playback position (0%–100%)
+              --hpct: hover position for the time tooltip */}
+          <div
+            className="mb-3 group relative"
+            style={{
+              "--vpct": `${completionPercentage}%`,
+              "--hpct": `${hoverPercent ?? 0}%`,
+            } as React.CSSProperties}
+          >
             {/* Hover time tooltip */}
             {hoverTime !== null && (
-              <div
-                className="absolute bottom-[52px] px-1.5 py-0.5 bg-black/80 text-white text-[10px] rounded pointer-events-none -translate-x-1/2"
-                style={{ left: `${progressBarRef.current ? ((hoverTime / duration) * progressBarRef.current.getBoundingClientRect().width) + progressBarRef.current.getBoundingClientRect().left - (progressBarRef.current?.parentElement?.getBoundingClientRect().left ?? 0) : 0}px` }}
-              >
+              <div className="absolute bottom-[18px] left-(--hpct) px-1.5 py-0.5 bg-black/80 text-white text-[10px] rounded pointer-events-none -translate-x-1/2 whitespace-nowrap">
                 {formatTime(hoverTime)}
               </div>
             )}
@@ -431,23 +449,17 @@ export function VideoPlayer({
               ref={progressBarRef}
               className="relative h-2 rounded-full bg-white/20 cursor-pointer group-hover:h-3 transition-all duration-150 select-none"
               onMouseDown={handleProgressMouseDown}
-              onMouseMove={(e) => setHoverTime(getHoverTime(e.clientX))}
-              onMouseLeave={() => setHoverTime(null)}
+              onMouseMove={(e) => {
+                const info = getHoverInfo(e.clientX);
+                if (info) { setHoverTime(info.time); setHoverPercent(info.pct); }
+              }}
+              onMouseLeave={() => { setHoverTime(null); setHoverPercent(null); }}
             >
-              {/* Buffered (visual hint — full bar) */}
-              <div className="absolute inset-0 rounded-full bg-white/10" />
-
               {/* Filled */}
-              <div
-                className="absolute left-0 top-0 h-full rounded-full bg-gradient-to-r from-teal-400 to-teal-500 transition-none"
-                style={{ width: `${completionPercentage}%` }}
-              />
+              <div className="absolute left-0 top-0 h-full rounded-full bg-linear-to-r from-teal-400 to-teal-500 w-(--vpct)" />
 
               {/* Thumb */}
-              <div
-                className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
-                style={{ left: `calc(${completionPercentage}% - 6px)` }}
-              />
+              <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none left-[calc(var(--vpct)-6px)]" />
             </div>
           </div>
 
@@ -487,6 +499,7 @@ export function VideoPlayer({
               <div className="flex items-center gap-1.5">
                 <span className="text-xs text-slate-400">{language === "ar" ? "السرعة:" : "Speed:"}</span>
                 <select
+                  title={language === "ar" ? "سرعة التشغيل" : "Playback speed"}
                   value={playbackSpeed}
                   onChange={(e) => handleSpeedChange(parseFloat(e.target.value))}
                   className="bg-slate-800 text-white text-xs px-2 py-1 rounded border border-white/20 focus:outline-none"
