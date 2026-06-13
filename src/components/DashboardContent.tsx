@@ -496,7 +496,7 @@ export function DashboardContent({
                               </button>
                             </div>
                           ) : (
-                            // Not purchased yet
+                            // Not purchased yet → go to landing page
                             <div className="p-4 rounded-xl bg-linear-to-br from-amber-50 to-orange-50 border border-amber-200 text-center">
                               <span className="text-2xl">🎓</span>
                               <p className="text-xs font-bold text-slate-800 mt-2 mb-0.5">
@@ -507,21 +507,15 @@ export function DashboardContent({
                                   ? "اجتز الاختبار الرسمي واحصل على شهادة معتمدة"
                                   : "Pass the official exam and earn a verified certificate"}
                               </p>
-                              <button
-                                type="button"
-                                disabled={buyingCert === certData.examId}
-                                onClick={() => handleBuyCert(certData.examId)}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white rounded-lg text-xs font-semibold hover:bg-amber-600 transition disabled:opacity-50"
+                              <Link
+                                href={`/certification/${certData.examId}`}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white rounded-lg text-xs font-semibold hover:bg-amber-600 transition"
                               >
-                                {buyingCert === certData.examId ? (
-                                  <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                ) : "🏆"}
-                                {buyingCert === certData.examId
-                                  ? (language === "ar" ? "جاري التحميل…" : "Loading…")
-                                  : certData.priceEgp > 0
+                                🏆{" "}
+                                {certData.priceEgp > 0
                                   ? `${language === "ar" ? "احصل عليها" : "Get Certified"} — ${Number(certData.priceEgp).toLocaleString()} EGP`
                                   : (language === "ar" ? "ابدأ مجاناً" : "Start Free")}
-                              </button>
+                              </Link>
                             </div>
                           )}
                         </div>
@@ -657,18 +651,15 @@ export function DashboardContent({
                         ) : (
                           <>
                             <span className="text-[11px] text-slate-600">🎓 {language === "ar" ? "شهادة معتمدة متاحة" : "Certification available"}</span>
-                            <button
-                              type="button"
-                              disabled={buyingCert === certData.examId}
-                              onClick={(e) => { e.stopPropagation(); void handleBuyCert(certData.examId); }}
-                              className="text-[11px] px-2.5 py-1 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 transition disabled:opacity-50 whitespace-nowrap"
+                            <Link
+                              href={`/certification/${certData.examId}`}
+                              className="text-[11px] px-2.5 py-1 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 transition whitespace-nowrap"
+                              onClick={(e) => e.stopPropagation()}
                             >
-                              {buyingCert === certData.examId
-                                ? "…"
-                                : certData.priceEgp > 0
+                              {certData.priceEgp > 0
                                 ? `${language === "ar" ? "احصل عليها" : "Get Certified"} — ${Number(certData.priceEgp).toLocaleString()} EGP`
                                 : (language === "ar" ? "ابدأ مجاناً" : "Free")}
-                            </button>
+                            </Link>
                           </>
                         )}
                       </div>

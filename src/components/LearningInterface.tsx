@@ -191,7 +191,6 @@ export function LearningInterface({
   );
   const [isArticleModalOpen, setIsArticleModalOpen] = useState(false);
   const [articleToShow, setArticleToShow] = useState<LearningResource | null>(null);
-  const [buyingCert, setBuyingCert] = useState(false);
   const [showCertExam, setShowCertExam] = useState(false);
   const [showMilestoneDetails, setShowMilestoneDetails] = useState(false);
   const [showVideoDesc, setShowVideoDesc] = useState(false);
@@ -876,7 +875,7 @@ export function LearningInterface({
               </div>
             )}
 
-            {/* Certification Exam card */}
+            {/* Certification Exam card — links to landing page before payment */}
             {certExamInfo && certExamInfo.purchaseStatus !== "paid" && (
               <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl border border-amber-200 p-4">
                 <div className="flex items-center gap-2 mb-2">
@@ -893,32 +892,14 @@ export function LearningInterface({
                     ? "اجتز امتحان الاعتماد الرسمي وأضف الشهادة لملفك الشخصي."
                     : "Pass the official certification exam and add it to your LinkedIn profile."}
                 </p>
-                <button
-                  type="button"
-                  disabled={buyingCert}
-                  onClick={async () => {
-                    setBuyingCert(true);
-                    try {
-                      const res = await fetch("/api/certification/checkout", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ examId: certExamInfo.examId }),
-                      });
-                      const json = await res.json();
-                      if (json.redirectUrl) window.location.href = json.redirectUrl;
-                      else if (json.sessionUrl) window.location.href = json.sessionUrl;
-                    } finally {
-                      setBuyingCert(false);
-                    }
-                  }}
-                  className="w-full py-2 bg-amber-500 text-white rounded-lg text-sm font-semibold hover:bg-amber-600 disabled:opacity-50 transition-colors"
+                <Link
+                  href={`/certification/${certExamInfo.examId}`}
+                  className="block w-full py-2 bg-amber-500 text-white rounded-lg text-sm font-semibold hover:bg-amber-600 transition-colors text-center"
                 >
-                  {buyingCert
-                    ? (language === "ar" ? "جاري التحميل…" : "Loading…")
-                    : certExamInfo.priceEgp > 0
+                  {certExamInfo.priceEgp > 0
                     ? `${language === "ar" ? "احصل عليها" : "Get Certified"} — ${Number(certExamInfo.priceEgp).toLocaleString()} EGP`
                     : (language === "ar" ? "ابدأ الاختبار مجاناً" : "Start Exam — Free")}
-                </button>
+                </Link>
               </div>
             )}
 
