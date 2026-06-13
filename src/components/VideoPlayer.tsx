@@ -34,11 +34,15 @@ async function apiSaveProgress(payload: {
   playbackSpeed: number;
 }): Promise<void> {
   try {
-    await fetch("/api/progress/video", {
+    const res = await fetch("/api/progress/video", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      console.error("[VideoPlayer] progress save failed:", res.status, body);
+    }
   } catch { /* network failure — periodic saves will retry */ }
 }
 
@@ -124,28 +128,28 @@ export function VideoPlayer({
       const p = event.target;
       setPlayer(p);
 
-      try {
-        const d = p.getDuration();
-        if (d > 0) setDuration(d);
-      } catch { /* not ready */ }
-
       if (startAt > 0) {
         try { p.seekTo(startAt, true); } catch { /* ignore */ }
       }
 
       try { p.setPlaybackRate(playbackSpeed); } catch { /* ignore */ }
 
-      // Sync initial display after a tick
-      setTimeout(() => {
+      // Poll until getDuration() is non-zero (YouTube may return 0 until metadata loads)
+      let attempts = 0;
+      const poll = setInterval(() => {
+        attempts++;
         try {
-          const cur = p.getCurrentTime();
           const tot = p.getDuration();
-          if (tot > 0) {
-            setCurrentTime(cur);
-            setDuration(tot);
-            setCompletionPct((cur / tot) * 100);
+          if (tot > 0 || attempts > 30) {
+            clearInterval(poll);
+            if (tot > 0) {
+              setDuration(tot);
+              const cur = p.getCurrentTime();
+              setCurrentTime(cur > 0 ? cur : startAt);
+              setCompletionPct((cur / tot) * 100);
+            }
           }
-        } catch { /* ignore */ }
+        } catch { clearInterval(poll); }
       }, 500);
     } catch (e) {
       console.error("VideoPlayer handleReady error:", e);
@@ -165,6 +169,8 @@ export function VideoPlayer({
   const handleStateChange = useCallback((event: any) => {
     try {
       const state: PlayerState = event.data;
+      // Always use event.target so we have the live player, not a stale closure ref
+      const p = event.target;
       setIsPlaying(state === 1);
 
       if (state === 1) {
@@ -173,10 +179,13 @@ export function VideoPlayer({
           // Delay 1.5s so seekTo(startAt) has time to complete before we read position
           setTimeout(() => {
             try {
-              const cur = player?.getCurrentTime() ?? 0;
-              const tot = player?.getDuration() ?? 0;
+              const cur = p.getCurrentTime() ?? 0;
+              const tot = p.getDuration() ?? 0;
               if (cur > 1 && tot > 0) {
                 saveProgress(cur, (cur / tot) * 100, false, true);
+              } else if (tot > 0 && startAt > 1) {
+                // seekTo hasn't resolved yet — save startAt as a best estimate
+                saveProgress(startAt, (startAt / tot) * 100, false, true);
               }
             } catch { /* ignore */ }
           }, 1500);
@@ -186,13 +195,14 @@ export function VideoPlayer({
       if (state === 0) {
         // Video ended — force save at 100%, then notify
         setCompletionPct(100);
-        const dur = duration || (player ? (() => { try { return player.getDuration(); } catch { return 0; } })() : 0);
+        let dur = duration;
+        if (!dur) { try { dur = p.getDuration() ?? 0; } catch { dur = 0; } }
         notifyComplete(dur, 100);
       }
     } catch (e) {
       console.error("VideoPlayer handleStateChange error:", e);
     }
-  }, [duration, player, notifyComplete, saveProgress]);
+  }, [duration, startAt, notifyComplete, saveProgress]);
 
   // ─── Time update (polled every 200ms) ────────────────────────────────────
   const handleTimeUpdate = useCallback(() => {
@@ -200,7 +210,11 @@ export function VideoPlayer({
     try {
       const cur = player.getCurrentTime();
       const tot = player.getDuration();
-      if (cur == null || !tot) return;
+      if (cur == null || !tot) {
+        // Duration not ready yet — update state if it just became available
+        if (tot > 0) setDuration(tot);
+        return;
+      }
 
       setCurrentTime(cur);
       setDuration(tot);
