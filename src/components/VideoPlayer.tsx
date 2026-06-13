@@ -117,6 +117,7 @@ export function VideoPlayer({
       lastSavedSecondsRef.current = seconds;
       lastSavedAtRef.current = Date.now();
 
+      console.log("[VideoPlayer] saving:", { videoContentId, seconds: Math.floor(seconds), pct: pct.toFixed(1), completed, force });
       const result = await apiSaveProgress({
         videoContentId,
         progressSeconds: seconds,
@@ -177,7 +178,21 @@ export function VideoPlayer({
     try {
       const state: PlayerState = event.data;
       setIsPlaying(state === 1);
-      if (state === 1) hasPlayedRef.current = true;
+
+      if (state === 1) {
+        // Force-save immediately on first play so we can see the indicator quickly
+        if (!hasPlayedRef.current) {
+          hasPlayedRef.current = true;
+          try {
+            const cur = player?.getCurrentTime() ?? 0;
+            const tot = player?.getDuration() ?? 0;
+            if (cur > 0 && tot > 0) {
+              console.log("[VideoPlayer] first-play save:", cur, "/", tot);
+              saveProgress(cur, (cur / tot) * 100, false, true);
+            }
+          } catch { /* ignore */ }
+        }
+      }
 
       if (state === 0) {
         // Video ended — force save at 100%, then notify
@@ -188,7 +203,7 @@ export function VideoPlayer({
     } catch (e) {
       console.error("VideoPlayer handleStateChange error:", e);
     }
-  }, [duration, player, notifyComplete]);
+  }, [duration, player, notifyComplete, saveProgress]);
 
   // ─── Time update (polled every 200ms) ────────────────────────────────────
   const handleTimeUpdate = useCallback(() => {
