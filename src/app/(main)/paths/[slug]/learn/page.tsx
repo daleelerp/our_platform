@@ -284,12 +284,15 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
     budgetAmount = budgetRange?.max_amount || budgetRange?.min_amount || 0;
   }
 
-  // Fetch user's video progress
+  // Fetch user's video progress — admin client bypasses RLS so saved progress
+  // is always returned even when user-facing RLS policies are restrictive.
+  const supabaseAdmin = getAdminSupabaseClient();
+
   const { data: videoProgress } =
     videos.length > 0
-      ? await supabase
+      ? await supabaseAdmin
           .from("user_video_progress")
-          .select("*")
+          .select("video_id, completion_percentage, is_completed, last_watched_position")
           .eq("user_id", user.id)
           .in(
             "video_id",
@@ -299,12 +302,12 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
 
   // Fetch user's milestone progress
   const { data: milestoneProgress } = currentMilestone
-    ? await supabase
+    ? await supabaseAdmin
         .from("user_milestone_progress")
-        .select("*")
+        .select("milestone_id, progress_percentage, status")
         .eq("user_id", user.id)
         .eq("milestone_id", currentMilestone.id)
-        .single()
+        .maybeSingle()
     : { data: null };
 
   return (
