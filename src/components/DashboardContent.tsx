@@ -102,6 +102,7 @@ type Props = {
   subscriptionActivated?: boolean;
   planPathsMap?: Record<string, PlanPathItem[]>;
   planCertMap?: Record<string, PlanCertData>;
+  certByPathId?: Record<string, PlanCertData>;
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -136,6 +137,7 @@ export function DashboardContent({
   subscriptionActivated = false,
   planPathsMap = {},
   planCertMap = {},
+  certByPathId = {},
 }: Props) {
   const router = useRouter();
   const language = useAppStore((s) => s.language);
@@ -162,7 +164,7 @@ export function DashboardContent({
 
   const getText = (en: string | null, ar: string | null) => (language === "ar" && ar ? ar : en ?? "");
 
-  // Active paid plans
+  // Plans with an active/good status (used for upgrade banner logic)
   const activePaidPlans = purchasedPlans.filter((r) => {
     const plan = r.subscription_plans;
     if (!plan) return false;
@@ -171,16 +173,13 @@ export function DashboardContent({
   });
   const isFreePlan = activePaidPlans.length === 0;
 
-  // Plans to show in the Plans section
+  // Plans to show in the Plans section — ALL non-cancelled subscriptions (paid or free)
   const displayPlans = purchasedPlans.filter((r) => {
-    const plan = r.subscription_plans;
-    if (!plan) return false;
-    const isPaid = (plan.price_monthly_egp ?? 0) > 0 || (plan.price_yearly_egp ?? 0) > 0 || (plan.price_one_time_egp ?? 0) > 0;
-    if (!isPaid) return false;
+    if (!r.subscription_plans) return false;
     if (!["active", "trial", "paused", "pending", "expired"].includes(r.status)) return false;
-    // hide pending if an active row exists for same plan
+    // hide duplicate pending row if an active row exists for same plan
     if (r.status === "pending") {
-      return !activePaidPlans.some((ap) => ap.subscription_plans?.id === plan.id);
+      return !activePaidPlans.some((ap) => ap.subscription_plans?.id === r.subscription_plans?.id);
     }
     return true;
   });
@@ -577,54 +576,104 @@ export function DashboardContent({
                 const primaryPlan = pathPlans[0];
                 const planName = primaryPlan ? getText(primaryPlan.display_name_en, primaryPlan.display_name_ar) || primaryPlan.name : null;
                 const href = primaryPlan ? `/paths/${path.slug}?planId=${primaryPlan.id}` : `/paths/${path.slug}`;
+                const certData = certByPathId[path.id] ?? null;
 
                 return (
-                  <Link
+                  <div
                     key={enrollment.id}
-                    href={href}
-                    className="group bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md hover:border-teal-300 transition flex flex-col gap-3"
+                    className="group bg-white rounded-xl border border-slate-200 hover:shadow-md hover:border-teal-300 transition flex flex-col overflow-hidden"
                   >
-                    {/* Title + difficulty */}
-                    <div className="flex items-start justify-between gap-2">
-                      <h3 className="font-semibold text-slate-900 group-hover:text-teal-700 transition-colors leading-snug text-sm">
-                        {getText(path.title, path.title_ar)}
-                      </h3>
-                      <span className={`text-[11px] px-2 py-0.5 rounded-full shrink-0 ${difficulty.color}`}>
-                        {language === "ar" ? difficulty.labelAr : difficulty.labelEn}
-                      </span>
-                    </div>
-
-                    {/* Plan badge */}
-                    {planName && (
-                      <span className="self-start inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-100 text-[11px] font-medium">
-                        {primaryPlan.is_free ? (language === "ar" ? "مجاني" : "Free") : "📚"} {planName}
-                      </span>
-                    )}
-
-                    {/* Description */}
-                    {path.description && (
-                      <p className="text-xs text-slate-500 line-clamp-2 flex-1">
-                        {getText(path.description, path.description_ar)}
-                      </p>
-                    )}
-
-                    {/* Progress */}
-                    <div className="mt-auto space-y-1.5">
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="text-slate-400">
-                          {isComplete
-                            ? (language === "ar" ? "✓ مكتمل" : "✓ Completed")
-                            : progress > 0
-                            ? (language === "ar" ? "جاري" : "In progress")
-                            : (language === "ar" ? "لم تبدأ" : "Not started")}
-                        </span>
-                        <span className={`font-semibold ${isComplete ? "text-green-600" : "text-teal-600"}`}>
-                          {Math.round(progress)}%
+                    {/* Main card body — navigates to path */}
+                    <Link href={href} className="p-5 flex flex-col gap-3 flex-1">
+                      {/* Title + difficulty */}
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="font-semibold text-slate-900 group-hover:text-teal-700 transition-colors leading-snug text-sm">
+                          {getText(path.title, path.title_ar)}
+                        </h3>
+                        <span className={`text-[11px] px-2 py-0.5 rounded-full shrink-0 ${difficulty.color}`}>
+                          {language === "ar" ? difficulty.labelAr : difficulty.labelEn}
                         </span>
                       </div>
-                      <ProgressBar value={progress} />
-                    </div>
-                  </Link>
+
+                      {/* Plan badge */}
+                      {planName && (
+                        <span className="self-start inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-100 text-[11px] font-medium">
+                          {primaryPlan.is_free ? (language === "ar" ? "مجاني" : "Free") : "📚"} {planName}
+                        </span>
+                      )}
+
+                      {/* Description */}
+                      {path.description && (
+                        <p className="text-xs text-slate-500 line-clamp-2 flex-1">
+                          {getText(path.description, path.description_ar)}
+                        </p>
+                      )}
+
+                      {/* Progress */}
+                      <div className="mt-auto space-y-1.5">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-slate-400">
+                            {isComplete
+                              ? (language === "ar" ? "✓ مكتمل" : "✓ Completed")
+                              : progress > 0
+                              ? (language === "ar" ? "جاري" : "In progress")
+                              : (language === "ar" ? "لم تبدأ" : "Not started")}
+                          </span>
+                          <span className={`font-semibold ${isComplete ? "text-green-600" : "text-teal-600"}`}>
+                            {Math.round(progress)}%
+                          </span>
+                        </div>
+                        <ProgressBar value={progress} />
+                      </div>
+                    </Link>
+
+                    {/* Cert CTA strip */}
+                    {certData && (
+                      <div className="border-t border-slate-100 px-5 py-3 flex items-center justify-between gap-2 bg-amber-50/60">
+                        {certData.certificateNumber ? (
+                          <>
+                            <span className="text-[11px] text-green-700 font-medium">🏆 {language === "ar" ? "حصلت على الشهادة" : "Certified"}</span>
+                            <a
+                              href={`/cert/${certData.certificateNumber}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[11px] px-2.5 py-1 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {language === "ar" ? "تحميل" : "Download"}
+                            </a>
+                          </>
+                        ) : certData.purchaseStatus === "paid" ? (
+                          <>
+                            <span className="text-[11px] text-amber-800 font-medium">📝 {language === "ar" ? "الاختبار متاح" : "Exam unlocked"}</span>
+                            <Link
+                              href={href}
+                              className="text-[11px] px-2.5 py-1 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700 transition"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {language === "ar" ? "ابدأ الاختبار" : "Start Exam"}
+                            </Link>
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-[11px] text-slate-600">🎓 {language === "ar" ? "شهادة معتمدة متاحة" : "Certification available"}</span>
+                            <button
+                              type="button"
+                              disabled={buyingCert === certData.examId}
+                              onClick={(e) => { e.stopPropagation(); void handleBuyCert(certData.examId); }}
+                              className="text-[11px] px-2.5 py-1 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 transition disabled:opacity-50 whitespace-nowrap"
+                            >
+                              {buyingCert === certData.examId
+                                ? "…"
+                                : certData.priceEgp > 0
+                                ? `${language === "ar" ? "احصل عليها" : "Get Certified"} — ${Number(certData.priceEgp).toLocaleString()} EGP`
+                                : (language === "ar" ? "ابدأ مجاناً" : "Free")}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>

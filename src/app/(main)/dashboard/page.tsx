@@ -94,6 +94,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   if (!user) {
     redirect("/");
   }
+  const userId = user.id;
 
   // Check if onboarding is complete
   const { data: profile } = await supabase
@@ -288,13 +289,11 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
 
   // ── Per-plan extra data: paths + cert exam ──────────────────────────────────
-  const activePlanIds = dedupedPurchasedPlans
-    .filter((r) => ["active", "trial", "paused"].includes(r.status) && r.subscription_plans?.id)
+  // Include all non-cancelled statuses so even expired/pending plans have cert data
+  const shownPlanIds = dedupedPurchasedPlans
+    .filter((r) => r.status !== "cancelled" && r.subscription_plans?.id)
     .map((r) => r.subscription_plans!.id);
 
-  // planPathsMap: planId → ordered array of { pathId, slug, title, title_ar, sort_order }
-  const planPathsMap: Record<string, Array<{ pathId: string; slug: string; title: string; title_ar: string | null; sort_order: number }>> = {};
-  // planCertMap: planId → cert exam info + status
   type PlanCertData = {
     examId: string;
     priceEgp: number;
@@ -302,14 +301,39 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     certificateNumber: string | null;
     firstPathSlug: string | null;
   };
-  const planCertMap: Record<string, PlanCertData> = {};
 
-  if (activePlanIds.length > 0) {
+  // planPathsMap: planId → ordered paths (for plan cards)
+  const planPathsMap: Record<string, Array<{ pathId: string; slug: string; title: string; title_ar: string | null; sort_order: number }>> = {};
+  // planCertMap: planId → cert data (for plan cards)
+  const planCertMap: Record<string, PlanCertData> = {};
+  // certByPathId: pathId → cert data (for enrolled-path cards — works even without subscriptions)
+  const certByPathId: Record<string, PlanCertData> = {};
+
+  // Helper: given a list of exam rows + user id, fetch purchase + certificate status
+  async function loadCertStatusForExams(
+    examRows: Array<{ id: string; plan_id: string; price_egp: number | null }>
+  ): Promise<{
+    purchaseByExam: Map<string, string>;
+    certByExam: Map<string, string>;
+  }> {
+    if (!examRows.length) return { purchaseByExam: new Map(), certByExam: new Map() };
+    const examIds = examRows.map((e) => e.id);
+    const [{ data: certPurchases }, { data: certs }] = await Promise.all([
+      supabase.from("user_certification_purchases").select("exam_id, status").eq("user_id", userId).in("exam_id", examIds),
+      supabase.from("certificates").select("exam_id, certificate_number").eq("user_id", userId).in("exam_id", examIds),
+    ]);
+    return {
+      purchaseByExam: new Map((certPurchases ?? []).map((p: any) => [p.exam_id as string, p.status as string])),
+      certByExam: new Map((certs ?? []).map((c: any) => [c.exam_id as string, c.certificate_number as string])),
+    };
+  }
+
+  if (shownPlanIds.length > 0) {
     // Paths per plan (batch)
     const { data: planPathRows } = await supabase
       .from("plan_paths")
       .select("plan_id, sort_order, learning_path_id, learning_paths(id, slug, title, title_ar)")
-      .in("plan_id", activePlanIds)
+      .in("plan_id", shownPlanIds)
       .order("sort_order", { ascending: true });
 
     for (const row of (planPathRows ?? []) as any[]) {
@@ -317,41 +341,18 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       const lp = Array.isArray(row.learning_paths) ? row.learning_paths[0] : row.learning_paths;
       if (!planId || !lp?.slug) continue;
       if (!planPathsMap[planId]) planPathsMap[planId] = [];
-      planPathsMap[planId].push({
-        pathId: lp.id,
-        slug: lp.slug,
-        title: lp.title,
-        title_ar: lp.title_ar ?? null,
-        sort_order: Number(row.sort_order ?? 0),
-      });
+      planPathsMap[planId].push({ pathId: lp.id, slug: lp.slug, title: lp.title, title_ar: lp.title_ar ?? null, sort_order: Number(row.sort_order ?? 0) });
     }
 
     // Cert exams per plan (batch)
     const { data: certExams } = await supabase
       .from("certification_exams")
-      .select("id, plan_id, price_egp, is_active")
-      .in("plan_id", activePlanIds)
+      .select("id, plan_id, price_egp")
+      .in("plan_id", shownPlanIds)
       .eq("is_active", true);
 
     if (certExams && certExams.length > 0) {
-      const examIds = certExams.map((e: any) => e.id as string);
-
-      // Purchases + certificates in parallel
-      const [{ data: certPurchases }, { data: certs }] = await Promise.all([
-        supabase
-          .from("user_certification_purchases")
-          .select("exam_id, status")
-          .eq("user_id", user.id)
-          .in("exam_id", examIds),
-        supabase
-          .from("certificates")
-          .select("exam_id, certificate_number")
-          .eq("user_id", user.id)
-          .in("exam_id", examIds),
-      ]);
-
-      const purchaseByExam = new Map((certPurchases ?? []).map((p: any) => [p.exam_id as string, p.status as string]));
-      const certByExam = new Map((certs ?? []).map((c: any) => [c.exam_id as string, c.certificate_number as string]));
+      const { purchaseByExam, certByExam } = await loadCertStatusForExams(certExams as any[]);
 
       for (const exam of certExams as any[]) {
         const planId = exam.plan_id as string;
@@ -360,14 +361,54 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         const purchaseStatus = rawStatus === "paid" ? "paid" : rawStatus === "pending" ? "pending" : null;
         const certificateNumber = certByExam.get(examId) ?? null;
         const firstPath = planPathsMap[planId]?.[0] ?? null;
+        const certData: PlanCertData = { examId, priceEgp: Number(exam.price_egp ?? 0), purchaseStatus, certificateNumber, firstPathSlug: firstPath?.slug ?? null };
 
-        planCertMap[planId] = {
-          examId,
-          priceEgp: Number(exam.price_egp ?? 0),
-          purchaseStatus,
-          certificateNumber,
-          firstPathSlug: firstPath?.slug ?? null,
-        };
+        planCertMap[planId] = certData;
+        // Also map to every path in this plan so path cards can show the CTA
+        for (const pp of planPathsMap[planId] ?? []) {
+          certByPathId[pp.pathId] = certData;
+        }
+      }
+    }
+  }
+
+  // For enrolled paths NOT already covered above (user has no plan subscription),
+  // look up cert exams via plan_paths → certification_exams
+  const uncoveredPathIds = enrolledPathIds.filter((id) => !certByPathId[id]);
+  if (uncoveredPathIds.length > 0) {
+    const { data: linkRows } = await supabase
+      .from("plan_paths")
+      .select("learning_path_id, plan_id")
+      .in("learning_path_id", uncoveredPathIds);
+
+    const extraPlanIds = Array.from(new Set((linkRows ?? []).map((r: any) => r.plan_id as string).filter(Boolean)));
+    const pathToPlan = new Map((linkRows ?? []).map((r: any) => [r.learning_path_id as string, r.plan_id as string]));
+
+    if (extraPlanIds.length > 0) {
+      const { data: extraExams } = await supabase
+        .from("certification_exams")
+        .select("id, plan_id, price_egp")
+        .in("plan_id", extraPlanIds)
+        .eq("is_active", true);
+
+      if (extraExams && extraExams.length > 0) {
+        const { purchaseByExam, certByExam } = await loadCertStatusForExams(extraExams as any[]);
+        const examByPlan = new Map((extraExams as any[]).map((e) => [e.plan_id as string, e]));
+
+        for (const pathId of uncoveredPathIds) {
+          const planId = pathToPlan.get(pathId);
+          if (!planId) continue;
+          const exam = examByPlan.get(planId);
+          if (!exam) continue;
+          const rawStatus = purchaseByExam.get(exam.id) ?? null;
+          certByPathId[pathId] = {
+            examId: exam.id,
+            priceEgp: Number(exam.price_egp ?? 0),
+            purchaseStatus: rawStatus === "paid" ? "paid" : rawStatus === "pending" ? "pending" : null,
+            certificateNumber: certByExam.get(exam.id) ?? null,
+            firstPathSlug: null,
+          };
+        }
       }
     }
   }
@@ -419,6 +460,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       subscriptionActivated={subscriptionActivated}
       planPathsMap={planPathsMap}
       planCertMap={planCertMap}
+      certByPathId={certByPathId}
     />
   );
 }
