@@ -78,6 +78,12 @@ export function VideoPlayer({
   const lastSavedSecondsRef = useRef(0);
   const lastSavedAtRef = useRef(0);
 
+  // Stable refs for callbacks so they don't break useCallback dep chains
+  const onProgressRef = useRef(onProgress);
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => { onProgressRef.current = onProgress; }, [onProgress]);
+  useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
+
   // Set dynamic CSS vars without inline style prop
   useEffect(() => {
     const el = containerRef.current;
@@ -158,12 +164,12 @@ export function VideoPlayer({
 
   // ─── Completion notify (save first, then callback) ────────────────────────
   const notifyComplete = useCallback(async (seconds: number, pct: number) => {
-    if (hasTriggeredCompleteRef.current || !onComplete) return;
+    if (hasTriggeredCompleteRef.current || !onCompleteRef.current) return;
     hasTriggeredCompleteRef.current = true;
     setIsCompleted(true);
     await saveProgress(seconds, pct, true, true); // force-save before recalculate
-    onComplete();
-  }, [onComplete, saveProgress]);
+    onCompleteRef.current();
+  }, [saveProgress]); // onComplete excluded — read via ref to keep this stable
 
   // ─── State change ─────────────────────────────────────────────────────────
   const handleStateChange = useCallback((event: any) => {
@@ -195,14 +201,14 @@ export function VideoPlayer({
       if (state === 0) {
         // Video ended — force save at 100%, then notify
         setCompletionPct(100);
-        let dur = duration;
-        if (!dur) { try { dur = p.getDuration() ?? 0; } catch { dur = 0; } }
+        let dur = 0;
+        try { dur = p.getDuration() ?? 0; } catch { dur = 0; }
         notifyComplete(dur, 100);
       }
     } catch (e) {
       console.error("VideoPlayer handleStateChange error:", e);
     }
-  }, [duration, startAt, notifyComplete, saveProgress]);
+  }, [startAt, notifyComplete, saveProgress]); // duration excluded — read live from event.target
 
   // ─── Time update (polled every 200ms) ────────────────────────────────────
   const handleTimeUpdate = useCallback(() => {
@@ -221,14 +227,14 @@ export function VideoPlayer({
       const pct = (cur / tot) * 100;
       setCompletionPct(pct);
 
-      if (onProgress) onProgress(pct, cur);
+      if (onProgressRef.current) onProgressRef.current(pct, cur);
 
       // Early completion at 90%
       if (pct >= 90 && hasPlayedRef.current && cur > 10 && cur < tot * 0.98) {
         notifyComplete(cur, pct);
       }
     } catch { /* player not ready */ }
-  }, [player, onProgress, notifyComplete]);
+  }, [player, notifyComplete]); // onProgress excluded — read via ref to keep this stable
 
   // Polling for UI + periodic DB saves
   useEffect(() => {

@@ -1037,6 +1037,7 @@ export function LearningInterface({
                     </div>
                     {selectedVideo.youtube_video_id ? (
                       <VideoPlayer
+                        key={selectedVideo.id}
                         videoId={selectedVideo.youtube_video_id}
                         videoContentId={selectedVideo.id}
                         userId={userId}
