@@ -3,30 +3,12 @@ import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { getAdminSupabaseClient } from "@/utils/admin-supabase";
 
-/**
- * POST /api/progress/video
- *
- * Saves video watch progress using the service-role client so that Row Level
- * Security never blocks the write. User identity comes from their session cookie.
- *
- * Body: {
- *   videoContentId  string   – ID from video_content table
- *   progressSeconds number   – current playback position
- *   completionPct   number   – 0-100
- *   isCompleted     boolean
- *   playbackSpeed   number
- * }
- */
 export async function POST(request: NextRequest) {
   try {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError) {
-      console.error("[/api/progress/video] auth error:", authError.message);
-    }
+    const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      console.error("[/api/progress/video] no user in session");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -36,6 +18,7 @@ export async function POST(request: NextRequest) {
     try { body = JSON.parse(rawText); } catch {
       return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
     }
+
     const { videoContentId, progressSeconds, completionPct, isCompleted, playbackSpeed } = body as {
       videoContentId: string;
       progressSeconds: number;
@@ -43,8 +26,6 @@ export async function POST(request: NextRequest) {
       isCompleted: boolean;
       playbackSpeed: number;
     };
-
-    console.log("[/api/progress/video] user:", user.id, "video:", videoContentId, "seconds:", progressSeconds, "pct:", completionPct);
 
     if (!videoContentId) {
       return NextResponse.json({ error: "videoContentId is required" }, { status: 400 });
@@ -82,11 +63,10 @@ export async function POST(request: NextRequest) {
     );
 
     if (error) {
-      console.error("[/api/progress/video] upsert error:", error.message, error.code, error.details);
-      return NextResponse.json({ error: error.message, code: error.code }, { status: 500 });
+      console.error("Video progress save error:", error.message);
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    console.log("[/api/progress/video] saved OK for user:", user.id, "video:", videoContentId);
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("Video progress route error:", error?.message ?? error);

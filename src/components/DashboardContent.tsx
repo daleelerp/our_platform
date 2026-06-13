@@ -4,7 +4,6 @@ import { useMemo, useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/store/useAppStore";
 import { useSubscription } from "@/hooks/useSubscription";
-import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -163,21 +162,21 @@ export function DashboardContent({
   const [visiblePathCount, setVisiblePathCount] = useState(6);
   const [buyingCert, setBuyingCert] = useState<string | null>(null); // examId being purchased
 
-  // Client-side progress override — fetches fresh path_enrollments on mount so the
-  // dashboard always reflects the latest progress even if the server snapshot was stale.
+  // Live progress from the server — calculated fresh from user_video_progress so it
+  // reflects partial watch progress, not just the stale path_enrollments snapshot.
   const [liveProgressMap, setLiveProgressMap] = useState<Map<string, number> | null>(null);
   useEffect(() => {
-    const supabase = createClient();
-    supabase
-      .from("path_enrollments")
-      .select("learning_path_id, progress_percentage")
-      .eq("status", "active")
-      .then(({ data }) => {
-        if (!data) return;
+    fetch("/api/progress/dashboard")
+      .then((r) => r.json())
+      .then(({ progress }) => {
+        if (!progress) return;
         const m = new Map<string, number>();
-        for (const row of data) m.set(row.learning_path_id, Number(row.progress_percentage ?? 0));
+        for (const [pathId, pct] of Object.entries(progress)) {
+          m.set(pathId, Number(pct));
+        }
         setLiveProgressMap(m);
-      });
+      })
+      .catch(() => { /* leave server-snapshot as fallback */ });
   }, []);
 
   const getText = (en: string | null, ar: string | null) => (language === "ar" && ar ? ar : en ?? "");

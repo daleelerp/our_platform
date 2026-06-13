@@ -25,8 +25,6 @@ type VideoPlayerProps = {
 
 type PlayerState = -1 | 0 | 1 | 2 | 3 | 5;
 
-type SaveResult = { ok: true } | { ok: false; status: number; error: string };
-
 // Saves video progress via the server-side API (admin client — bypasses RLS).
 async function apiSaveProgress(payload: {
   videoContentId: string;
@@ -34,23 +32,14 @@ async function apiSaveProgress(payload: {
   completionPct: number;
   isCompleted: boolean;
   playbackSpeed: number;
-}): Promise<SaveResult> {
+}): Promise<void> {
   try {
-    const res = await fetch("/api/progress/video", {
+    await fetch("/api/progress/video", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      console.error("[VideoPlayer] save failed:", res.status, body);
-      return { ok: false, status: res.status, error: body?.error ?? String(res.status) };
-    }
-    return { ok: true };
-  } catch (e: any) {
-    console.error("[VideoPlayer] save network error:", e?.message ?? e);
-    return { ok: false, status: 0, error: e?.message ?? "network error" };
-  }
+  } catch { /* network failure — periodic saves will retry */ }
 }
 
 export function VideoPlayer({
@@ -76,7 +65,6 @@ export function VideoPlayer({
   const [isSeeking, setIsSeeking] = useState(false);
   const [hoverTime, setHoverTime] = useState<number | null>(null);
   const [hoverPercent, setHoverPercent] = useState<number | null>(null);
-  const [lastSaveStatus, setLastSaveStatus] = useState<SaveResult | null>(null);
 
   const hasTriggeredCompleteRef = useRef(false);
   const hasPlayedRef = useRef(false);
@@ -115,23 +103,17 @@ export function VideoPlayer({
       }
 
       // Never save position 0 — player hasn't seeked to startAt yet
-      if (seconds < 2 && !completed) {
-        console.log("[VideoPlayer] skipping save: position not ready yet", seconds);
-        return;
-      }
+      if (seconds < 2 && !completed) return;
 
       lastSavedSecondsRef.current = seconds;
       lastSavedAtRef.current = Date.now();
-
-      console.log("[VideoPlayer] saving:", { videoContentId, seconds: Math.floor(seconds), pct: pct.toFixed(1), completed, force });
-      const result = await apiSaveProgress({
+      await apiSaveProgress({
         videoContentId,
         progressSeconds: seconds,
         completionPct: pct,
         isCompleted: completed,
         playbackSpeed,
       });
-      setLastSaveStatus(result);
     },
     [videoContentId, playbackSpeed]
   );
@@ -194,7 +176,6 @@ export function VideoPlayer({
               const cur = player?.getCurrentTime() ?? 0;
               const tot = player?.getDuration() ?? 0;
               if (cur > 1 && tot > 0) {
-                console.log("[VideoPlayer] first-play save:", cur, "/", tot);
                 saveProgress(cur, (cur / tot) * 100, false, true);
               }
             } catch { /* ignore */ }
@@ -267,7 +248,6 @@ export function VideoPlayer({
             { type: "application/json" }
           );
           navigator.sendBeacon("/api/progress/video", blob);
-          console.log("[VideoPlayer] beacon sent on unload:", Math.floor(cur), "s");
         }
       } catch { /* ignore */ }
     };
@@ -457,17 +437,10 @@ export function VideoPlayer({
             </div>
           </div>
 
-          <div className="mt-1.5 flex items-center justify-center gap-3">
+          <div className="mt-1.5 text-center">
             <span className="text-[10px] text-slate-400">
               {completionPct.toFixed(1)}% {language === "ar" ? "مكتمل" : "complete"}
             </span>
-            {lastSaveStatus && (
-              <span className={`text-[10px] font-medium ${lastSaveStatus.ok ? "text-green-400" : "text-red-400"}`}>
-                {lastSaveStatus.ok
-                  ? "✓ saved"
-                  : `✗ save failed: ${lastSaveStatus.status === 401 ? "not authenticated" : lastSaveStatus.status === 0 ? "network error" : `error ${lastSaveStatus.status}`}`}
-              </span>
-            )}
           </div>
         </div>
       </div>
