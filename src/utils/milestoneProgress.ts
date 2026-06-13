@@ -137,10 +137,9 @@ export async function checkMilestoneCompletion(
     .select("resource_id, is_required")
     .eq("milestone_id", milestoneId);
 
-  // Only count required resources, or all resources if none are marked as required
-  const requiredResources = milestoneResources?.filter((mr: any) => mr.is_required === true) || [];
-  const resourcesToCheck = requiredResources.length > 0 ? requiredResources : (milestoneResources || []);
-  
+  // Only count explicitly required resources — optional resources don't block progress
+  const resourcesToCheck = milestoneResources?.filter((mr: any) => mr.is_required === true) || [];
+
   status.resourcesTotal = resourcesToCheck.length;
 
   if (status.resourcesTotal > 0) {

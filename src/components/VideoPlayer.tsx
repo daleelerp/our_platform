@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { createClient } from "@/utils/supabase/client";
 import { useAppStore } from "@/store/useAppStore";
 
 let YouTube: any = null;
@@ -9,7 +8,7 @@ try {
   if (typeof window !== "undefined") {
     YouTube = require("react-youtube").default;
   }
-} catch (e) {
+} catch {
   console.warn("react-youtube not installed. Install with: npm install react-youtube");
 }
 
@@ -17,7 +16,6 @@ type VideoPlayerProps = {
   videoId: string;
   videoContentId?: string;
   userId?: string | null;
-  milestoneId?: string;
   startAt?: number;
   onProgress?: (progress: number, currentTime: number) => void;
   onComplete?: () => void;
@@ -27,11 +25,29 @@ type VideoPlayerProps = {
 
 type PlayerState = -1 | 0 | 1 | 2 | 3 | 5;
 
+// Saves video progress via the server-side API (admin client — bypasses RLS).
+async function apiSaveProgress(payload: {
+  videoContentId: string;
+  progressSeconds: number;
+  completionPct: number;
+  isCompleted: boolean;
+  playbackSpeed: number;
+}): Promise<void> {
+  try {
+    await fetch("/api/progress/video", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    // Network failure — silently skip (periodic saves will retry)
+  }
+}
+
 export function VideoPlayer({
   videoId,
   videoContentId,
   userId,
-  milestoneId,
   startAt = 0,
   onProgress,
   onComplete,
@@ -39,342 +55,239 @@ export function VideoPlayer({
   className = "",
 }: VideoPlayerProps) {
   const language = useAppStore((state) => state.language);
+
   const [player, setPlayer] = useState<any>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
+  const [currentTime, setCurrentTime] = useState(startAt);
   const [duration, setDuration] = useState(0);
-  const [completionPercentage, setCompletionPercentage] = useState(0);
+  const [completionPct, setCompletionPct] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
   const [isCompleted, setIsCompleted] = useState(false);
-  const [hasTriggeredComplete, setHasTriggeredComplete] = useState(false);
   const [captionsEnabled, setCaptionsEnabled] = useState(true);
   const [isSeeking, setIsSeeking] = useState(false);
   const [hoverTime, setHoverTime] = useState<number | null>(null);
   const [hoverPercent, setHoverPercent] = useState<number | null>(null);
-  const [isMounted, setIsMounted] = useState(false);
 
-  const progressBarRef = useRef<HTMLDivElement>(null);
-  const isDraggingRef = useRef(false);
-  const progressSaveIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const lastSavedProgressTimeRef = useRef<number>(0);
-  const lastSavedProgressSecondsRef = useRef(0);
+  const hasTriggeredCompleteRef = useRef(false);
   const hasPlayedRef = useRef(false);
+  const isDraggingRef = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const progressBarRef = useRef<HTMLDivElement>(null);
+  const lastSavedSecondsRef = useRef(0);
+  const lastSavedAtRef = useRef(0);
 
-  const supabase = createClient();
-
-  useEffect(() => { setIsMounted(true); }, []);
-
+  // Set dynamic CSS vars without inline style prop
   useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    el.style.setProperty("--vpct", `${completionPct}%`);
+    el.style.setProperty("--hpct", `${hoverPercent ?? 0}%`);
+  }, [completionPct, hoverPercent]);
+
+  // Reset when video changes
+  useEffect(() => {
+    hasTriggeredCompleteRef.current = false;
     hasPlayedRef.current = false;
     setIsCompleted(false);
-    setHasTriggeredComplete(false);
-  }, [videoId, videoContentId]);
+    setCurrentTime(startAt);
+    setCompletionPct(0);
+  }, [videoId, videoContentId, startAt]);
 
-  // ─── Progress save ────────────────────────────────────────────────────────
+  // ─── Progress save (via API — no RLS) ────────────────────────────────────
   const saveProgress = useCallback(
-    async (progressSeconds: number, completionPercent: number, isComplete: boolean, force = false) => {
-      if (!userId || !videoContentId || !player) return;
+    async (seconds: number, pct: number, completed: boolean, force = false) => {
+      if (!videoContentId) return;
 
       if (!force) {
-        const timeSinceLastSave = lastSavedProgressTimeRef.current > 0
-          ? Date.now() - lastSavedProgressTimeRef.current
-          : 30001;
-        const progressChanged = Math.abs(progressSeconds - lastSavedProgressSecondsRef.current) >= 5;
-        if (!progressChanged && timeSinceLastSave < 30000) return;
+        const secChanged = Math.abs(seconds - lastSavedSecondsRef.current) >= 5;
+        const timePassed = Date.now() - lastSavedAtRef.current > 30_000;
+        if (!secChanged && !timePassed) return;
       }
 
-      lastSavedProgressTimeRef.current = Date.now();
-      lastSavedProgressSecondsRef.current = progressSeconds;
+      lastSavedSecondsRef.current = seconds;
+      lastSavedAtRef.current = Date.now();
 
-      try {
-        const watchProgressInt = Math.floor(progressSeconds);
-
-        const { data: existing } = await supabase
-          .from("user_video_progress")
-          .select("first_watched_at")
-          .eq("user_id", userId)
-          .eq("video_id", videoContentId)
-          .maybeSingle();
-
-        const updateData: any = {
-          user_id: userId,
-          video_id: videoContentId,
-          watch_progress_seconds: watchProgressInt,
-          completion_percentage: completionPercent,
-          is_completed: isComplete,
-          last_watched_position: watchProgressInt,
-          playback_speed: playbackSpeed,
-          total_watch_time_seconds: watchProgressInt,
-          last_watched_at: new Date().toISOString(),
-          completed_at: isComplete ? new Date().toISOString() : null,
-          watch_count: 1,
-        };
-
-        if (!existing?.first_watched_at) {
-          updateData.first_watched_at = new Date().toISOString();
-        }
-
-        await supabase
-          .from("user_video_progress")
-          .upsert(updateData, { onConflict: "user_id,video_id" });
-      } catch (error) {
-        console.debug("Error saving progress:", error);
-      }
+      await apiSaveProgress({
+        videoContentId,
+        progressSeconds: seconds,
+        completionPct: pct,
+        isCompleted: completed,
+        playbackSpeed,
+      });
     },
-    [userId, videoContentId, playbackSpeed, supabase]
+    [videoContentId, playbackSpeed]
   );
 
   // ─── Player ready ─────────────────────────────────────────────────────────
-  const handleReady = (event: any) => {
+  const handleReady = useCallback((event: any) => {
     try {
-      const playerInstance = event.target;
-      setPlayer(playerInstance);
+      const p = event.target;
+      setPlayer(p);
 
       try {
-        const d = playerInstance.getDuration();
-        if (d && d > 0) setDuration(d);
-      } catch (e) { /* not ready yet */ }
+        const d = p.getDuration();
+        if (d > 0) setDuration(d);
+      } catch { /* not ready */ }
 
       if (startAt > 0) {
-        try { playerInstance.seekTo(startAt, true); } catch (e) { /* ignore */ }
+        try { p.seekTo(startAt, true); } catch { /* ignore */ }
       }
 
-      try { playerInstance.setPlaybackRate(playbackSpeed); } catch (e) { /* ignore */ }
+      try { p.setPlaybackRate(playbackSpeed); } catch { /* ignore */ }
 
-      // Sync initial time display
+      // Sync initial display after a tick
       setTimeout(() => {
         try {
-          const current = playerInstance.getCurrentTime();
-          const total = playerInstance.getDuration();
-          if (current && total && total > 0) {
-            setCurrentTime(current);
-            setDuration(total);
-            setCompletionPercentage((current / total) * 100);
+          const cur = p.getCurrentTime();
+          const tot = p.getDuration();
+          if (tot > 0) {
+            setCurrentTime(cur);
+            setDuration(tot);
+            setCompletionPct((cur / tot) * 100);
           }
-        } catch (e) { /* ignore */ }
+        } catch { /* ignore */ }
       }, 500);
-
-      // Load saved progress
-      if (userId && videoContentId) {
-        (async () => {
-          try {
-            const { data, error } = await supabase
-              .from("user_video_progress")
-              .select("last_watched_position, is_completed, completion_percentage")
-              .eq("user_id", userId)
-              .eq("video_id", videoContentId)
-              .maybeSingle();
-
-            if (error) {
-              console.debug("Error loading progress:", error);
-              return;
-            }
-
-            if (data) {
-              if (data.last_watched_position > 0) {
-                try { playerInstance.seekTo(data.last_watched_position, true); } catch (e) { /* ignore */ }
-                setCurrentTime(data.last_watched_position);
-                setCompletionPercentage(data.completion_percentage || 0);
-              }
-              // Persist completion status — don't reset it across sessions
-              if (data.is_completed) {
-                setIsCompleted(true);
-                setHasTriggeredComplete(true);
-              }
-            }
-          } catch (error) {
-            console.debug("Error in progress loading:", error);
-          }
-        })();
-      }
-    } catch (error) {
-      console.error("Error in handleReady:", error);
+    } catch (e) {
+      console.error("VideoPlayer handleReady error:", e);
     }
-  };
+  }, [startAt, playbackSpeed]);
+
+  // ─── Completion notify (save first, then callback) ────────────────────────
+  const notifyComplete = useCallback(async (seconds: number, pct: number) => {
+    if (hasTriggeredCompleteRef.current || !onComplete) return;
+    hasTriggeredCompleteRef.current = true;
+    setIsCompleted(true);
+    await saveProgress(seconds, pct, true, true); // force-save before recalculate
+    onComplete();
+  }, [onComplete, saveProgress]);
 
   // ─── State change ─────────────────────────────────────────────────────────
-  const handleStateChange = (event: any) => {
+  const handleStateChange = useCallback((event: any) => {
     try {
       const state: PlayerState = event.data;
       setIsPlaying(state === 1);
       if (state === 1) hasPlayedRef.current = true;
 
       if (state === 0) {
-        setIsCompleted(true);
-        setCompletionPercentage(100);
-        // Save completion to DB first so checkMilestoneCompletion sees is_completed=true,
-        // then trigger onComplete so recalculateProgress reads fresh data.
-        const notifyComplete = onComplete && !hasTriggeredComplete;
-        if (notifyComplete) setHasTriggeredComplete(true);
-        if (userId && videoContentId && duration > 0) {
-          saveProgress(duration, 100, true, true).then(() => {
-            if (notifyComplete) onComplete!();
-          });
-        } else if (notifyComplete) {
-          onComplete!();
-        }
+        // Video ended — force save at 100%, then notify
+        setCompletionPct(100);
+        const dur = duration || (player ? (() => { try { return player.getDuration(); } catch { return 0; } })() : 0);
+        notifyComplete(dur, 100);
       }
-    } catch (error) {
-      console.error("Error in handleStateChange:", error);
+    } catch (e) {
+      console.error("VideoPlayer handleStateChange error:", e);
     }
-  };
+  }, [duration, player, notifyComplete]);
 
-  // ─── Time update ─────────────────────────────────────────────────────────
+  // ─── Time update (polled every 200ms) ────────────────────────────────────
   const handleTimeUpdate = useCallback(() => {
     if (!player || isDraggingRef.current) return;
     try {
-      const current = player.getCurrentTime();
-      const total = player.getDuration();
-      if (current != null && total) {
-        setCurrentTime(current);
-        setDuration(total);
-        const percent = (current / total) * 100;
-        setCompletionPercentage(percent);
+      const cur = player.getCurrentTime();
+      const tot = player.getDuration();
+      if (cur == null || !tot) return;
 
-        if (percent >= 90 && !isCompleted && hasPlayedRef.current) {
-          setIsCompleted(true);
-          const notifyComplete = onComplete && !hasTriggeredComplete && current > 10 && current < total * 0.98;
-          if (notifyComplete) setHasTriggeredComplete(true);
-          if (userId && videoContentId) {
-            saveProgress(current, percent, true, true).then(() => {
-              if (notifyComplete) onComplete!();
-            });
-          } else if (notifyComplete) {
-            onComplete!();
-          }
-        }
-        if (onProgress) onProgress(percent, current);
+      setCurrentTime(cur);
+      setDuration(tot);
+      const pct = (cur / tot) * 100;
+      setCompletionPct(pct);
+
+      if (onProgress) onProgress(pct, cur);
+
+      // Early completion at 90%
+      if (pct >= 90 && hasPlayedRef.current && cur > 10 && cur < tot * 0.98) {
+        notifyComplete(cur, pct);
       }
-    } catch (e) { /* player not ready */ }
-  }, [player, isCompleted, onProgress, onComplete, hasTriggeredComplete]);
+    } catch { /* player not ready */ }
+  }, [player, onProgress, notifyComplete]);
 
-  // Polling interval
+  // Polling for UI + periodic DB saves
   useEffect(() => {
     if (!player) return;
-    const interval = setInterval(() => {
-      try { handleTimeUpdate(); } catch (e) { /* ignore */ }
-    }, 200);
-
+    const uiInterval = setInterval(() => { try { handleTimeUpdate(); } catch { /* ignore */ } }, 200);
     const saveInterval = setInterval(() => {
       if (!player) return;
       try {
-        const current = player.getCurrentTime();
-        const total = player.getDuration();
-        if (current && total && current > 0 && total > 0) {
-          saveProgress(current, (current / total) * 100, (current / total) * 100 >= 90);
+        const cur = player.getCurrentTime();
+        const tot = player.getDuration();
+        if (cur > 0 && tot > 0) {
+          saveProgress(cur, (cur / tot) * 100, (cur / tot) * 100 >= 90);
         }
-      } catch (e) { /* ignore */ }
-    }, isPlaying ? 10000 : 30000);
+      } catch { /* ignore */ }
+    }, isPlaying ? 10_000 : 30_000);
 
-    progressSaveIntervalRef.current = saveInterval;
-
-    return () => {
-      clearInterval(interval);
-      clearInterval(saveInterval);
-      if (progressSaveIntervalRef.current) {
-        clearInterval(progressSaveIntervalRef.current);
-        progressSaveIntervalRef.current = null;
-      }
-    };
+    return () => { clearInterval(uiInterval); clearInterval(saveInterval); };
   }, [player, isPlaying, handleTimeUpdate, saveProgress]);
 
   // Save on unmount
   useEffect(() => {
     return () => {
-      if (player && userId && videoContentId) {
-        try {
-          const current = player.getCurrentTime();
-          const total = player.getDuration();
-          if (current && total && current > 0) {
-            saveProgress(current, (current / total) * 100, (current / total) * 100 >= 90);
-          }
-        } catch (e) { /* ignore */ }
-      }
-      if (progressSaveIntervalRef.current) {
-        clearInterval(progressSaveIntervalRef.current);
-      }
+      if (!player || !videoContentId) return;
+      try {
+        const cur = player.getCurrentTime();
+        const tot = player.getDuration();
+        if (cur > 0 && tot > 0) {
+          saveProgress(cur, (cur / tot) * 100, (cur / tot) * 100 >= 90, true);
+        }
+      } catch { /* ignore */ }
     };
-  }, [player, userId, videoContentId, saveProgress]);
+  }, [player, videoContentId, saveProgress]);
 
-  // ─── Seek logic ───────────────────────────────────────────────────────────
-  const seekToPosition = useCallback((clientX: number) => {
+  // ─── Seek ──────────────────────────────────────────────────────────────────
+  const seekTo = useCallback((clientX: number) => {
     if (!player || !progressBarRef.current || duration <= 0) return;
     const rect = progressBarRef.current.getBoundingClientRect();
     const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-    const seekSec = ratio * duration;
-    try {
-      player.seekTo(seekSec, true);
-      setCurrentTime(seekSec);
-      setCompletionPercentage(ratio * 100);
-    } catch (e) { /* ignore */ }
+    const sec = ratio * duration;
+    try { player.seekTo(sec, true); } catch { /* ignore */ }
+    setCurrentTime(sec);
+    setCompletionPct(ratio * 100);
   }, [player, duration]);
 
-  const getHoverInfo = useCallback((clientX: number): { time: number; pct: number } | null => {
+  const getHoverInfo = useCallback((clientX: number) => {
     if (!progressBarRef.current || duration <= 0) return null;
     const rect = progressBarRef.current.getBoundingClientRect();
     const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
     return { time: ratio * duration, pct: ratio * 100 };
   }, [duration]);
 
-  const handleProgressMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    isDraggingRef.current = true;
-    setIsSeeking(true);
-    seekToPosition(e.clientX);
-  }, [seekToPosition]);
-
-  // Global drag tracking — covers the iframe to prevent losing events
   useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      if (isDraggingRef.current) seekToPosition(e.clientX);
-    };
+    const onMove = (e: MouseEvent) => { if (isDraggingRef.current) seekTo(e.clientX); };
     const onUp = (e: MouseEvent) => {
-      if (isDraggingRef.current) {
-        isDraggingRef.current = false;
-        setIsSeeking(false);
-        seekToPosition(e.clientX);
-      }
+      if (isDraggingRef.current) { isDraggingRef.current = false; setIsSeeking(false); seekTo(e.clientX); }
     };
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
-    return () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-    };
-  }, [seekToPosition]);
+    return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+  }, [seekTo]);
 
-  // ─── Helpers ──────────────────────────────────────────────────────────────
+  // ─── Controls ─────────────────────────────────────────────────────────────
   const handleSpeedChange = (speed: number) => {
     setPlaybackSpeed(speed);
-    if (player) {
-      try { player.setPlaybackRate(speed); } catch (e) { /* ignore */ }
-    }
+    try { player?.setPlaybackRate(speed); } catch { /* ignore */ }
   };
 
   const handleCaptionsToggle = () => {
-    if (player) {
-      try {
-        const next = !captionsEnabled;
-        setCaptionsEnabled(next);
-        if (next) {
-          player.loadModule("captions");
-          player.setOption("captions", "track", { languageCode: language === "ar" ? "ar" : "en" });
-        } else {
-          player.unloadModule("captions");
-        }
-      } catch (e) { /* ignore */ }
-    }
+    if (!player) return;
+    try {
+      const next = !captionsEnabled;
+      setCaptionsEnabled(next);
+      if (next) {
+        player.loadModule("captions");
+        player.setOption("captions", "track", { languageCode: language === "ar" ? "ar" : "en" });
+      } else {
+        player.unloadModule("captions");
+      }
+    } catch { /* ignore */ }
   };
 
-  const formatTime = (seconds: number): string => {
-    const hrs = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
-    if (hrs > 0) return `${hrs}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  const formatTime = (s: number): string => {
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = Math.floor(s % 60);
+    if (h > 0) return `${h}:${m.toString().padStart(2, "0")}:${sec.toString().padStart(2, "0")}`;
+    return `${m}:${sec.toString().padStart(2, "0")}`;
   };
-
-  const speedOptions = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
 
   const opts = {
     height: "100%",
@@ -391,29 +304,23 @@ export function VideoPlayer({
     },
   };
 
+  const speedOptions = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+
   if (!YouTube) {
     return (
       <div className={`bg-slate-900 aspect-video rounded-lg flex items-center justify-center ${className}`}>
-        <div className="text-white text-center p-8">
-          <p className="text-lg mb-2">
-            {language === "ar" ? "مكتبة react-youtube غير مثبتة" : "react-youtube library not installed"}
-          </p>
-          <p className="text-sm text-slate-400">
-            Install with: npm install react-youtube @types/react-youtube
-          </p>
-        </div>
+        <p className="text-white text-sm">
+          Install react-youtube: <code>npm install react-youtube</code>
+        </p>
       </div>
     );
   }
 
   return (
-    <div className={`relative ${className}`}>
-      {/* Transparent drag capture overlay — sits over iframe during scrub */}
-      {isSeeking && (
-        <div className="fixed inset-0 z-50 cursor-grabbing pointer-events-auto" />
-      )}
+    <div ref={containerRef} className={`relative ${className}`}>
+      {/* Drag capture overlay (prevents iframe from stealing events during scrub) */}
+      {isSeeking && <div className="fixed inset-0 z-50 cursor-grabbing pointer-events-auto" />}
 
-      {/* Video + controls */}
       <div className="relative bg-slate-900 aspect-video rounded-lg overflow-hidden">
         <YouTube
           videoId={videoId}
@@ -423,56 +330,43 @@ export function VideoPlayer({
           className="w-full h-full"
         />
 
-        {/* Controls overlay */}
+        {/* ── Custom controls overlay ── */}
         <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/80 to-transparent px-4 pt-6 pb-3">
 
-          {/* ── Progress bar ──
-              All dynamic values flow through CSS custom properties on this div.
-              --vpct: current playback position (0%–100%)
-              --hpct: hover position for the time tooltip */}
-          <div
-            className="mb-3 group relative"
-            style={{
-              "--vpct": `${completionPercentage}%`,
-              "--hpct": `${hoverPercent ?? 0}%`,
-            } as React.CSSProperties}
-          >
-            {/* Hover time tooltip */}
+          {/* Progress bar */}
+          <div className="mb-3 group relative">
             {hoverTime !== null && (
               <div className="absolute bottom-[18px] left-(--hpct) px-1.5 py-0.5 bg-black/80 text-white text-[10px] rounded pointer-events-none -translate-x-1/2 whitespace-nowrap">
                 {formatTime(hoverTime)}
               </div>
             )}
-
-            {/* Track */}
             <div
               ref={progressBarRef}
               className="relative h-2 rounded-full bg-white/20 cursor-pointer group-hover:h-3 transition-all duration-150 select-none"
-              onMouseDown={handleProgressMouseDown}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                isDraggingRef.current = true;
+                setIsSeeking(true);
+                seekTo(e.clientX);
+              }}
               onMouseMove={(e) => {
                 const info = getHoverInfo(e.clientX);
                 if (info) { setHoverTime(info.time); setHoverPercent(info.pct); }
               }}
               onMouseLeave={() => { setHoverTime(null); setHoverPercent(null); }}
             >
-              {/* Filled */}
               <div className="absolute left-0 top-0 h-full rounded-full bg-linear-to-r from-teal-400 to-teal-500 w-(--vpct)" />
-
-              {/* Thumb */}
               <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none left-[calc(var(--vpct)-6px)]" />
             </div>
           </div>
 
-          {/* ── Controls row ── */}
-          <div className="flex items-center justify-between text-white text-sm">
-            {/* Left */}
+          {/* Controls row */}
+          <div className="flex items-center justify-between text-white">
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1.5">
                 <div className={`w-2 h-2 rounded-full ${isPlaying ? "bg-green-400 animate-pulse" : "bg-slate-400"}`} />
                 <span className="text-xs text-slate-300">
-                  {isPlaying
-                    ? (language === "ar" ? "جاري التشغيل" : "Playing")
-                    : (language === "ar" ? "متوقف" : "Paused")}
+                  {isPlaying ? (language === "ar" ? "جاري التشغيل" : "Playing") : (language === "ar" ? "متوقف" : "Paused")}
                 </span>
               </div>
               <span className="text-xs text-slate-300 tabular-nums">
@@ -485,14 +379,11 @@ export function VideoPlayer({
               )}
             </div>
 
-            {/* Right */}
             <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={handleCaptionsToggle}
-                className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                  captionsEnabled ? "bg-blue-600 text-white" : "bg-white/10 text-slate-300"
-                }`}
+                className={`px-2 py-1 rounded text-xs font-medium transition-colors ${captionsEnabled ? "bg-blue-600" : "bg-white/10 text-slate-300"}`}
               >
                 CC
               </button>
@@ -504,18 +395,15 @@ export function VideoPlayer({
                   onChange={(e) => handleSpeedChange(parseFloat(e.target.value))}
                   className="bg-slate-800 text-white text-xs px-2 py-1 rounded border border-white/20 focus:outline-none"
                 >
-                  {speedOptions.map((s) => (
-                    <option key={s} value={s}>{s}x</option>
-                  ))}
+                  {speedOptions.map((s) => <option key={s} value={s}>{s}x</option>)}
                 </select>
               </div>
             </div>
           </div>
 
-          {/* Completion % */}
           <div className="mt-1.5 text-center">
             <span className="text-[10px] text-slate-400">
-              {completionPercentage.toFixed(1)}% {language === "ar" ? "مكتمل" : "complete"}
+              {completionPct.toFixed(1)}% {language === "ar" ? "مكتمل" : "complete"}
             </span>
           </div>
         </div>

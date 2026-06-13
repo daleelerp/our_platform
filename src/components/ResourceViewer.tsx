@@ -169,7 +169,6 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
               videoId={videoId}
               videoContentId={resource.id}
               userId={userId}
-              milestoneId={milestoneId}
             />
           </div>
         );

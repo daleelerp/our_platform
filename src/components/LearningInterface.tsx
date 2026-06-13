@@ -10,7 +10,6 @@ import { ResourceViewer } from "./ResourceViewer";
 import { ContentTierBadge } from "./ContentTierBadge";
 import { LockedContent } from "./LockedContent";
 import { getContentTierFromBudget, hasAccessToTier, type ContentTier } from "@/utils/contentTiers";
-import { createClient } from "@/utils/supabase/client";
 import Link from "next/link";
 import { CheckCircleIcon, DocumentTextIcon, PlayIcon, LockClosedIcon, ExclamationCircleIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 import { LearningResource } from "@/types/learning";
@@ -257,7 +256,6 @@ export function LearningInterface({
   const [playedVideos, setPlayedVideos] = useState<Set<string>>(new Set());
   // Track current progress for videos being watched (updates in real-time)
   const [currentVideoProgress, setCurrentVideoProgress] = useState<Map<string, number>>(new Map());
-  const supabase = createClient();
 
   // Calculate user's content tier from budget
   const userBudgetEgp = userProfile?.budgetAmount || 0;
@@ -380,12 +378,10 @@ export function LearningInterface({
     }
   }, [currentMilestone?.id, path.id, enrollment.id, userId]);
 
-  // Calculate milestone progress on mount and when milestone changes
+  // Reset reload guard when milestone changes (used for quiz reload after completion)
   useEffect(() => {
-    if (!currentMilestone || !userId) return;
-    hasReloadedRef.current = false; // Reset on milestone change
-    recalculateProgress();
-  }, [currentMilestone?.id, userId, path.id, enrollment.id, supabase]);
+    hasReloadedRef.current = false;
+  }, [currentMilestone?.id]);
 
   // Listen for resource completion events and recalculate progress immediately
   useEffect(() => {
@@ -1043,7 +1039,6 @@ export function LearningInterface({
                         videoId={selectedVideo.youtube_video_id}
                         videoContentId={selectedVideo.id}
                         userId={userId}
-                        milestoneId={currentMilestone.id}
                         startAt={
                           videoProgressMap.get(selectedVideo.id)?.last_watched_position || 0
                         }
