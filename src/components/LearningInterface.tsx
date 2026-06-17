@@ -468,6 +468,16 @@ export function LearningInterface({
     checkpointQuiz ? (checkpointPassStatus[currentMilestone?.id ?? ""] ?? false) : true
   );
 
+  // Reset when the user navigates to a different milestone — useState only runs once on mount,
+  // so without this the passed status from the previous milestone would bleed into the new one.
+  useEffect(() => {
+    setCheckpointPassedLocally(
+      checkpointQuiz ? (checkpointPassStatus[currentMilestone?.id ?? ""] ?? false) : true
+    );
+  // checkpointQuiz and checkpointPassStatus both change when currentMilestone changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentMilestone?.id]);
+
   const accessibleResources = filteredResources.filter((resource) => {
     // Resources don't have content_tier field, so all are accessible
     // If content_tier is added later, uncomment below:
