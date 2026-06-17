@@ -7,6 +7,7 @@ interface QuizSectionProps {
     quizzes: Quiz[];
     onDeleteQuiz: (quizId: string) => void;
     onManageQuestions: (quiz: Quiz) => void;
+    onUpdateQuiz: (quizId: string, data: Partial<Quiz>) => Promise<void>;
     newQuiz: {
         title: string;
         title_ar: string;
@@ -42,6 +43,7 @@ export default function QuizSection({
     quizzes,
     onDeleteQuiz,
     onManageQuestions,
+    onUpdateQuiz,
     newQuiz,
     setNewQuiz,
     onAddQuiz,
@@ -50,6 +52,33 @@ export default function QuizSection({
     pathTitle,
 }: QuizSectionProps) {
     const [isGenerating, setIsGenerating] = useState(false);
+    const [editingQuizId, setEditingQuizId] = useState<string | null>(null);
+    const [editValues, setEditValues] = useState<Partial<Quiz>>({});
+    const [isSaving, setIsSaving] = useState(false);
+
+    function startEdit(q: Quiz) {
+        setEditingQuizId(q.id);
+        setEditValues({
+            title: q.title,
+            title_ar: q.title_ar,
+            quiz_type: q.quiz_type,
+            passing_score: q.passing_score,
+            time_limit_minutes: q.time_limit_minutes,
+            max_attempts: q.max_attempts,
+            is_required: q.is_required,
+        });
+    }
+
+    async function saveEdit() {
+        if (!editingQuizId) return;
+        setIsSaving(true);
+        try {
+            await onUpdateQuiz(editingQuizId, editValues);
+            setEditingQuizId(null);
+        } finally {
+            setIsSaving(false);
+        }
+    }
 
     const existingCheckpoint = quizzes.find((q) => q.quiz_type === "checkpoint");
     const isAddingCheckpoint = newQuiz?.quiz_type === "checkpoint";
@@ -75,6 +104,9 @@ export default function QuizSection({
                 ...prev,
                 title: data.title || prev.title,
                 title_ar: data.title_ar || prev.title_ar,
+                ...(data.passing_score != null && { passing_score: data.passing_score }),
+                ...(data.time_limit_minutes != null && { time_limit_minutes: data.time_limit_minutes }),
+                ...(data.max_attempts != null && { max_attempts: data.max_attempts }),
             }));
         } catch {
             // silently fail — user can type manually
@@ -97,6 +129,104 @@ export default function QuizSection({
                     <div className="space-y-2">
                         {quizzes.map((q) => {
                             const meta = QUIZ_TYPE_LABELS[q.quiz_type] ?? { label: q.quiz_type, badge: "📝", description: "" };
+                            const isEditing = editingQuizId === q.id;
+
+                            if (isEditing) {
+                                return (
+                                    <div
+                                        key={q.id}
+                                        className={`text-xs p-3 rounded-lg border space-y-2 ${
+                                            editValues.quiz_type === "checkpoint"
+                                                ? "bg-amber-50 border-amber-300"
+                                                : "bg-slate-50 border-slate-300"
+                                        }`}
+                                    >
+                                        <div className="text-[11px] font-semibold text-slate-600">Edit Quiz Settings</div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                            <input
+                                                type="text"
+                                                placeholder="Quiz title (English)"
+                                                value={editValues.title || ""}
+                                                onChange={(e) => setEditValues((p) => ({ ...p, title: e.target.value }))}
+                                                className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white"
+                                            />
+                                            <input
+                                                type="text"
+                                                placeholder="عنوان الاختبار (عربي)"
+                                                value={editValues.title_ar || ""}
+                                                onChange={(e) => setEditValues((p) => ({ ...p, title_ar: e.target.value }))}
+                                                className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white"
+                                            />
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                            <select
+                                                aria-label="Quiz type"
+                                                value={editValues.quiz_type || "checkpoint"}
+                                                onChange={(e) => setEditValues((p) => ({ ...p, quiz_type: e.target.value }))}
+                                                className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white"
+                                            >
+                                                <option value="checkpoint">🎯 Checkpoint</option>
+                                                <option value="practice">📚 Practice</option>
+                                            </select>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="100"
+                                                placeholder="Passing score (%)"
+                                                value={editValues.passing_score ?? ""}
+                                                onChange={(e) => setEditValues((p) => ({ ...p, passing_score: e.target.value ? Number(e.target.value) : undefined }))}
+                                                className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white"
+                                            />
+                                            <div className="flex items-center gap-2">
+                                                <input
+                                                    type="checkbox"
+                                                    id={`edit_required_${q.id}`}
+                                                    checked={editValues.is_required || false}
+                                                    onChange={(e) => setEditValues((p) => ({ ...p, is_required: e.target.checked }))}
+                                                    className="w-4 h-4 text-teal-600 border-slate-300 rounded focus:ring-teal-500"
+                                                />
+                                                <label htmlFor={`edit_required_${q.id}`} className="text-xs text-slate-600">Required</label>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                placeholder="Time limit (minutes, optional)"
+                                                value={editValues.time_limit_minutes ?? ""}
+                                                onChange={(e) => setEditValues((p) => ({ ...p, time_limit_minutes: e.target.value ? Number(e.target.value) : null }))}
+                                                className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white"
+                                            />
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                placeholder="Max attempts (optional)"
+                                                value={editValues.max_attempts ?? ""}
+                                                onChange={(e) => setEditValues((p) => ({ ...p, max_attempts: e.target.value ? Number(e.target.value) : null }))}
+                                                className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white"
+                                            />
+                                        </div>
+                                        <div className="flex items-center gap-2 pt-1">
+                                            <button
+                                                type="button"
+                                                onClick={saveEdit}
+                                                disabled={isSaving}
+                                                className="text-xs px-3 py-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50"
+                                            >
+                                                {isSaving ? "Saving…" : "Save"}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setEditingQuizId(null)}
+                                                className="text-xs px-3 py-1.5 text-slate-500 hover:text-slate-700"
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            }
+
                             return (
                                 <div
                                     key={q.id}
@@ -136,6 +266,13 @@ export default function QuizSection({
                                             className="text-[11px] px-2.5 py-1 bg-violet-50 text-violet-700 border border-violet-200 rounded-lg hover:bg-violet-100 transition-colors font-medium"
                                         >
                                             ✨ Questions
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => startEdit(q)}
+                                            className="text-[11px] px-2.5 py-1 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors font-medium"
+                                        >
+                                            Edit
                                         </button>
                                         <button
                                             type="button"

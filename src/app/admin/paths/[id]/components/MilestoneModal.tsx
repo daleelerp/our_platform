@@ -42,6 +42,7 @@ interface MilestoneModalProps {
     // Quiz props
     quizzes: Quiz[];
     onDeleteQuiz: (milestoneId: string, quizId: string) => void;
+    onUpdateQuiz: (milestoneId: string, quizId: string, data: Partial<Quiz>) => Promise<void>;
     newQuiz: any;
     setNewQuiz: (data: any) => void;
     onAddQuiz: (milestoneId: string) => void;
@@ -79,6 +80,7 @@ export default function MilestoneModal({
     onScrapeArticle,
     quizzes,
     onDeleteQuiz,
+    onUpdateQuiz,
     newQuiz,
     setNewQuiz,
     onAddQuiz,
@@ -182,6 +184,7 @@ export default function MilestoneModal({
                                         [milestone.id]: typeof updater === "function" ? updater(prev[milestone.id] || {}) : updater,
                                     }));
                                 }}
+                                onUpdateQuiz={(quizId, data) => onUpdateQuiz(milestone.id, quizId, data)}
                                 onAddQuiz={() => onAddQuiz(milestone.id)}
                                 milestoneTitle={milestone.title}
                                 milestoneDescription={milestone.description || undefined}

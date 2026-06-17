@@ -613,6 +613,23 @@ export default function EditPathPage() {
     }));
   };
 
+  const handleUpdateQuiz = async (milestoneId: string, quizId: string, data: Partial<Quiz>) => {
+    const res = await fetch(
+      `/api/admin/data?table=quizzes&id=${encodeURIComponent(quizId)}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }
+    );
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to update quiz");
+    setQuizzesByMilestone((prev) => ({
+      ...prev,
+      [milestoneId]: prev[milestoneId].map((q) => (q.id === quizId ? { ...q, ...json.data } : q)),
+    }));
+  };
+
   const handleScrapeArticle = async (milestoneId: string) => {
     const data = scrapingArticle[milestoneId];
     if (!data.query.trim()) return alert("Please enter a search query or URL");
@@ -883,6 +900,7 @@ export default function EditPathPage() {
           onScrapeArticle={handleScrapeArticle}
           quizzes={quizzesByMilestone[openMilestoneModal] || []}
           onDeleteQuiz={handleDeleteQuiz}
+          onUpdateQuiz={handleUpdateQuiz}
           newQuiz={newQuiz}
           setNewQuiz={setNewQuiz}
           onAddQuiz={handleAddQuiz}
