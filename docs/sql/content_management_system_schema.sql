@@ -702,37 +702,15 @@ CREATE TRIGGER trigger_update_user_video_progress_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_user_video_progress_updated_at();
 
--- Function: Auto-calculate completion percentage
-CREATE OR REPLACE FUNCTION calculate_video_completion()
-RETURNS TRIGGER AS $$
-BEGIN
-    -- Calculate completion percentage
-    IF NEW.watch_progress_seconds > 0 AND EXISTS (
-        SELECT 1 FROM video_content WHERE id = NEW.video_id AND duration_seconds > 0
-    ) THEN
-        SELECT duration_seconds INTO NEW.completion_percentage
-        FROM video_content
-        WHERE id = NEW.video_id;
-        
-        NEW.completion_percentage = (NEW.watch_progress_seconds::DECIMAL / duration_seconds::DECIMAL) * 100;
-        
-        -- Mark as completed if >= 90%
-        IF NEW.completion_percentage >= 90 THEN
-            NEW.is_completed = TRUE;
-            IF NEW.completed_at IS NULL THEN
-                NEW.completed_at = NOW();
-            END IF;
-        END IF;
-    END IF;
-    
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trigger_calculate_video_completion
-    BEFORE INSERT OR UPDATE ON user_video_progress
-    FOR EACH ROW
-    EXECUTE FUNCTION calculate_video_completion();
+-- NOTE: trigger_calculate_video_completion was dropped.
+-- The API (/api/progress/video) calculates completion_percentage and is_completed
+-- before upserting, so a DB trigger is redundant. The original trigger also had a
+-- bug where `duration_seconds` was used as an undeclared variable (line 717),
+-- causing every INSERT/UPDATE on user_video_progress to fail with
+-- "column duration_seconds does not exist".
+-- To remove it from an existing DB, run:
+--   DROP TRIGGER IF EXISTS trigger_calculate_video_completion ON user_video_progress;
+--   DROP FUNCTION IF EXISTS calculate_video_completion();
 
 -- Function: Update quiz question count
 CREATE OR REPLACE FUNCTION update_quiz_question_count()
