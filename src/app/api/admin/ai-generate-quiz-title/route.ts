@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import Groq from "groq-sdk";
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 export async function POST(req: NextRequest) {
     try {
@@ -28,14 +28,22 @@ Respond ONLY with valid JSON in this exact format:
   "title_ar": "عنوان الاختبار بالعربية"
 }`;
 
-        const completion = await groq.chat.completions.create({
-            model: "llama-3.3-70b-versatile",
-            messages: [{ role: "user", content: prompt }],
-            max_tokens: 200,
-            temperature: 0.7,
+        const response = await fetch(GROQ_API_URL, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${GROQ_API_KEY}`,
+            },
+            body: JSON.stringify({
+                model: "llama-3.3-70b-versatile",
+                messages: [{ role: "user", content: prompt }],
+                max_tokens: 200,
+                temperature: 0.7,
+            }),
         });
 
-        const raw = completion.choices[0]?.message?.content?.trim() || "";
+        const data = await response.json();
+        const raw = data.choices?.[0]?.message?.content?.trim() || "";
         const jsonMatch = raw.match(/\{[\s\S]*\}/);
         if (!jsonMatch) {
             return NextResponse.json({ error: "Invalid AI response" }, { status: 500 });
