@@ -478,6 +478,19 @@ export function LearningInterface({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentMilestone?.id]);
 
+  // Next milestone for post-checkpoint navigation
+  const nextMilestone = useMemo(() => {
+    if (!currentMilestone) return null;
+    const idx = milestones.findIndex((m) => m.id === currentMilestone.id);
+    return idx >= 0 && idx < milestones.length - 1 ? milestones[idx + 1] : null;
+  }, [milestones, currentMilestone]);
+
+  // Video completion stats for the pre-quiz warning screen
+  const videosCompleted = useMemo(
+    () => videos.filter((v) => videoProgressMap.get(v.id)?.is_completed).length,
+    [videos, videoProgressMap]
+  );
+
   const accessibleResources = filteredResources.filter((resource) => {
     // Resources don't have content_tier field, so all are accessible
     // If content_tier is added later, uncomment below:
@@ -1197,6 +1210,8 @@ export function LearningInterface({
                     isFinalQuiz={!!(finalQuiz && selectedQuiz.id === finalQuiz.id)}
                     learningObjectives={currentMilestone?.learning_objectives ?? undefined}
                     learningObjectivesAr={currentMilestone?.learning_objectives_ar ?? undefined}
+                    videosTotal={videos.length}
+                    videosCompleted={videosCompleted}
                     onComplete={async (score, isPassed) => {
                       if (isPassed && checkpointQuiz && selectedQuiz.id === checkpointQuiz.id) {
                         setCheckpointPassedLocally(true);
@@ -1207,7 +1222,14 @@ export function LearningInterface({
                     }}
                     onContinue={
                       checkpointQuiz && selectedQuiz.id === checkpointQuiz.id
-                        ? () => { router.refresh(); setSelectedQuiz(null); }
+                        ? () => {
+                            if (nextMilestone) {
+                              router.push(`/paths/${path.slug}/learn?milestone=${nextMilestone.milestone_number}`);
+                            } else {
+                              router.refresh();
+                              setSelectedQuiz(null);
+                            }
+                          }
                         : undefined
                     }
                   />

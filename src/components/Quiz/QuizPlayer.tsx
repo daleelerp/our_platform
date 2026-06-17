@@ -40,6 +40,8 @@ type QuizPlayerProps = {
   isFinalQuiz?: boolean;
   learningObjectives?: string[];
   learningObjectivesAr?: string[];
+  videosTotal?: number;
+  videosCompleted?: number;
 };
 
 type UserAnswer = {
@@ -119,6 +121,8 @@ export function QuizPlayer({
   isFinalQuiz,
   learningObjectives,
   learningObjectivesAr,
+  videosTotal,
+  videosCompleted,
 }: QuizPlayerProps) {
   const language = useAppStore((state) => state.language);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -137,6 +141,8 @@ export function QuizPlayer({
   const [exhaustedResetAt, setExhaustedResetAt] = useState<Date | null>(null);
   // How many attempts remain in the current cycle (final quiz only)
   const [attemptsRemainingInCycle, setAttemptsRemainingInCycle] = useState<number | null>(null);
+  // Pre-start warning screen (only for checkpoints, first time per session)
+  const [quizStarted, setQuizStarted] = useState(false);
 
   const [loadingCooldown, setLoadingCooldown] = useState(true);
   const supabase = createClient();
@@ -502,6 +508,96 @@ export function QuizPlayer({
             {language === "ar" ? "العودة للمحتوى" : "Back to Course Content"}
           </button>
         )}
+      </div>
+    );
+  }
+
+  // Pre-start warning screen (checkpoint only, before first attempt each session)
+  if (isCheckpoint && !quizStarted && !results) {
+    const allVideosWatched = !videosTotal || videosTotal === 0 || (videosCompleted ?? 0) >= videosTotal;
+    const maxAtt = quiz.max_attempts ?? 3;
+
+    return (
+      <div className="bg-white rounded-xl border-2 border-amber-200 p-8 max-w-lg mx-auto">
+        <div className="text-center mb-6">
+          <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-3 text-2xl">🎯</div>
+          <h2 className="text-lg font-bold text-slate-900">
+            {language === "ar" ? "قبل أن تبدأ الاختبار" : "Before You Start the Quiz"}
+          </h2>
+          <p className="text-sm text-slate-500 mt-1">
+            {language === "ar"
+              ? "تأكد من أنك مستعد — هذا اختبار نقطة التحقق"
+              : "Make sure you're ready — this is a checkpoint quiz"}
+          </p>
+        </div>
+
+        <div className="space-y-3 mb-6">
+          {/* Video completion status */}
+          {videosTotal !== undefined && videosTotal > 0 && (
+            <div className={`flex items-start gap-3 p-3 rounded-lg border ${allVideosWatched ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200"}`}>
+              <span className="text-lg mt-0.5">{allVideosWatched ? "✅" : "⚠️"}</span>
+              <div>
+                <p className={`text-sm font-medium ${allVideosWatched ? "text-green-800" : "text-amber-800"}`}>
+                  {language === "ar" ? "مشاهدة الفيديوهات" : "Watch all videos"}
+                </p>
+                <p className={`text-xs mt-0.5 ${allVideosWatched ? "text-green-700" : "text-amber-700"}`}>
+                  {language === "ar"
+                    ? `${videosCompleted ?? 0} من ${videosTotal} فيديو مكتمل${allVideosWatched ? "" : " — يُنصح بمشاهدة الكل قبل الاختبار"}`
+                    : `${videosCompleted ?? 0} of ${videosTotal} video${videosTotal !== 1 ? "s" : ""} completed${allVideosWatched ? "" : " — recommended to watch all before starting"}`}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Resources reminder */}
+          <div className="flex items-start gap-3 p-3 rounded-lg border bg-blue-50 border-blue-200">
+            <span className="text-lg mt-0.5">📚</span>
+            <div>
+              <p className="text-sm font-medium text-blue-800">
+                {language === "ar" ? "راجع المواد والموارد" : "Review materials & resources"}
+              </p>
+              <p className="text-xs text-blue-700 mt-0.5">
+                {language === "ar"
+                  ? "تأكد من مراجعة جميع المقالات والموارد في هذه المرحلة"
+                  : "Make sure you've reviewed all articles and resources in this milestone"}
+              </p>
+            </div>
+          </div>
+
+          {/* Attempt limit & cooldown warning */}
+          <div className="flex items-start gap-3 p-3 rounded-lg border bg-red-50 border-red-200">
+            <span className="text-lg mt-0.5">⏳</span>
+            <div>
+              <p className="text-sm font-medium text-red-800">
+                {language === "ar" ? "تحذير: حد المحاولات" : "Attempt limit warning"}
+              </p>
+              <p className="text-xs text-red-700 mt-0.5">
+                {language === "ar"
+                  ? `لديك ${maxAtt} محاولة فقط. إذا فشلت في جميع المحاولات، ستنتظر ${COOLDOWN_HOURS} ساعة قبل المحاولة مجدداً.`
+                  : `You have ${maxAtt} attempt${maxAtt !== 1 ? "s" : ""}. If you fail all of them, you'll wait ${COOLDOWN_HOURS} hours before trying again.`}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3">
+          <button
+            type="button"
+            onClick={() => setQuizStarted(true)}
+            className="flex-1 py-3 bg-teal-600 text-white rounded-lg font-semibold text-sm hover:bg-teal-700 transition-colors"
+          >
+            {language === "ar" ? "أنا مستعد — ابدأ الاختبار" : "I'm ready — Start Quiz"}
+          </button>
+          {onContinue && (
+            <button
+              type="button"
+              onClick={onContinue}
+              className="px-4 py-3 border border-slate-300 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              {language === "ar" ? "العودة للمحتوى" : "Back to Content"}
+            </button>
+          )}
+        </div>
       </div>
     );
   }
