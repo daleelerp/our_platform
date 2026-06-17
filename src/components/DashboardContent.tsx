@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/store/useAppStore";
 import { useSubscription } from "@/hooks/useSubscription";
@@ -181,11 +181,10 @@ export function DashboardContent({
     return m;
   });
 
-  // Re-fetch only when the user actively switches language (not on initial mount,
-  // since the server already computed the correct progress for profile.preferred_language).
-  const mountedLanguageRef = useRef(language);
-  const fetchProgress = useCallback((lang: string) => {
-    fetch(`/api/progress/dashboard?lang=${lang}`)
+  // Fetch progress whenever language changes (including on mount to stay in sync).
+  // The mount fetch returns the same values as initialProgress so there is no flash.
+  useEffect(() => {
+    fetch(`/api/progress/dashboard?lang=${language}`)
       .then((r) => r.json())
       .then(({ progress }) => {
         if (!progress) return;
@@ -196,12 +195,7 @@ export function DashboardContent({
         setLiveProgressMap(m);
       })
       .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    if (language === mountedLanguageRef.current) return; // skip initial mount
-    fetchProgress(language);
-  }, [language, fetchProgress]);
+  }, [language]);
 
   const getText = (en: string | null, ar: string | null) => (language === "ar" && ar ? ar : en ?? "");
 
