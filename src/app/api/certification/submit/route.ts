@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "examId and answers are required" }, { status: 400 });
   }
 
-  // Verify paid purchase
+  // Find purchase record (auto-created by the exam GET route when user first accesses the exam)
   const { data: purchase } = await adminSupabase
     .from("user_certification_purchases")
     .select("id, status")
@@ -54,8 +54,8 @@ export async function POST(request: NextRequest) {
     .eq("exam_id", examId)
     .maybeSingle();
 
-  if (!purchase || purchase.status !== "paid") {
-    return NextResponse.json({ error: "Exam not purchased" }, { status: 403 });
+  if (!purchase) {
+    return NextResponse.json({ error: "Exam access not initialized — open the exam first" }, { status: 403 });
   }
 
   // Check no existing certificate

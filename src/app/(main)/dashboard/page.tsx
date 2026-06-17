@@ -298,8 +298,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   type PlanCertData = {
     examId: string;
-    priceEgp: number;
-    purchaseStatus: "paid" | "pending" | null;
     certificateNumber: string | null;
     firstPathSlug: string | null;
   };
@@ -315,18 +313,18 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   // We filter by user_id explicitly so this is safe.
   const supabaseAdmin = getAdminSupabaseClient();
 
-  // Helper: fetch purchase + certificate status for a list of exam IDs
+  // Helper: fetch certificate status for a list of exam IDs
   async function loadCertStatusForExams(
-    examRows: Array<{ id: string; plan_id: string; price_egp: number | null }>
-  ): Promise<{ purchaseByExam: Map<string, string>; certByExam: Map<string, string> }> {
-    if (!examRows.length) return { purchaseByExam: new Map(), certByExam: new Map() };
+    examRows: Array<{ id: string; plan_id: string }>
+  ): Promise<{ certByExam: Map<string, string> }> {
+    if (!examRows.length) return { certByExam: new Map() };
     const examIds = examRows.map((e) => e.id);
-    const [{ data: certPurchases }, { data: certs }] = await Promise.all([
-      supabaseAdmin.from("user_certification_purchases").select("exam_id, status").eq("user_id", userId).in("exam_id", examIds),
-      supabaseAdmin.from("certificates").select("exam_id, certificate_number").eq("user_id", userId).in("exam_id", examIds),
-    ]);
+    const { data: certs } = await supabaseAdmin
+      .from("certificates")
+      .select("exam_id, certificate_number")
+      .eq("user_id", userId)
+      .in("exam_id", examIds);
     return {
-      purchaseByExam: new Map((certPurchases ?? []).map((p: any) => [p.exam_id as string, p.status as string])),
       certByExam: new Map((certs ?? []).map((c: any) => [c.exam_id as string, c.certificate_number as string])),
     };
   }
@@ -350,21 +348,19 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     // Cert exams — use admin client to bypass RLS
     const { data: certExams } = await supabaseAdmin
       .from("certification_exams")
-      .select("id, plan_id, price_egp")
+      .select("id, plan_id")
       .in("plan_id", shownPlanIds)
       .eq("is_active", true);
 
     if (certExams && certExams.length > 0) {
-      const { purchaseByExam, certByExam } = await loadCertStatusForExams(certExams as any[]);
+      const { certByExam } = await loadCertStatusForExams(certExams as any[]);
 
       for (const exam of certExams as any[]) {
         const planId = exam.plan_id as string;
         const examId = exam.id as string;
-        const rawStatus = purchaseByExam.get(examId) ?? null;
-        const purchaseStatus = rawStatus === "paid" ? "paid" : rawStatus === "pending" ? "pending" : null;
         const certificateNumber = certByExam.get(examId) ?? null;
         const firstPath = planPathsMap[planId]?.[0] ?? null;
-        const certData: PlanCertData = { examId, priceEgp: Number(exam.price_egp ?? 0), purchaseStatus, certificateNumber, firstPathSlug: firstPath?.slug ?? null };
+        const certData: PlanCertData = { examId, certificateNumber, firstPathSlug: firstPath?.slug ?? null };
 
         planCertMap[planId] = certData;
         for (const pp of planPathsMap[planId] ?? []) {
@@ -388,12 +384,12 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     if (extraPlanIds.length > 0) {
       const { data: extraExams } = await supabaseAdmin
         .from("certification_exams")
-        .select("id, plan_id, price_egp")
+        .select("id, plan_id")
         .in("plan_id", extraPlanIds)
         .eq("is_active", true);
 
       if (extraExams && extraExams.length > 0) {
-        const { purchaseByExam, certByExam } = await loadCertStatusForExams(extraExams as any[]);
+        const { certByExam } = await loadCertStatusForExams(extraExams as any[]);
         const examByPlan = new Map((extraExams as any[]).map((e) => [e.plan_id as string, e]));
 
         for (const pathId of uncoveredPathIds) {
@@ -401,11 +397,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           if (!planId) continue;
           const exam = examByPlan.get(planId);
           if (!exam) continue;
-          const rawStatus = purchaseByExam.get(exam.id) ?? null;
           certByPathId[pathId] = {
             examId: exam.id,
-            priceEgp: Number(exam.price_egp ?? 0),
-            purchaseStatus: rawStatus === "paid" ? "paid" : rawStatus === "pending" ? "pending" : null,
             certificateNumber: certByExam.get(exam.id) ?? null,
             firstPathSlug: null,
           };

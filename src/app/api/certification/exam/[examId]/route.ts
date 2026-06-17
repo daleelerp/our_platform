@@ -17,8 +17,64 @@ function shuffleArray<T>(arr: T[]): T[] {
   return a;
 }
 
+async function checkPathCompletion(userId: string, pathId: string): Promise<boolean> {
+  // Get all active milestones
+  const { data: milestones } = await adminSupabase
+    .from("path_milestones")
+    .select("id")
+    .eq("learning_path_id", pathId)
+    .eq("is_active", true);
+
+  const milestoneIds = (milestones || []).map((m) => m.id);
+  if (!milestoneIds.length) return true;
+
+  // Check all videos completed (≥90%)
+  const { data: allVideos } = await adminSupabase
+    .from("video_content")
+    .select("id")
+    .in("milestone_id", milestoneIds)
+    .neq("is_active", false);
+
+  const videoIds = (allVideos || []).map((v) => v.id);
+  if (videoIds.length > 0) {
+    const { data: videoProgress } = await adminSupabase
+      .from("user_video_progress")
+      .select("video_id, is_completed")
+      .eq("user_id", userId)
+      .in("video_id", videoIds);
+
+    const completedSet = new Set(
+      (videoProgress || []).filter((v) => v.is_completed).map((v) => v.video_id)
+    );
+    if (!videoIds.every((id) => completedSet.has(id))) return false;
+  }
+
+  // Check all milestone checkpoint quizzes passed
+  const { data: checkpoints } = await adminSupabase
+    .from("quizzes")
+    .select("id")
+    .in("milestone_id", milestoneIds)
+    .eq("quiz_type", "checkpoint")
+    .eq("is_active", true);
+
+  const checkpointIds = (checkpoints || []).map((q) => q.id);
+  if (checkpointIds.length > 0) {
+    const { data: passedAttempts } = await adminSupabase
+      .from("user_quiz_attempts")
+      .select("quiz_id")
+      .eq("user_id", userId)
+      .in("quiz_id", checkpointIds)
+      .eq("is_passed", true);
+
+    const passedSet = new Set((passedAttempts || []).map((a) => a.quiz_id));
+    if (!checkpointIds.every((id) => passedSet.has(id))) return false;
+  }
+
+  return true;
+}
+
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ examId: string }> }
 ) {
   const { examId } = await params;
@@ -28,27 +84,69 @@ export async function GET(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // Check paid purchase
-  const { data: purchase } = await adminSupabase
-    .from("user_certification_purchases")
-    .select("id, status, help_requested_at")
-    .eq("user_id", user.id)
-    .eq("exam_id", examId)
-    .maybeSingle();
-
-  if (!purchase || purchase.status !== "paid") {
-    return NextResponse.json({ error: "Exam not purchased" }, { status: 403 });
-  }
-
-  // Load exam + plan price
+  // Load exam to get plan_id
   const { data: exam, error: examErr } = await adminSupabase
     .from("certification_exams")
-    .select("id, title, title_ar, passing_score, time_limit_minutes, subscription_plans(price_monthly_egp, display_name_en)")
+    .select("id, title, title_ar, passing_score, time_limit_minutes, plan_id, subscription_plans(price_monthly_egp, display_name_en)")
     .eq("id", examId)
     .eq("is_active", true)
     .single();
 
   if (examErr || !exam) return NextResponse.json({ error: "Exam not found" }, { status: 404 });
+
+  // Find all paths in this exam's plan
+  const { data: planPaths } = await adminSupabase
+    .from("plan_paths")
+    .select("learning_path_id")
+    .eq("plan_id", (exam as any).plan_id);
+
+  const pathIds = (planPaths || []).map((p: any) => p.learning_path_id).filter(Boolean);
+  if (!pathIds.length) {
+    return NextResponse.json({ error: "No paths found for this plan" }, { status: 403 });
+  }
+
+  // Check user is enrolled in at least one path
+  const { data: enrollments } = await adminSupabase
+    .from("path_enrollments")
+    .select("learning_path_id")
+    .eq("user_id", user.id)
+    .in("learning_path_id", pathIds);
+
+  if (!enrollments?.length) {
+    return NextResponse.json({ error: "Not enrolled in any path for this plan" }, { status: 403 });
+  }
+
+  // Check that ALL enrolled paths are fully completed
+  for (const enrollment of enrollments) {
+    const complete = await checkPathCompletion(user.id, enrollment.learning_path_id);
+    if (!complete) {
+      return NextResponse.json(
+        { error: "Complete all videos and milestones before taking the certification exam" },
+        { status: 403 }
+      );
+    }
+  }
+
+  // Ensure a purchase record exists for FK integrity in attempt inserts
+  let { data: purchase } = await adminSupabase
+    .from("user_certification_purchases")
+    .select("id, help_requested_at")
+    .eq("user_id", user.id)
+    .eq("exam_id", examId)
+    .maybeSingle();
+
+  if (!purchase) {
+    const { data: newPurchase } = await adminSupabase
+      .from("user_certification_purchases")
+      .insert({ user_id: user.id, exam_id: examId, amount_paid_egp: 0, status: "paid" })
+      .select("id, help_requested_at")
+      .single();
+    purchase = newPurchase;
+  }
+
+  if (!purchase) {
+    return NextResponse.json({ error: "Failed to initialize exam access" }, { status: 500 });
+  }
 
   // Load questions (shuffle server-side)
   const { data: rawQuestions } = await adminSupabase

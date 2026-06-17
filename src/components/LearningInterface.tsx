@@ -84,9 +84,8 @@ type VideoProgress = {
 type CertExamInfo = {
   examId: string;
   title: string;
-  priceEgp: number;
   planId: string;
-  purchaseStatus: string | null;
+  isEligible: boolean;
 };
 
 type Props = {
@@ -868,35 +867,27 @@ export function LearningInterface({
               </div>
             )}
 
-            {/* Certification Exam card — links to landing page before payment */}
-            {certExamInfo && certExamInfo.purchaseStatus !== "paid" && (
-              <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl border border-amber-200 p-4">
+            {/* Certification Exam card — locked until all content completed */}
+            {certExamInfo && !certExamInfo.isEligible && (
+              <div className="bg-linear-to-br from-amber-50 to-orange-50 rounded-xl border border-amber-200 p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-lg">🏆</span>
                   <p className="text-xs font-semibold text-amber-800 uppercase tracking-wider">
-                    {language === "ar" ? "احصل على شهادة" : "Get Certified"}
+                    {language === "ar" ? "شهادة الاعتماد" : "Certification Exam"}
                   </p>
                 </div>
                 <p className="text-sm font-semibold text-slate-900 mb-1 leading-tight">
                   {certExamInfo.title}
                 </p>
-                <p className="text-xs text-slate-500 mb-3">
+                <p className="text-xs text-slate-500">
                   {language === "ar"
-                    ? "اجتز امتحان الاعتماد الرسمي وأضف الشهادة لملفك الشخصي."
-                    : "Pass the official certification exam and add it to your LinkedIn profile."}
+                    ? "أكمل جميع الفيديوهات والمراحل لفتح اختبار الاعتماد."
+                    : "Complete all videos and milestones to unlock the certification exam."}
                 </p>
-                <Link
-                  href={`/certification/${certExamInfo.examId}`}
-                  className="block w-full py-2 bg-amber-500 text-white rounded-lg text-sm font-semibold hover:bg-amber-600 transition-colors text-center"
-                >
-                  {certExamInfo.priceEgp > 0
-                    ? `${language === "ar" ? "احصل عليها" : "Get Certified"} — ${Number(certExamInfo.priceEgp).toLocaleString()} EGP`
-                    : (language === "ar" ? "ابدأ الاختبار مجاناً" : "Start Exam — Free")}
-                </Link>
               </div>
             )}
 
-            {certExamInfo?.purchaseStatus === "paid" && (
+            {certExamInfo?.isEligible && (
               <button
                 type="button"
                 onClick={() => setShowCertExam(true)}
@@ -916,7 +907,7 @@ export function LearningInterface({
           </div>
 
           {/* Certification Exam — inline player (shown when student clicks sidebar button) */}
-          {showCertExam && certExamInfo?.purchaseStatus === "paid" && (
+          {showCertExam && certExamInfo?.isEligible && (
             <div className="order-1 lg:order-0 lg:col-span-3">
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-lg font-bold text-slate-900">

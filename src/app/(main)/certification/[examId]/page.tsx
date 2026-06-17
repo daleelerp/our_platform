@@ -22,20 +22,13 @@ export default async function CertExamLandingPage({ params }: Props) {
   // Fetch exam + plan in one query (admin client — bypasses RLS)
   const { data: exam } = await supabaseAdmin
     .from("certification_exams")
-    .select("id, title, title_ar, price_egp, passing_score, time_limit_minutes, plan_id, is_active, subscription_plans(id, display_name_en, display_name_ar, name)")
+    .select("id, title, title_ar, passing_score, time_limit_minutes, plan_id, is_active, subscription_plans(id, display_name_en, display_name_ar, name)")
     .eq("id", examId)
     .maybeSingle();
 
   if (!exam || !exam.is_active) redirect("/dashboard");
 
-  // Check if already purchased / passed
-  const [{ data: purchase }, { data: certificate }, { count: questionCount }] = await Promise.all([
-    supabaseAdmin
-      .from("user_certification_purchases")
-      .select("status")
-      .eq("user_id", user.id)
-      .eq("exam_id", examId)
-      .maybeSingle(),
+  const [{ data: certificate }, { count: questionCount }] = await Promise.all([
     supabaseAdmin
       .from("certificates")
       .select("certificate_number")
@@ -48,6 +41,16 @@ export default async function CertExamLandingPage({ params }: Props) {
       .eq("exam_id", examId),
   ]);
 
+  // Find a path slug for the CTA link
+  const { data: planPathRow } = await supabaseAdmin
+    .from("plan_paths")
+    .select("learning_path_id, learning_paths(slug)")
+    .eq("plan_id", (exam as any).plan_id)
+    .limit(1)
+    .maybeSingle();
+
+  const pathSlug = (planPathRow as any)?.learning_paths?.slug ?? null;
+
   // Fetch certificate settings for the preview
   const { data: settings } = await supabaseAdmin
     .from("certificate_settings")
@@ -55,7 +58,7 @@ export default async function CertExamLandingPage({ params }: Props) {
     .limit(1)
     .maybeSingle();
 
-  const planRelation = exam.subscription_plans as any;
+  const planRelation = (exam as any).subscription_plans as any;
   const plan = Array.isArray(planRelation) ? planRelation[0] : planRelation;
 
   const certSettings = settings ?? {
@@ -73,14 +76,13 @@ export default async function CertExamLandingPage({ params }: Props) {
       examId={examId}
       examTitle={exam.title ?? "Certification Exam"}
       examTitleAr={exam.title_ar ?? null}
-      priceEgp={Number(exam.price_egp ?? 0)}
       passingScore={Number(exam.passing_score ?? 70)}
       timeLimitMinutes={exam.time_limit_minutes ? Number(exam.time_limit_minutes) : null}
       questionCount={questionCount ?? 0}
       planName={plan?.display_name_en ?? plan?.name ?? ""}
       planNameAr={plan?.display_name_ar ?? null}
-      purchaseStatus={(purchase?.status as "paid" | "pending" | null) ?? null}
       certificateNumber={certificate?.certificate_number ?? null}
+      pathSlug={pathSlug}
       certSettings={certSettings}
     />
   );

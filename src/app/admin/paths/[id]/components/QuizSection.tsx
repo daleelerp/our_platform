@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Quiz } from "../types";
 
 interface QuizSectionProps {
@@ -19,6 +20,9 @@ interface QuizSectionProps {
     };
     setNewQuiz: (data: any) => void;
     onAddQuiz: () => void;
+    milestoneTitle?: string;
+    milestoneDescription?: string;
+    pathTitle?: string;
 }
 
 const QUIZ_TYPE_LABELS: Record<string, { label: string; badge: string; description: string }> = {
@@ -41,10 +45,43 @@ export default function QuizSection({
     newQuiz,
     setNewQuiz,
     onAddQuiz,
+    milestoneTitle,
+    milestoneDescription,
+    pathTitle,
 }: QuizSectionProps) {
+    const [isGenerating, setIsGenerating] = useState(false);
+
     const existingCheckpoint = quizzes.find((q) => q.quiz_type === "checkpoint");
     const isAddingCheckpoint = newQuiz?.quiz_type === "checkpoint";
     const checkpointConflict = isAddingCheckpoint && !!existingCheckpoint;
+
+    async function handleGenerateTitle() {
+        if (!milestoneTitle) return;
+        setIsGenerating(true);
+        try {
+            const res = await fetch("/api/admin/ai-generate-quiz-title", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    milestoneTitle,
+                    milestoneDescription,
+                    quizType: newQuiz?.quiz_type || "checkpoint",
+                    pathTitle,
+                }),
+            });
+            if (!res.ok) throw new Error("Failed");
+            const data = await res.json();
+            setNewQuiz((prev: any) => ({
+                ...prev,
+                title: data.title || prev.title,
+                title_ar: data.title_ar || prev.title_ar,
+            }));
+        } catch {
+            // silently fail — user can type manually
+        } finally {
+            setIsGenerating(false);
+        }
+    }
 
     return (
         <div>
@@ -129,6 +166,26 @@ export default function QuizSection({
                 )}
 
                 <div className="space-y-2">
+                    {milestoneTitle && (
+                        <button
+                            type="button"
+                            onClick={handleGenerateTitle}
+                            disabled={isGenerating}
+                            className="text-[11px] px-3 py-1.5 bg-violet-50 text-violet-700 border border-violet-200 rounded-lg hover:bg-violet-100 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+                        >
+                            {isGenerating ? (
+                                <>
+                                    <svg className="animate-spin h-3 w-3 text-violet-600" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                                    </svg>
+                                    Generating…
+                                </>
+                            ) : (
+                                <>✨ Generate title with AI</>
+                            )}
+                        </button>
+                    )}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                         <input
                             type="text"

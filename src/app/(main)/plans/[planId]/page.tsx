@@ -74,32 +74,20 @@ export default async function PlanDetailsPage({ params }: Props) {
   // Certification exam data
   const { data: certExam } = await supabase
     .from("certification_exams")
-    .select("id, title, title_ar, price_egp, passing_score, time_limit_minutes, max_attempts")
+    .select("id, title, title_ar, passing_score, time_limit_minutes, max_attempts")
     .eq("plan_id", plan.id)
     .eq("is_active", true)
     .maybeSingle();
 
-  let certPurchaseStatus: "none" | "pending" | "paid" = "none";
   let certPassed = false;
   if (user && certExam) {
-    const { data: purchase } = await supabase
-      .from("user_certification_purchases")
-      .select("status")
+    const { data: cert } = await supabase
+      .from("certificates")
+      .select("id")
       .eq("user_id", user.id)
       .eq("exam_id", certExam.id)
       .maybeSingle();
-    if (purchase?.status === "paid") certPurchaseStatus = "paid";
-    else if (purchase?.status === "pending") certPurchaseStatus = "pending";
-
-    if (certPurchaseStatus === "paid") {
-      const { data: cert } = await supabase
-        .from("certificates")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("exam_id", certExam.id)
-        .maybeSingle();
-      certPassed = !!cert;
-    }
+    certPassed = !!cert;
   }
 
   const { data: includedPlanPaths } = await supabase
@@ -300,11 +288,10 @@ export default async function PlanDetailsPage({ params }: Props) {
               exam={certExam}
               planId={plan.id}
               isSubscribed={hasLiveAccess}
-              purchaseStatus={certPurchaseStatus}
               hasCertificate={certPassed}
               finalQuizUrl={
                 (uniquePaths[0] as any)?.slug
-                  ? `/paths/${(uniquePaths[0] as any).slug}/final-quiz`
+                  ? `/paths/${(uniquePaths[0] as any).slug}/learn`
                   : undefined
               }
             />

@@ -227,7 +227,7 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
   }
 
   // Fetch certification exam via path → plan_paths (no subscription dependency)
-  let certExamInfo: { examId: string; title: string; priceEgp: number; planId: string; purchaseStatus: string | null } | null = null;
+  let certExamInfo: { examId: string; title: string; planId: string; isEligible: boolean } | null = null;
   {
     const { data: planPathRows } = await supabase
       .from("plan_paths")
@@ -239,28 +239,50 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
 
     if (planIds.length > 0) {
       // Admin client bypasses RLS — certification_exams has no student read policy
-      const supabaseAdmin = getAdminSupabaseClient();
-      const { data: certExam } = await supabaseAdmin
+      const certAdminClient = getAdminSupabaseClient();
+      const { data: certExam } = await certAdminClient
         .from("certification_exams")
-        .select("id, title, price_egp, plan_id")
+        .select("id, title, plan_id")
         .in("plan_id", planIds)
         .eq("is_active", true)
         .maybeSingle();
 
       if (certExam) {
-        const { data: certPurchase } = await supabaseAdmin
-          .from("user_certification_purchases")
-          .select("status")
-          .eq("user_id", user.id)
-          .eq("exam_id", certExam.id)
-          .maybeSingle();
+        // Check eligibility: all milestone checkpoints passed
+        const allCheckpointsPassed =
+          Object.keys(checkpointPassStatus).length === 0 ||
+          Object.values(checkpointPassStatus).every(Boolean);
+
+        // Check eligibility: all videos in ALL milestones completed
+        let allVideosComplete = true;
+        const allMilestoneIds = (milestones || []).map((m) => m.id);
+        if (allMilestoneIds.length > 0) {
+          const { data: allPathVideos } = await certAdminClient
+            .from("video_content")
+            .select("id")
+            .in("milestone_id", allMilestoneIds)
+            .neq("is_active", false);
+
+          const allVideoIds = (allPathVideos || []).map((v: any) => v.id);
+          if (allVideoIds.length > 0) {
+            const { data: allVideoProgress } = await certAdminClient
+              .from("user_video_progress")
+              .select("video_id, is_completed")
+              .eq("user_id", user.id)
+              .in("video_id", allVideoIds);
+
+            const completedSet = new Set(
+              (allVideoProgress || []).filter((v: any) => v.is_completed).map((v: any) => v.video_id)
+            );
+            allVideosComplete = allVideoIds.every((id: string) => completedSet.has(id));
+          }
+        }
 
         certExamInfo = {
           examId: certExam.id,
           title: certExam.title || "Certification Exam",
-          priceEgp: certExam.price_egp ?? 0,
           planId: certExam.plan_id,
-          purchaseStatus: certPurchase?.status ?? null,
+          isEligible: allVideosComplete && allCheckpointsPassed,
         };
       }
     }

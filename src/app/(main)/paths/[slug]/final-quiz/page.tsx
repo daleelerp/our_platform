@@ -1,10 +1,16 @@
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
+import { createClient as createServiceRoleClient } from "@supabase/supabase-js";
 import { redirect, notFound } from "next/navigation";
 import FinalQuizPage from "./FinalQuizPage";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+
+const adminSupabase = createServiceRoleClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -78,6 +84,31 @@ export default async function PathFinalQuizRoute({ params }: Props) {
     unpassedMilestones = (milestones || []).filter((m) => unpassedMilestoneIds.has(m.id));
   }
 
+  // Check that all videos across ALL milestones are completed (≥90%)
+  let incompleteVideoCount = 0;
+  if (milestoneIds.length > 0) {
+    const { data: allVideos } = await adminSupabase
+      .from("video_content")
+      .select("id")
+      .in("milestone_id", milestoneIds)
+      .neq("is_active", false);
+
+    const allVideoIds = (allVideos || []).map((v: any) => v.id);
+
+    if (allVideoIds.length > 0) {
+      const { data: videoProgress } = await adminSupabase
+        .from("user_video_progress")
+        .select("video_id, is_completed")
+        .eq("user_id", user.id)
+        .in("video_id", allVideoIds);
+
+      const completedSet = new Set(
+        (videoProgress || []).filter((v: any) => v.is_completed).map((v: any) => v.video_id)
+      );
+      incompleteVideoCount = allVideoIds.filter((id: string) => !completedSet.has(id)).length;
+    }
+  }
+
   // Fetch the path-level final quiz
   const { data: quiz } = await supabase
     .from("quizzes")
@@ -96,18 +127,15 @@ export default async function PathFinalQuizRoute({ params }: Props) {
     .eq("user_id", user.id)
     .eq("quiz_id", quiz.id);
 
-  // Certification exam gate — find via path → plan_paths → certification_exams
-  // (does NOT require an active subscription; works for all enrolled users)
+  // Find certification exam for this path via plan_paths
   let certExam: {
     id: string;
     title: string;
-    priceEgp: number;
     planId: string;
     passingScore: number;
     timeLimitMinutes: number | null;
     maxAttempts: number;
   } | null = null;
-  let hasPurchasedCert = false;
 
   const { data: planPathRows } = await supabase
     .from("plan_paths")
@@ -118,9 +146,9 @@ export default async function PathFinalQuizRoute({ params }: Props) {
   const planIds = (planPathRows || []).map((p: any) => p.plan_id).filter(Boolean);
 
   if (planIds.length > 0) {
-    const { data: exam } = await supabase
+    const { data: exam } = await adminSupabase
       .from("certification_exams")
-      .select("id, title, price_egp, plan_id, passing_score, time_limit_minutes, max_attempts")
+      .select("id, title, plan_id, passing_score, time_limit_minutes, max_attempts")
       .in("plan_id", planIds)
       .eq("is_active", true)
       .maybeSingle();
@@ -129,29 +157,19 @@ export default async function PathFinalQuizRoute({ params }: Props) {
       certExam = {
         id: exam.id,
         title: exam.title ?? "Certification Exam",
-        priceEgp: exam.price_egp ?? 0,
         planId: exam.plan_id,
         passingScore: exam.passing_score ?? 70,
         timeLimitMinutes: exam.time_limit_minutes ?? null,
         maxAttempts: exam.max_attempts ?? 3,
       };
-      const { data: purchase } = await supabase
-        .from("user_certification_purchases")
-        .select("status")
-        .eq("user_id", user.id)
-        .eq("exam_id", exam.id)
-        .maybeSingle();
-      hasPurchasedCert = purchase?.status === "paid";
     }
   }
 
-  // Determine question source:
-  // - Paid cert exam → use certification_exam_questions (the 43 proper questions)
-  // - Otherwise → use quiz_questions (path-level fallback)
+  // Question source: always use cert exam questions when a cert exam exists
   let questions: any[] = [];
 
-  if (certExam && hasPurchasedCert) {
-    const { data: certQuestions } = await supabase
+  if (certExam) {
+    const { data: certQuestions } = await adminSupabase
       .from("certification_exam_questions")
       .select("id, question_type, question_text, question_text_ar, options, correct_answers, explanation, explanation_ar, points, sort_order")
       .eq("exam_id", certExam.id)
@@ -172,8 +190,8 @@ export default async function PathFinalQuizRoute({ params }: Props) {
     questions = pathQuestions || [];
   }
 
-  // Quiz settings: prefer cert exam settings when using cert questions
-  const quizSettings = certExam && hasPurchasedCert
+  // Quiz settings: use cert exam settings when a cert exam exists
+  const quizSettings = certExam
     ? {
         id: quiz.id, // path quiz ID for FK-safe attempt tracking
         title: certExam.title,
@@ -197,17 +215,19 @@ export default async function PathFinalQuizRoute({ params }: Props) {
         total_points: quiz.total_points ?? questions.length,
       };
 
+  const isLocked = unpassedMilestones.length > 0 || incompleteVideoCount > 0;
+
   return (
     <FinalQuizPage
       path={{ id: path.id, title: path.title, title_ar: path.title_ar, slug: path.slug }}
       quiz={quizSettings}
       questions={questions}
       userId={user.id}
-      isLocked={unpassedMilestones.length > 0}
+      isLocked={isLocked}
       unpassedMilestones={unpassedMilestones}
+      incompleteVideoCount={incompleteVideoCount}
       previousAttempts={attemptCount ?? 0}
       certExam={certExam}
-      hasPurchasedCert={hasPurchasedCert}
     />
   );
 }

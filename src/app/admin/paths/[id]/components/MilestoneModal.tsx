@@ -183,6 +183,9 @@ export default function MilestoneModal({
                                     }));
                                 }}
                                 onAddQuiz={() => onAddQuiz(milestone.id)}
+                                milestoneTitle={milestone.title}
+                                milestoneDescription={milestone.description || undefined}
+                                pathTitle={pathTitle}
                             />
                         </div>
                     </div>

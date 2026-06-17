@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import Link from "next/link";
 import { CertificateTemplate, type CertSettings } from "@/components/CertificateTemplate";
@@ -9,57 +8,33 @@ type Props = {
   examId: string;
   examTitle: string;
   examTitleAr: string | null;
-  priceEgp: number;
   passingScore: number;
   timeLimitMinutes: number | null;
   questionCount: number;
   planName: string;
   planNameAr: string | null;
-  purchaseStatus: "paid" | "pending" | null;
   certificateNumber: string | null;
+  pathSlug: string | null;
   certSettings: CertSettings;
 };
 
 export function CertExamLanding({
-  examId,
   examTitle,
   examTitleAr,
-  priceEgp,
   passingScore,
   timeLimitMinutes,
   questionCount,
   planName,
   planNameAr,
-  purchaseStatus,
   certificateNumber,
+  pathSlug,
   certSettings,
 }: Props) {
   const language = useAppStore((s) => s.language);
-  const [buying, setBuying] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const getText = (en: string, ar: string | null) => (language === "ar" && ar ? ar : en);
   const title = getText(examTitle, examTitleAr);
   const plan = getText(planName, planNameAr);
-
-  const handlePay = async () => {
-    setBuying(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/certification/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ examId }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Payment failed");
-      const url = json.redirectUrl ?? json.sessionUrl;
-      if (url) window.location.href = url;
-    } catch (e: any) {
-      setError(e.message);
-      setBuying(false);
-    }
-  };
 
   // Already certified
   if (certificateNumber) {
@@ -86,33 +61,8 @@ export function CertExamLanding({
     );
   }
 
-  // Already purchased
-  if (purchaseStatus === "paid") {
-    return (
-      <main className="min-h-screen bg-slate-50 py-12 px-4">
-        <div className="max-w-2xl mx-auto text-center">
-          <div className="text-6xl mb-4">📝</div>
-          <h1 className="text-2xl font-bold text-slate-900 mb-2">
-            {language === "ar" ? "الاختبار متاح لك!" : "Your exam is unlocked!"}
-          </h1>
-          <p className="text-slate-500 mb-6">
-            {language === "ar"
-              ? "لقد اشتريت هذا الاختبار بالفعل. ابدأ من صفحة المسار."
-              : "You've already purchased this exam. Start it from your learning path."}
-          </p>
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-amber-600 text-white rounded-xl font-semibold hover:bg-amber-700 transition"
-          >
-            {language === "ar" ? "← الذهاب للوحة التحكم" : "← Go to Dashboard"}
-          </Link>
-        </div>
-      </main>
-    );
-  }
-
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-teal-50/30">
+    <main className="min-h-screen bg-linear-to-br from-slate-50 to-teal-50/30">
       <div className="max-w-6xl mx-auto px-4 pt-6">
         <Link href="/dashboard" className="text-sm text-teal-600 hover:text-teal-700 flex items-center gap-1">
           ← {language === "ar" ? "العودة للوحة التحكم" : "Back to Dashboard"}
@@ -214,13 +164,13 @@ export function CertExamLanding({
           {/* How it works */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
             <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">
-              {language === "ar" ? "كيف يعمل الاختبار" : "How It Works"}
+              {language === "ar" ? "كيف تحصل على الشهادة" : "How to Earn Your Certificate"}
             </p>
             <ol className="space-y-3">
               {[
-                { en: "Purchase the exam (one-time fee)", ar: "ادفع رسوم الاختبار (مرة واحدة)" },
-                { en: "Access the exam from your learning path sidebar", ar: "افتح الاختبار من شريط التنقل في المسار" },
-                { en: "Answer all questions within the time limit", ar: "أجب على جميع الأسئلة ضمن الوقت المحدد" },
+                { en: "Complete all videos in the learning path", ar: "أكمل جميع الفيديوهات في المسار التعليمي" },
+                { en: "Pass the checkpoint quiz in each milestone", ar: "اجتز اختبار نقطة التفتيش في كل مرحلة" },
+                { en: "Unlock the certification exam from your path sidebar", ar: "افتح اختبار الاعتماد من شريط التنقل في المسار" },
                 { en: `Score ≥ ${passingScore}% to earn your certificate`, ar: `احصل على ${passingScore}% أو أكثر للحصول على الشهادة` },
                 { en: "Download your PDF certificate instantly", ar: "حمّل شهادتك الرقمية فوراً" },
               ].map((step, i) => (
@@ -244,53 +194,40 @@ export function CertExamLanding({
             </p>
           </div>
 
-          {/* Price + CTA */}
+          {/* CTA — included in plan */}
           <div className="bg-white rounded-2xl border-2 border-teal-200 shadow-sm p-6">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <p className="text-xs text-slate-500 mb-0.5">{language === "ar" ? "سعر الاختبار" : "Exam fee"}</p>
-                <p className="text-3xl font-black text-slate-900">
-                  {priceEgp > 0 ? `${Number(priceEgp).toLocaleString()} EGP` : (language === "ar" ? "مجاني" : "Free")}
+                <p className="text-xs text-slate-500 mb-0.5">
+                  {language === "ar" ? "مشمول في الخطة" : "Included in your plan"}
+                </p>
+                <p className="text-2xl font-black text-teal-700">
+                  {language === "ar" ? "مجاني مع المسار" : "Free with the path"}
                 </p>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  {language === "ar" ? "دفعة واحدة · الوصول مدى الحياة" : "One-time · Lifetime access"}
+                  {language === "ar"
+                    ? "أكمل جميع المحتوى لفتح الاختبار"
+                    : "Complete all content to unlock the exam"}
                 </p>
               </div>
               <div className="text-5xl">🎓</div>
             </div>
 
-            {error && (
-              <p className="text-sm text-red-600 mb-3 p-2 bg-red-50 rounded-lg">{error}</p>
+            {pathSlug ? (
+              <Link
+                href={`/paths/${pathSlug}/learn`}
+                className="w-full py-4 bg-teal-600 hover:bg-teal-700 text-white font-bold text-base rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-teal-200"
+              >
+                🏆 {language === "ar" ? "اذهب إلى المسار التعليمي" : "Go to Learning Path"}
+              </Link>
+            ) : (
+              <Link
+                href="/dashboard"
+                className="w-full py-4 bg-teal-600 hover:bg-teal-700 text-white font-bold text-base rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-teal-200"
+              >
+                {language === "ar" ? "← الذهاب للوحة التحكم" : "← Go to Dashboard"}
+              </Link>
             )}
-
-            <button
-              type="button"
-              disabled={buying}
-              onClick={handlePay}
-              className="w-full py-4 bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white font-bold text-base rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-amber-200"
-            >
-              {buying ? (
-                <>
-                  <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  {language === "ar" ? "جاري التحميل..." : "Loading..."}
-                </>
-              ) : (
-                <>
-                  🏆{" "}
-                  {priceEgp > 0
-                    ? language === "ar"
-                      ? `اشترِ الاختبار — ${Number(priceEgp).toLocaleString()} EGP`
-                      : `Get Certified — ${Number(priceEgp).toLocaleString()} EGP`
-                    : language === "ar" ? "ابدأ الاختبار مجاناً" : "Start Exam — Free"}
-                </>
-              )}
-            </button>
-
-            <p className="text-center text-xs text-slate-400 mt-3">
-              {language === "ar"
-                ? "دفع آمن · استرداد خلال 24 ساعة إذا لم تتمكن من بدء الاختبار"
-                : "Secure payment · Refund within 24h if you can't access the exam"}
-            </p>
           </div>
         </div>
       </div>

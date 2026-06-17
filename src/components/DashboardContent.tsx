@@ -86,8 +86,6 @@ type PlanPathItem = {
 
 type PlanCertData = {
   examId: string;
-  priceEgp: number;
-  purchaseStatus: "paid" | "pending" | null;
   certificateNumber: string | null;
   firstPathSlug: string | null;
 };
@@ -163,7 +161,6 @@ export function DashboardContent({
   const [pathSearch, setPathSearch] = useState("");
   const [difficultyFilter, setDifficultyFilter] = useState<"all" | "beginner" | "intermediate" | "advanced">("all");
   const [visiblePathCount, setVisiblePathCount] = useState(6);
-  const [buyingCert, setBuyingCert] = useState<string | null>(null); // examId being purchased
 
   // Initialize from server-computed progress (passed as prop from page.tsx).
   // Falls back to stored path_enrollments.progress_percentage if prop is missing.
@@ -272,21 +269,6 @@ export function DashboardContent({
     return record.billing_cycle === "yearly" ? (language === "ar" ? "سنوي" : "Yearly") : (language === "ar" ? "شهري" : "Monthly");
   };
 
-  const handleBuyCert = async (examId: string) => {
-    setBuyingCert(examId);
-    try {
-      const res = await fetch("/api/certification/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ examId }),
-      });
-      const json = await res.json();
-      if (json.redirectUrl) window.location.href = json.redirectUrl;
-      else if (json.sessionUrl) window.location.href = json.sessionUrl;
-    } finally {
-      setBuyingCert(null);
-    }
-  };
 
   if (!isHydrated) {
     return (
@@ -485,46 +467,8 @@ export function DashboardContent({
                                 🖨 {language === "ar" ? "تحميل الشهادة" : "Download"}
                               </a>
                             </div>
-                          ) : certData.purchaseStatus === "paid" ? (
-                            // Purchased — can start exam
-                            <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-center">
-                              <span className="text-2xl">📝</span>
-                              <p className="text-xs font-bold text-amber-900 mt-2 mb-1">
-                                {language === "ar" ? "الاختبار متاح" : "Exam Unlocked"}
-                              </p>
-                              <p className="text-[11px] text-amber-700 mb-3">
-                                {language === "ar" ? "ابدأ الاختبار الرسمي" : "Start your certification exam"}
-                              </p>
-                              {certData.firstPathSlug ? (
-                                <Link
-                                  href={`/paths/${certData.firstPathSlug}/learn`}
-                                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-semibold hover:bg-amber-700 transition"
-                                >
-                                  🏆 {language === "ar" ? "ابدأ الاختبار" : "Start Exam"}
-                                </Link>
-                              ) : (
-                                <p className="text-[11px] text-amber-600">
-                                  {language === "ar" ? "افتح أي مسار لبدء الاختبار" : "Open any path to start the exam"}
-                                </p>
-                              )}
-                            </div>
-                          ) : certData.purchaseStatus === "pending" ? (
-                            // Payment pending
-                            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-center">
-                              <span className="text-2xl">⏳</span>
-                              <p className="text-xs font-medium text-slate-700 mt-2 mb-3">
-                                {language === "ar" ? "الدفع قيد المعالجة" : "Payment processing"}
-                              </p>
-                              <button
-                                type="button"
-                                onClick={() => handleBuyCert(certData.examId)}
-                                className="px-3 py-1.5 bg-slate-200 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-300 transition"
-                              >
-                                {language === "ar" ? "إعادة المحاولة" : "Retry payment"}
-                              </button>
-                            </div>
-                          ) : (
-                            // Not purchased yet → go to landing page
+                          ) : certData.firstPathSlug ? (
+                            // Not certified yet — show link to learning path
                             <div className="p-4 rounded-xl bg-linear-to-br from-amber-50 to-orange-50 border border-amber-200 text-center">
                               <span className="text-2xl">🎓</span>
                               <p className="text-xs font-bold text-slate-800 mt-2 mb-0.5">
@@ -532,20 +476,17 @@ export function DashboardContent({
                               </p>
                               <p className="text-[11px] text-slate-500 mb-3">
                                 {language === "ar"
-                                  ? "اجتز الاختبار الرسمي واحصل على شهادة معتمدة"
-                                  : "Pass the official exam and earn a verified certificate"}
+                                  ? "أكمل جميع الفيديوهات والمراحل لفتح اختبار الاعتماد"
+                                  : "Complete all videos and milestones to unlock the certification exam"}
                               </p>
                               <Link
-                                href={`/certification/${certData.examId}`}
+                                href={`/paths/${certData.firstPathSlug}/learn`}
                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 text-white rounded-lg text-xs font-semibold hover:bg-amber-600 transition"
                               >
-                                🏆{" "}
-                                {certData.priceEgp > 0
-                                  ? `${language === "ar" ? "احصل عليها" : "Get Certified"} — ${Number(certData.priceEgp).toLocaleString()} EGP`
-                                  : (language === "ar" ? "ابدأ مجاناً" : "Start Free")}
+                                🏆 {language === "ar" ? "تابع التعلم" : "Continue Learning"}
                               </Link>
                             </div>
-                          )}
+                          ) : null}
                         </div>
                       </div>
                     )}
@@ -665,28 +606,15 @@ export function DashboardContent({
                               {language === "ar" ? "تحميل" : "Download"}
                             </a>
                           </>
-                        ) : certData.purchaseStatus === "paid" ? (
-                          <>
-                            <span className="text-[11px] text-amber-800 font-medium">📝 {language === "ar" ? "الاختبار متاح" : "Exam unlocked"}</span>
-                            <Link
-                              href={href}
-                              className="text-[11px] px-2.5 py-1 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700 transition"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              {language === "ar" ? "ابدأ الاختبار" : "Start Exam"}
-                            </Link>
-                          </>
                         ) : (
                           <>
-                            <span className="text-[11px] text-slate-600">🎓 {language === "ar" ? "شهادة معتمدة متاحة" : "Certification available"}</span>
+                            <span className="text-[11px] text-slate-600">🎓 {language === "ar" ? "شهادة معتمدة متاحة" : "Certification included"}</span>
                             <Link
-                              href={`/certification/${certData.examId}`}
+                              href={href}
                               className="text-[11px] px-2.5 py-1 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 transition whitespace-nowrap"
                               onClick={(e) => e.stopPropagation()}
                             >
-                              {certData.priceEgp > 0
-                                ? `${language === "ar" ? "احصل عليها" : "Get Certified"} — ${Number(certData.priceEgp).toLocaleString()} EGP`
-                                : (language === "ar" ? "ابدأ مجاناً" : "Free")}
+                              {language === "ar" ? "تابع التعلم" : "Continue Learning"}
                             </Link>
                           </>
                         )}
