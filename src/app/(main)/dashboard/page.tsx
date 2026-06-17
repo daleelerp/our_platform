@@ -5,6 +5,7 @@ import { getAdminSupabaseClient } from "@/utils/admin-supabase";
 import { redirect } from "next/navigation";
 import { DashboardContent } from "@/components/DashboardContent";
 import { filterPathsByPlan } from "@/utils/pathAccess";
+import { computePathProgress } from "@/utils/computePathProgress";
 
 type PurchasedPlanRecord = {
   id: string;
@@ -449,6 +450,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     recommendedPaths = await filterPathsByPlan(availablePaths || [], supabase, user.id, undefined);
   }
 
+  // Compute progress server-side so the dashboard renders with correct values immediately
+  // (no client-side loading flash). Language from user profile determines which videos count.
+  const serverProgress = await computePathProgress(
+    userId,
+    enrolledPathIds,
+    supabaseAdmin,
+    profile?.preferred_language ?? undefined
+  );
+
   return (
     <DashboardContent
       profile={profile}
@@ -461,6 +471,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       planPathsMap={planPathsMap}
       planCertMap={planCertMap}
       certByPathId={certByPathId}
+      initialProgress={serverProgress}
     />
   );
 }

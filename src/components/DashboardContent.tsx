@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/store/useAppStore";
 import { useSubscription } from "@/hooks/useSubscription";
@@ -103,6 +103,8 @@ type Props = {
   planPathsMap?: Record<string, PlanPathItem[]>;
   planCertMap?: Record<string, PlanCertData>;
   certByPathId?: Record<string, PlanCertData>;
+  /** Server-computed progress per pathId — rendered immediately, no client-side flash */
+  initialProgress?: Record<string, number>;
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -138,6 +140,7 @@ export function DashboardContent({
   planPathsMap = {},
   planCertMap = {},
   certByPathId = {},
+  initialProgress,
 }: Props) {
   const router = useRouter();
   const language = useAppStore((s) => s.language);
@@ -162,20 +165,27 @@ export function DashboardContent({
   const [visiblePathCount, setVisiblePathCount] = useState(6);
   const [buyingCert, setBuyingCert] = useState<string | null>(null); // examId being purchased
 
-  // Initialize from server data immediately so there is never a null/blank state.
-  // The useEffect then replaces it with fresh calculated values (same logic as
-  // the in-learning page) and writes the result back to path_enrollments so the
-  // next server render is already accurate.
+  // Initialize from server-computed progress (passed as prop from page.tsx).
+  // Falls back to stored path_enrollments.progress_percentage if prop is missing.
   const [liveProgressMap, setLiveProgressMap] = useState<Map<string, number>>(() => {
     const m = new Map<string, number>();
-    for (const e of enrolledPaths) {
-      m.set(e.learning_paths.id, Number(e.progress_percentage ?? 0));
+    if (initialProgress) {
+      for (const [pathId, pct] of Object.entries(initialProgress)) {
+        m.set(pathId, Number(pct));
+      }
+    } else {
+      for (const e of enrolledPaths) {
+        m.set(e.learning_paths.id, Number(e.progress_percentage ?? 0));
+      }
     }
     return m;
   });
 
-  useEffect(() => {
-    fetch("/api/progress/dashboard")
+  // Re-fetch only when the user actively switches language (not on initial mount,
+  // since the server already computed the correct progress for profile.preferred_language).
+  const mountedLanguageRef = useRef(language);
+  const fetchProgress = useCallback((lang: string) => {
+    fetch(`/api/progress/dashboard?lang=${lang}`)
       .then((r) => r.json())
       .then(({ progress }) => {
         if (!progress) return;
@@ -185,8 +195,13 @@ export function DashboardContent({
         }
         setLiveProgressMap(m);
       })
-      .catch(() => {}); // keep server snapshot on network failure
+      .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (language === mountedLanguageRef.current) return; // skip initial mount
+    fetchProgress(language);
+  }, [language, fetchProgress]);
 
   const getText = (en: string | null, ar: string | null) => (language === "ar" && ar ? ar : en ?? "");
 
