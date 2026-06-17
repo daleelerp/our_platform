@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "videoContentId is required" }, { status: 400 });
     }
 
-    console.log("[/api/progress/video] user:", user.id, "video:", videoContentId, "pct:", completionPct);
+    console.log("[/api/progress/video] v2 user:", user.id, "video:", videoContentId, "pct:", completionPct);
 
     const admin = getAdminSupabaseClient();
 
