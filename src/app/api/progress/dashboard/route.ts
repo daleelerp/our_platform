@@ -6,19 +6,14 @@ import { getAdminSupabaseClient } from "@/utils/admin-supabase";
 /**
  * GET /api/progress/dashboard
  *
- * Calculates per-path progress using the same milestone-weighted logic as the
- * in-learning page — a video counts as "done" only at ≥90% completion, and the
- * result is the average milestone progress across all milestones with content.
- *
- * Also writes back to path_enrollments.progress_percentage so the next server
- * render shows the correct value without waiting for a client-side fetch.
+ * Calculates per-path progress: milestone-weighted average of proportional video
+ * completion (33% watched → 33% contribution, not 0%). Language preference does
+ * not affect which videos are counted — language only controls UI display.
  *
  * Response: { progress: { [pathId: string]: number } }
  */
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
-    const lang = new URL(request.url).searchParams.get("lang") ?? undefined;
-
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
     const { data: { user } } = await supabase.auth.getUser();
@@ -40,7 +35,6 @@ export async function GET(request: NextRequest) {
     }
 
     const pathIds = enrollments.map((e) => e.learning_path_id);
-    const enrollmentByPathId = new Map(enrollments.map((e) => [e.learning_path_id, e.id]));
 
     // 2. All active milestones for these paths
     const { data: milestones } = await admin
@@ -55,26 +49,20 @@ export async function GET(request: NextRequest) {
 
     const milestoneIds = milestones.map((m) => m.id);
 
-    // 3. All active videos across those milestones (with language field for filtering)
+    // 3. All active videos across those milestones
     const { data: allVideosRaw } = await admin
       .from("video_content")
-      .select("id, milestone_id, primary_language")
+      .select("id, milestone_id")
       .in("milestone_id", milestoneIds)
       .neq("is_active", false);
 
-    // Filter by language when ?lang= is provided
-    const videos = lang
-      ? (allVideosRaw ?? []).filter((v) => {
-          const pl = String((v as any).primary_language ?? "").trim().toLowerCase();
-          if (!pl) return true;
-          if (lang === "ar") return pl === "ar" || pl === "mixed";
-          return pl === "en" || pl === "mixed";
-        })
-      : (allVideosRaw ?? []);
+    // Language does not filter progress — it only affects which videos are displayed.
+    // Progress always reflects ALL videos in the path regardless of language preference.
+    const videos = allVideosRaw ?? [];
 
     const allVideoIds = videos.map((v) => v.id);
 
-    // 4. User video progress for all those videos (binary: ≥90% = complete)
+    // 4. User video progress for all those videos
     const { data: videoProgress } = allVideoIds.length > 0
       ? await admin
           .from("user_video_progress")
@@ -101,8 +89,7 @@ export async function GET(request: NextRequest) {
       milestonesByPath.get(m.learning_path_id)!.push(m.id);
     }
 
-    // 7. Calculate per-path progress using milestone-weighted average
-    //    (matches calculatePathProgress: binary video completion, average per milestone)
+    // 7. Calculate per-path progress: milestone-weighted average of proportional video completion
     const progress: Record<string, number> = {};
 
     for (const pathId of pathIds) {
@@ -127,24 +114,20 @@ export async function GET(request: NextRequest) {
         }
 
         milestonesToCount++;
-        const doneCount = milestoneVideoIds.filter((vid) => {
+        // Use actual completion percentage (proportional), not binary ≥90% threshold.
+        // A video at 33% contributes 33% of its weight, not 0%.
+        const sumPct = milestoneVideoIds.reduce((sum, vid) => {
           const vp = vpMap.get(vid);
-          return vp && (vp.is_completed || Number(vp.completion_percentage ?? 0) >= 90);
-        }).length;
-
-        totalMilestonePct += (doneCount / milestoneVideoIds.length) * 100;
+          if (!vp) return sum;
+          return sum + (vp.is_completed ? 100 : Math.min(100, Number(vp.completion_percentage ?? 0)));
+        }, 0);
+        totalMilestonePct += sumPct / milestoneVideoIds.length;
       }
 
       progress[pathId] = milestonesToCount > 0
         ? Math.round(totalMilestonePct / milestonesToCount)
         : 0;
     }
-
-    // Note: we intentionally do NOT write back to path_enrollments here.
-    // path_enrollments.progress_percentage is written only by /api/progress/recalculate
-    // (triggered by actual completion events). Writing from the dashboard API would
-    // corrupt the stored value whenever the user views the dashboard in a different
-    // language than the one they used while learning.
 
     return NextResponse.json({ progress });
   } catch (error: any) {

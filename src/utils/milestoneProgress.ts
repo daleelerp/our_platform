@@ -75,24 +75,23 @@ export async function checkMilestoneCompletion(
 
   status.videosTotal = videos.length;
 
+  let videoProgressRows: any[] = [];
   if (status.videosTotal > 0) {
     const videoIds = videos.map((v: { id: string }) => v.id);
-    
+
     const { data: videoProgress } = await supabase
       .from("user_video_progress")
       .select("video_id, is_completed, completion_percentage, completed_at, last_watched_at")
       .eq("user_id", userId)
       .in("video_id", videoIds);
 
-    // Count videos as completed if they are marked as completed or have >= 90% completion
-    // Once a video is completed, it stays completed (no time restriction)
-    const completedVideos = (videoProgress || []).filter((vp: any) => {
-      // Video must be marked as completed or have >= 90% completion
-      return vp.is_completed || (vp.completion_percentage >= 90);
-    });
-    
+    videoProgressRows = videoProgress ?? [];
+
+    const completedVideos = videoProgressRows.filter((vp: any) =>
+      vp.is_completed || (vp.completion_percentage >= 90)
+    );
     status.videosCompleted = completedVideos.length;
-    
+
     if (status.videosCompleted < status.videosTotal) {
       status.missingRequirements.push(
         `${status.videosTotal - status.videosCompleted} video(s) not completed`
@@ -173,14 +172,31 @@ export async function checkMilestoneCompletion(
   const completedItems = status.videosCompleted + status.quizzesPassed + status.articlesCompleted + status.resourcesCompleted + status.externalTestsPassed;
 
   if (totalItems === 0) {
-    // Milestone has no content - mark as completed automatically
-    // This allows progress to continue even if a milestone has no content yet
     status.isCompleted = true;
     status.progressPercentage = 100;
     status.missingRequirements = [];
   } else {
-    status.progressPercentage = Math.round((completedItems / totalItems) * 100);
+    // isCompleted uses binary completion (all items must reach ≥90% threshold)
     status.isCompleted = completedItems === totalItems && totalItems > 0;
+
+    // progressPercentage uses proportional video progress so partial watching shows real numbers.
+    // Quizzes remain binary (passed or not).
+    const videoProgressSum = videoProgressRows.reduce((sum: number, vp: any) => {
+      return sum + (vp.is_completed ? 100 : Math.min(100, Number(vp.completion_percentage ?? 0)));
+    }, 0);
+    const videoWeightedPct = status.videosTotal > 0 ? videoProgressSum / status.videosTotal : 0;
+    const quizWeightedPct = status.quizzesTotal > 0 ? (status.quizzesPassed / status.quizzesTotal) * 100 : 0;
+
+    const weights = (status.videosTotal > 0 ? 1 : 0) + (status.quizzesTotal > 0 ? 1 : 0);
+    if (weights === 0) {
+      status.progressPercentage = 100;
+    } else if (status.videosTotal > 0 && status.quizzesTotal > 0) {
+      status.progressPercentage = Math.round((videoWeightedPct + quizWeightedPct) / 2);
+    } else if (status.videosTotal > 0) {
+      status.progressPercentage = Math.round(videoWeightedPct);
+    } else {
+      status.progressPercentage = Math.round(quizWeightedPct);
+    }
   }
 
   return status;
@@ -342,14 +358,14 @@ export async function calculatePathProgress(
       const mVideoIds = videosByMilestone.get(milestone.id) ?? [];
 
       if (mVideoIds.length === 0) {
-        // Milestone has no language-visible videos → auto-complete
         totalProgress += 100;
       } else {
-        const doneCount = mVideoIds.filter((vid) => {
+        const sumPct = mVideoIds.reduce((sum, vid) => {
           const vp = vpMap.get(vid);
-          return vp && (vp.is_completed || Number(vp.completion_percentage ?? 0) >= 90);
-        }).length;
-        totalProgress += (doneCount / mVideoIds.length) * 100;
+          if (!vp) return sum;
+          return sum + (vp.is_completed ? 100 : Math.min(100, Number(vp.completion_percentage ?? 0)));
+        }, 0);
+        totalProgress += sumPct / mVideoIds.length;
       }
     }
   } else {

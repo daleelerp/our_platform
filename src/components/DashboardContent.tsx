@@ -175,7 +175,7 @@ export function DashboardContent({
   });
 
   useEffect(() => {
-    fetch(`/api/progress/dashboard?lang=${language}`)
+    fetch("/api/progress/dashboard")
       .then((r) => r.json())
       .then(({ progress }) => {
         if (!progress) return;
@@ -186,7 +186,7 @@ export function DashboardContent({
         setLiveProgressMap(m);
       })
       .catch(() => {}); // keep server snapshot on network failure
-  }, [language]);
+  }, []);
 
   const getText = (en: string | null, ar: string | null) => (language === "ar" && ar ? ar : en ?? "");
 
