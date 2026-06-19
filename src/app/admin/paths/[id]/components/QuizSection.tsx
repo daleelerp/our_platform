@@ -105,8 +105,6 @@ export default function QuizSection({
                 title: data.title || prev.title,
                 title_ar: data.title_ar || prev.title_ar,
                 ...(data.passing_score != null && { passing_score: data.passing_score }),
-                ...(data.time_limit_minutes != null && { time_limit_minutes: data.time_limit_minutes }),
-                ...(data.max_attempts != null && { max_attempts: data.max_attempts }),
             }));
         } catch {
             // silently fail — user can type manually
@@ -409,34 +407,6 @@ export default function QuizSection({
                                 </label>
                             </div>
                         )}
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                        <input
-                            type="number"
-                            min="0"
-                            placeholder="Time limit (minutes, optional)"
-                            value={newQuiz?.time_limit_minutes || ""}
-                            onChange={(e) =>
-                                setNewQuiz((prev: any) => ({
-                                    ...prev,
-                                    time_limit_minutes: e.target.value ? Number(e.target.value) : "",
-                                }))
-                            }
-                            className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                        />
-                        <input
-                            type="number"
-                            min="1"
-                            placeholder="Max attempts (optional)"
-                            value={newQuiz?.max_attempts || ""}
-                            onChange={(e) =>
-                                setNewQuiz((prev: any) => ({
-                                    ...prev,
-                                    max_attempts: e.target.value ? Number(e.target.value) : "",
-                                }))
-                            }
-                            className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                        />
                     </div>
                     <button
                         type="button"
