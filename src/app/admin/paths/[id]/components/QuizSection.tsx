@@ -52,6 +52,7 @@ export default function QuizSection({
     pathTitle,
 }: QuizSectionProps) {
     const [isGenerating, setIsGenerating] = useState(false);
+    const [generateError, setGenerateError] = useState("");
     const [editingQuizId, setEditingQuizId] = useState<string | null>(null);
     const [editValues, setEditValues] = useState<Partial<Quiz>>({});
     const [isSaving, setIsSaving] = useState(false);
@@ -87,6 +88,7 @@ export default function QuizSection({
     async function handleGenerateTitle() {
         if (!milestoneTitle) return;
         setIsGenerating(true);
+        setGenerateError("");
         try {
             const res = await fetch("/api/admin/ai-generate-quiz-title", {
                 method: "POST",
@@ -98,16 +100,16 @@ export default function QuizSection({
                     pathTitle,
                 }),
             });
-            if (!res.ok) throw new Error("Failed");
             const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "Failed to generate title");
             setNewQuiz((prev: any) => ({
                 ...prev,
                 title: data.title || prev.title,
                 title_ar: data.title_ar || prev.title_ar,
                 ...(data.passing_score != null && { passing_score: data.passing_score }),
             }));
-        } catch {
-            // silently fail — user can type manually
+        } catch (err: any) {
+            setGenerateError(err.message || "Failed to generate title");
         } finally {
             setIsGenerating(false);
         }
@@ -333,6 +335,9 @@ export default function QuizSection({
                                 <>✨ Generate title with AI</>
                             )}
                         </button>
+                    )}
+                    {generateError && (
+                        <p className="text-[11px] text-red-600">⚠️ {generateError}</p>
                     )}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                         <input

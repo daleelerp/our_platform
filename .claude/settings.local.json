@@ -10,7 +10,10 @@
       "Bash(grep -o \"currentMilestone.\\\\{0,300\\\\}\" /tmp/m2.html)",
       "Bash(npx eslint *)",
       "Bash(git stash *)",
-      "Bash(node scripts/check-video-counts.mjs)"
+      "Bash(node scripts/check-video-counts.mjs)",
+      "Bash(node -e ' *)",
+      "Bash(curl -s -X POST http://localhost:3000/api/admin/ai-generate-quiz-title -H \"Content-Type: application/json\" -d '{\"milestoneTitle\":\"Fusion Base Tables\",\"quizType\":\"checkpoint\",\"pathTitle\":\"Oracle Fusion\"}')",
+      "Bash(curl -s -X POST http://localhost:3000/api/admin/ai-generate-questions -H \"Content-Type: application/json\" -d '{\"milestoneTitle\":\"Fusion Base Tables\",\"count\":5}')"
     ]
   }
 }

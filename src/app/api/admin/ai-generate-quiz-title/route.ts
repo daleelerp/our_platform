@@ -1,10 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getAdminSession } from "@/utils/admin-auth";
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 export async function POST(req: NextRequest) {
     try {
+        const session = await getAdminSession();
+        if (!session) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        if (!GROQ_API_KEY) {
+            return NextResponse.json(
+                { error: "GROQ_API_KEY is not configured in .env.local" },
+                { status: 500 }
+            );
+        }
+
         const { milestoneTitle, milestoneDescription, quizType, pathTitle } = await req.json();
 
         if (!milestoneTitle) {
@@ -54,11 +67,30 @@ Respond ONLY with valid JSON in this exact format:
             }),
         });
 
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`[ai-generate-quiz-title] Groq HTTP ${response.status}:`, errorText);
+            let userMessage = `Groq API error (HTTP ${response.status}).`;
+            if (response.status === 429) {
+                userMessage = errorText.includes("tokens per day") || errorText.includes("TPD")
+                    ? "Daily token limit reached on Groq. Try again tomorrow or upgrade at console.groq.com/settings/billing."
+                    : "Groq rate limit hit. Wait a moment and try again.";
+            } else {
+                try {
+                    const errJson = JSON.parse(errorText);
+                    userMessage = errJson?.error?.message || userMessage;
+                } catch {
+                    // not JSON — fall back to the generic message above
+                }
+            }
+            return NextResponse.json({ error: userMessage }, { status: 500 });
+        }
+
         const data = await response.json();
         const raw = data.choices?.[0]?.message?.content?.trim() || "";
         const jsonMatch = raw.match(/\{[\s\S]*\}/);
         if (!jsonMatch) {
-            return NextResponse.json({ error: "Invalid AI response" }, { status: 500 });
+            return NextResponse.json({ error: "AI returned an unparseable response. Try again." }, { status: 500 });
         }
 
         const result = JSON.parse(jsonMatch[0]);
