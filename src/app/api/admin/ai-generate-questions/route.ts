@@ -427,7 +427,7 @@ Return ONLY valid JSON, no markdown, no extra text:
       } else if (!isGemini && isDailyLimit(errorText)) {
         userMessage = "Daily token limit reached on all Groq models. Please try again tomorrow or upgrade at console.groq.com/settings/billing.";
       } else if (!isGemini && isOversizedRequest(errorText)) {
-        userMessage = "Prompt is too large for the fallback model. Try shortening the plan content in the textarea before generating.";
+        userMessage = "Prompt is too large for the fallback model. Try generating fewer questions at once, or reduce the source content (plan text or number of videos) feeding this generation.";
       } else {
         try {
           if (isGemini) {

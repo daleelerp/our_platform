@@ -21,6 +21,30 @@ function autoTimeLimitFor(questionCount: number): number {
 
 const AUTO_TIMED_QUIZ_TYPES = new Set(["checkpoint", "final"]);
 
+// Path-wide quizzes (the Final Assessment) can be handed hundreds of videos across every
+// milestone — far more than a single milestone's checkpoint ever sees. Sending all of them
+// (with full AI summaries) blows past the model's token budget, especially the smaller
+// fallback model used when the primary hits its daily limit. Cap and sample evenly per
+// milestone so every milestone stays represented instead of just the first one.
+const MAX_VIDEOS_PER_MILESTONE_IN_PROMPT = 10;
+const MAX_VIDEOS_IN_PROMPT = 40;
+const MAX_VIDEOS_WITH_FULL_SUMMARIES = 12;
+
+function selectVideosForPrompt(allVideos: VideoContent[]): VideoContent[] {
+  if (allVideos.length <= MAX_VIDEOS_IN_PROMPT) return allVideos;
+  const byMilestone = new Map<string, VideoContent[]>();
+  for (const v of allVideos) {
+    const key = v.milestone_id || "_none";
+    if (!byMilestone.has(key)) byMilestone.set(key, []);
+    byMilestone.get(key)!.push(v);
+  }
+  const sampled: VideoContent[] = [];
+  for (const group of byMilestone.values()) {
+    sampled.push(...group.slice(0, MAX_VIDEOS_PER_MILESTONE_IN_PROMPT));
+  }
+  return sampled.slice(0, MAX_VIDEOS_IN_PROMPT);
+}
+
 const TYPE_LABEL: Record<string, string> = {
   multiple_choice: "MCQ",
   true_false: "T/F",
@@ -117,13 +141,16 @@ export default function QuizQuestionsModal({
     setIsGenerating(true);
     setError("");
     try {
-      const videoContext = (videos || []).map((v) => ({
+      const sourceVideos = selectVideosForPrompt(videos || []);
+      const includeSummaries = sourceVideos.length <= MAX_VIDEOS_WITH_FULL_SUMMARIES;
+      const videoContext = sourceVideos.map((v) => ({
         title: v.title,
         title_ar: v.title_ar || undefined,
         key_topics: v.key_topics || undefined,
         tools_covered: v.tools_covered || undefined,
-        ai_summary: v.ai_summary || undefined,
-        ai_key_takeaways: v.ai_key_takeaways || undefined,
+        ...(includeSummaries
+          ? { ai_summary: v.ai_summary || undefined, ai_key_takeaways: v.ai_key_takeaways || undefined }
+          : {}),
       }));
 
       const res = await fetch("/api/admin/ai-generate-questions", {

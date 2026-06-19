@@ -9,7 +9,8 @@
       "Bash(grep -o \"milestoneCleared.\\\\{0,150\\\\}\" /tmp/m2.html)",
       "Bash(grep -o \"currentMilestone.\\\\{0,300\\\\}\" /tmp/m2.html)",
       "Bash(npx eslint *)",
-      "Bash(git stash *)"
+      "Bash(git stash *)",
+      "Bash(node scripts/check-video-counts.mjs)"
     ]
   }
 }
