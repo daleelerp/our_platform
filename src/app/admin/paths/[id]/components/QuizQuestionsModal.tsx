@@ -14,10 +14,12 @@ interface QuizQuestionsModalProps {
   onUpdateQuiz?: (quizId: string, data: Partial<Quiz>) => Promise<void>;
 }
 
-/** Checkpoints get a time limit derived from how many questions they have: ~1 min/question minus a 2-min buffer, floored at 5 min. */
-function checkpointTimeLimitFor(questionCount: number): number {
+/** Gated quizzes (checkpoint, final) get a time limit derived from their question count: ~1 min/question minus a 2-min buffer, floored at 5 min. */
+function autoTimeLimitFor(questionCount: number): number {
   return Math.max(5, questionCount - 2);
 }
+
+const AUTO_TIMED_QUIZ_TYPES = new Set(["checkpoint", "final"]);
 
 const TYPE_LABEL: Record<string, string> = {
   multiple_choice: "MCQ",
@@ -61,11 +63,11 @@ export default function QuizQuestionsModal({
   const [loading, setLoading] = useState(true);
   const [timeLimitMinutes, setTimeLimitMinutes] = useState<number | null>(quiz.time_limit_minutes);
 
-  // Checkpoints' time limit always tracks their current question count — keeps it correct
-  // whether questions were just added/removed here, or the quiz predates this feature.
+  // Checkpoint/final quizzes' time limit always tracks their current question count — keeps
+  // it correct whether questions were just added/removed here, or the quiz predates this feature.
   const syncTimeLimit = async (newQuestionCount: number) => {
-    if (quiz.quiz_type !== "checkpoint" || !onUpdateQuiz) return;
-    const minutes = checkpointTimeLimitFor(newQuestionCount);
+    if (!AUTO_TIMED_QUIZ_TYPES.has(quiz.quiz_type) || !onUpdateQuiz) return;
+    const minutes = autoTimeLimitFor(newQuestionCount);
     if (minutes === timeLimitMinutes) return;
     setTimeLimitMinutes(minutes);
     try {
@@ -251,6 +253,17 @@ export default function QuizQuestionsModal({
     syncTimeLimit(questions.length - 1);
   };
 
+  const handleUpdateQuestion = async (id: string, data: Partial<QuizQuestion>) => {
+    const res = await fetch(`/api/admin/data?table=quiz_questions&id=${encodeURIComponent(id)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Failed to update question");
+    setQuestions((prev) => prev.map((q) => (q.id === id ? { ...q, ...json.data } : q)));
+  };
+
   const toggleManualCorrectAnswer = (optionId: string) => {
     setManualForm((prev) => {
       if (prev.question_type === "multiple_choice" || prev.question_type === "true_false") {
@@ -280,7 +293,7 @@ export default function QuizQuestionsModal({
             {!loading && (
               <p className="text-xs text-slate-500 mt-0.5">
                 {questions.length} question{questions.length !== 1 ? "s" : ""} saved
-                {quiz.quiz_type === "checkpoint" && (
+                {AUTO_TIMED_QUIZ_TYPES.has(quiz.quiz_type) && (
                   <> · ⏱ {timeLimitMinutes ?? "—"} min time limit</>
                 )}
               </p>
@@ -645,6 +658,7 @@ export default function QuizQuestionsModal({
                     question={q}
                     index={index}
                     onDelete={() => handleDeleteQuestion(q.id)}
+                    onUpdate={handleUpdateQuestion}
                   />
                 ))}
               </div>
@@ -797,12 +811,79 @@ function SavedQuestionCard({
   question,
   index,
   onDelete,
+  onUpdate,
 }: {
   question: QuizQuestion;
   index: number;
   onDelete: () => void;
+  onUpdate: (id: string, data: Partial<QuizQuestion>) => Promise<void>;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState("");
+  const [editForm, setEditForm] = useState(() => ({
+    question_text: question.question_text,
+    question_text_ar: question.question_text_ar || "",
+    options: question.options ? question.options.map((o) => ({ ...o, text_ar: o.text_ar || "" })) : [],
+    correct_answers: [...question.correct_answers],
+    explanation: question.explanation || "",
+    explanation_ar: question.explanation_ar || "",
+    points: question.points,
+  }));
+
+  const startEdit = () => {
+    setEditForm({
+      question_text: question.question_text,
+      question_text_ar: question.question_text_ar || "",
+      options: question.options ? question.options.map((o) => ({ ...o, text_ar: o.text_ar || "" })) : [],
+      correct_answers: [...question.correct_answers],
+      explanation: question.explanation || "",
+      explanation_ar: question.explanation_ar || "",
+      points: question.points,
+    });
+    setEditError("");
+    setIsEditing(true);
+    setExpanded(true);
+  };
+
+  const toggleEditCorrectAnswer = (optionId: string) => {
+    setEditForm((prev) => {
+      if (question.question_type === "multiple_choice" || question.question_type === "true_false") {
+        return { ...prev, correct_answers: [optionId] };
+      }
+      const exists = prev.correct_answers.includes(optionId);
+      return {
+        ...prev,
+        correct_answers: exists
+          ? prev.correct_answers.filter((a) => a !== optionId)
+          : [...prev.correct_answers, optionId],
+      };
+    });
+  };
+
+  const saveEdit = async () => {
+    if (!editForm.question_text.trim()) return setEditError("Question text is required.");
+    if (editForm.correct_answers.length === 0) return setEditError("Select at least one correct answer.");
+    setSaving(true);
+    setEditError("");
+    try {
+      await onUpdate(question.id, {
+        question_text: editForm.question_text,
+        question_text_ar: editForm.question_text_ar || null,
+        options: editForm.options.length > 0 ? editForm.options : null,
+        correct_answers: editForm.correct_answers,
+        explanation: editForm.explanation || null,
+        explanation_ar: editForm.explanation_ar || null,
+        points: editForm.points,
+      } as Partial<QuizQuestion>);
+      setIsEditing(false);
+    } catch (err: any) {
+      setEditError(err.message || "Failed to save question");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="border border-slate-200 rounded-xl p-4 hover:border-slate-300 transition">
@@ -824,6 +905,13 @@ function SavedQuestionCard({
           </button>
           <button
             type="button"
+            onClick={isEditing ? () => setIsEditing(false) : startEdit}
+            className="text-[11px] px-2 py-1 border border-blue-200 rounded text-blue-600 hover:bg-blue-50"
+          >
+            {isEditing ? "Cancel" : "Edit"}
+          </button>
+          <button
+            type="button"
             onClick={onDelete}
             className="text-[11px] px-2 py-1 border border-red-200 rounded text-red-500 hover:bg-red-50"
           >
@@ -832,7 +920,143 @@ function SavedQuestionCard({
         </div>
       </div>
 
-      {expanded && (
+      {expanded && isEditing && (
+        <div className="mt-3 space-y-2.5">
+          {editError && (
+            <div className="p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">{editError}</div>
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <textarea
+              rows={2}
+              placeholder="Question text (English)"
+              value={editForm.question_text}
+              onChange={(e) => setEditForm((p) => ({ ...p, question_text: e.target.value }))}
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
+            <textarea
+              rows={2}
+              dir="rtl"
+              placeholder="نص السؤال (Arabic)"
+              value={editForm.question_text_ar}
+              onChange={(e) => setEditForm((p) => ({ ...p, question_text_ar: e.target.value }))}
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {editForm.options.length > 0 && (
+            <div className="space-y-1.5">
+              {editForm.options.map((opt, i) => (
+                <div key={opt.id} className="flex items-center gap-2">
+                  <input
+                    type={question.question_type === "multiple_select" ? "checkbox" : "radio"}
+                    aria-label={`Mark option ${opt.id.toUpperCase()} as correct`}
+                    name={`correct-${question.id}`}
+                    checked={editForm.correct_answers.includes(opt.id)}
+                    onChange={() => toggleEditCorrectAnswer(opt.id)}
+                    className="w-4 h-4 text-blue-600"
+                  />
+                  <span className="text-xs font-bold text-slate-500 w-4">{opt.id.toUpperCase()}.</span>
+                  <input
+                    type="text"
+                    placeholder={`Option ${opt.id.toUpperCase()} (EN)`}
+                    value={opt.text}
+                    onChange={(e) =>
+                      setEditForm((p) => ({
+                        ...p,
+                        options: p.options.map((o, oi) => (oi === i ? { ...o, text: e.target.value } : o)),
+                      }))
+                    }
+                    className="flex-1 px-2 py-1.5 text-xs border border-slate-300 rounded focus:ring-1 focus:ring-blue-500"
+                  />
+                  <input
+                    type="text"
+                    dir="rtl"
+                    placeholder={`الخيار ${opt.id.toUpperCase()}`}
+                    value={opt.text_ar}
+                    onChange={(e) =>
+                      setEditForm((p) => ({
+                        ...p,
+                        options: p.options.map((o, oi) => (oi === i ? { ...o, text_ar: e.target.value } : o)),
+                      }))
+                    }
+                    className="flex-1 px-2 py-1.5 text-xs border border-slate-300 rounded focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {question.question_type === "true_false" && (
+            <div className="flex gap-3">
+              {["true", "false"].map((val) => (
+                <button
+                  type="button"
+                  key={val}
+                  onClick={() => toggleEditCorrectAnswer(val)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium border transition ${
+                    editForm.correct_answers.includes(val)
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "bg-white text-slate-700 border-slate-300 hover:border-blue-400"
+                  }`}
+                >
+                  {val === "true" ? "True ✓" : "False ✗"}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <textarea
+              rows={2}
+              placeholder="Explanation (English)"
+              value={editForm.explanation}
+              onChange={(e) => setEditForm((p) => ({ ...p, explanation: e.target.value }))}
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
+            <textarea
+              rows={2}
+              dir="rtl"
+              placeholder="لماذا هذه هي الإجابة الصحيحة؟"
+              value={editForm.explanation_ar}
+              onChange={(e) => setEditForm((p) => ({ ...p, explanation_ar: e.target.value }))}
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div className="flex items-center gap-3">
+            <label htmlFor={`edit-points-${question.id}`} className="text-xs font-medium text-slate-600">Points:</label>
+            <input
+              id={`edit-points-${question.id}`}
+              type="number"
+              min={1}
+              max={10}
+              value={editForm.points}
+              onChange={(e) => setEditForm((p) => ({ ...p, points: Number(e.target.value) }))}
+              className="w-16 px-2 py-1.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            <button
+              type="button"
+              onClick={saveEdit}
+              disabled={saving}
+              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            >
+              {saving ? "Saving..." : "Save Changes"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsEditing(false)}
+              className="px-4 py-2 border border-slate-300 text-sm text-slate-600 rounded-lg hover:bg-slate-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {expanded && !isEditing && (
         <div className="mt-3 space-y-2">
           {question.question_text_ar && (
             <p className="text-sm text-slate-600" dir="rtl">{question.question_text_ar}</p>

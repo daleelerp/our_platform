@@ -25,6 +25,9 @@ export default function PathFinalQuizSection({
     const [error, setError] = useState<string | null>(null);
     const [questionsModal, setQuestionsModal] = useState<Quiz | null>(null);
     const [questionCount, setQuestionCount] = useState<number | null>(null);
+    const [isEditing, setIsEditing] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [editValues, setEditValues] = useState<Partial<Quiz>>({});
 
     useEffect(() => {
         if (!quiz?.id) { setQuestionCount(null); return; }
@@ -76,6 +79,45 @@ export default function PathFinalQuizSection({
         if (res.ok) onDeleteQuiz();
     };
 
+    const handleUpdateQuiz = async (quizId: string, data: Partial<Quiz>) => {
+        const res = await fetch(
+            `/api/admin/data?table=quizzes&id=${encodeURIComponent(quizId)}`,
+            {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data),
+            }
+        );
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || "Failed to update quiz");
+        onQuizCreated(json.data);
+    };
+
+    const startEdit = () => {
+        if (!quiz) return;
+        setEditValues({
+            title: quiz.title,
+            title_ar: quiz.title_ar,
+            passing_score: quiz.passing_score,
+            time_limit_minutes: quiz.time_limit_minutes,
+            max_attempts: quiz.max_attempts,
+        });
+        setIsEditing(true);
+    };
+
+    const saveEdit = async () => {
+        if (!quiz) return;
+        setIsSaving(true);
+        try {
+            await handleUpdateQuiz(quiz.id, editValues);
+            setIsEditing(false);
+        } catch (err: any) {
+            setError(err.message);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     return (
         <>
             <div className="bg-white rounded-xl border border-slate-200 p-5">
@@ -104,7 +146,74 @@ export default function PathFinalQuizSection({
                     </div>
                 )}
 
-                {quiz ? (
+                {quiz && isEditing ? (
+                    <div className="text-xs p-3 rounded-lg border border-blue-300 bg-blue-50 space-y-2">
+                        <div className="text-[11px] font-semibold text-slate-600">Edit Final Quiz Settings</div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <input
+                                type="text"
+                                placeholder="Quiz title (English)"
+                                value={editValues.title || ""}
+                                onChange={(e) => setEditValues((p) => ({ ...p, title: e.target.value }))}
+                                className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                            />
+                            <input
+                                type="text"
+                                placeholder="عنوان الاختبار (عربي)"
+                                value={editValues.title_ar || ""}
+                                onChange={(e) => setEditValues((p) => ({ ...p, title_ar: e.target.value }))}
+                                className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                            />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                            <input
+                                type="number"
+                                min="0"
+                                max="100"
+                                placeholder="Passing score (%)"
+                                value={editValues.passing_score ?? ""}
+                                onChange={(e) => setEditValues((p) => ({ ...p, passing_score: e.target.value ? Number(e.target.value) : undefined }))}
+                                className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                            />
+                            <input
+                                type="number"
+                                min="0"
+                                placeholder="Time limit (minutes, optional)"
+                                value={editValues.time_limit_minutes ?? ""}
+                                onChange={(e) => setEditValues((p) => ({ ...p, time_limit_minutes: e.target.value ? Number(e.target.value) : null }))}
+                                className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                            />
+                            <input
+                                type="number"
+                                min="1"
+                                placeholder="Max attempts (optional)"
+                                value={editValues.max_attempts ?? ""}
+                                onChange={(e) => setEditValues((p) => ({ ...p, max_attempts: e.target.value ? Number(e.target.value) : null }))}
+                                className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                            />
+                        </div>
+                        <p className="text-[10px] text-slate-400">
+                            Time limit auto-updates from question count via Manage Questions — set it here only to override.
+                        </p>
+                        <div className="flex items-center gap-2 pt-1">
+                            <button
+                                type="button"
+                                onClick={saveEdit}
+                                disabled={isSaving}
+                                className="text-xs px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                            >
+                                {isSaving ? "Saving…" : "Save"}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setIsEditing(false)}
+                                className="text-xs px-3 py-1.5 text-slate-500 hover:text-slate-700"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                ) : quiz ? (
                     <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs">
                         <div>
                             <div className="flex items-center gap-2 mb-0.5">
@@ -134,6 +243,13 @@ export default function PathFinalQuizSection({
                                 className="text-[11px] px-2.5 py-1 bg-violet-50 text-violet-700 border border-violet-200 rounded-lg hover:bg-violet-100 transition-colors font-medium"
                             >
                                 ✨ Manage Questions
+                            </button>
+                            <button
+                                type="button"
+                                onClick={startEdit}
+                                className="text-[11px] px-2.5 py-1 bg-blue-50 text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors font-medium"
+                            >
+                                Edit
                             </button>
                             <button
                                 type="button"
@@ -171,6 +287,7 @@ export default function PathFinalQuizSection({
                     pathTitle={pathTitle}
                     videos={allVideos}
                     onClose={() => setQuestionsModal(null)}
+                    onUpdateQuiz={handleUpdateQuiz}
                 />
             )}
         </>
