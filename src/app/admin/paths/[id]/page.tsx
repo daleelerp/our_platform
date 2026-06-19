@@ -197,7 +197,7 @@ export default function EditPathPage() {
               passing_score: 70,
               time_limit_minutes: "",
               max_attempts: "",
-              is_required: false,
+              is_required: true,
             };
             scrapMap[m.id] = {
               query: "",
@@ -376,7 +376,7 @@ export default function EditPathPage() {
           passing_score: 70,
           time_limit_minutes: "",
           max_attempts: "",
-          is_required: false,
+          is_required: true,
         },
       }));
       setScrapingArticle((prev) => ({
@@ -583,6 +583,7 @@ export default function EditPathPage() {
           passing_score: data.passing_score !== "" ? Number(data.passing_score) : 70,
           time_limit_minutes: data.time_limit_minutes !== "" ? Number(data.time_limit_minutes) : null,
           max_attempts: data.max_attempts !== "" ? Number(data.max_attempts) : null,
+          is_required: data.quiz_type === "checkpoint" ? true : data.is_required,
           is_active: true,
         }),
       });
@@ -619,7 +620,10 @@ export default function EditPathPage() {
       {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          is_required: data.quiz_type === "checkpoint" ? true : data.is_required,
+        }),
       }
     );
     const json = await res.json();

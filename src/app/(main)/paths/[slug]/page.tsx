@@ -35,15 +35,14 @@ export default async function PathDetailPage({ params, searchParams }: Props) {
     .single();
 
   if (error || !path) {
-    redirect("/paths");
+    redirect("/");
   }
 
   // Validate that path is in user's subscription plan
   const hasAccess = await isPathInUserPlan(path.id, supabase, user?.id, selectedPlanId);
   
   if (!hasAccess) {
-    // Path is not in user's plan - redirect to paths page with error message
-    redirect("/paths?error=path_not_in_plan");
+    redirect("/");
   }
 
   // Fetch milestones for this path

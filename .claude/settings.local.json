@@ -2,7 +2,14 @@
   "permissions": {
     "allow": [
       "Bash(npx tsc *)",
-      "Bash(findstr /i \"supabase\" package.json)"
+      "Bash(findstr /i \"supabase\" package.json)",
+      "Bash(node scripts/backfill-checkpoint-required.mjs)",
+      "Bash(curl -s -H 'Cookie: __TRACKED_VAR__' http://localhost:3000/paths/html-css-foundations/learn?milestone=2 -o /tmp/m2.html)",
+      "Bash(grep -ao \"Finish the previous milestone.\\\\{0,200\\\\}\\\\|This Milestone is Locked\\\\|هذه المرحلة مقفلة\" /tmp/m2.html)",
+      "Bash(grep -o \"milestoneCleared.\\\\{0,150\\\\}\" /tmp/m2.html)",
+      "Bash(grep -o \"currentMilestone.\\\\{0,300\\\\}\" /tmp/m2.html)",
+      "Bash(npx eslint *)",
+      "Bash(git stash *)"
     ]
   }
 }

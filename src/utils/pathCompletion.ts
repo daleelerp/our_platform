@@ -12,6 +12,13 @@ export type PathCompletionStatus = {
   allVideosComplete: boolean;
   /** True once both the checkpoints and the (language-visible) videos are done */
   isEligible: boolean;
+  /**
+   * milestoneId -> whether THIS milestone is done: its checkpoint is passed (or it has
+   * none) AND every (language-visible) video in it is complete. Drives both the
+   * milestone-to-milestone lock and the "completed" checkmark in the sidebar — a
+   * milestone with no checkpoint quiz still requires its videos to be watched.
+   */
+  milestoneCleared: Record<string, boolean>;
 };
 
 /**
@@ -70,16 +77,24 @@ export async function getPathCompletionStatus(
   let videosTotal = 0;
   let videosCompleted = 0;
   const allMilestoneIds = milestones.map((m) => m.id);
+  // milestoneId -> language-visible video ids in it, used below to derive milestoneCleared
+  const videosByMilestone = new Map<string, string[]>();
+  const completedVideoIds = new Set<string>();
 
   if (allMilestoneIds.length > 0) {
     const { data: allPathVideos } = await admin
       .from("video_content")
-      .select("id, primary_language")
+      .select("id, milestone_id, primary_language")
       .in("milestone_id", allMilestoneIds)
       .neq("is_active", false);
 
     const visibleVideos = filterVideosByLanguage(allPathVideos ?? [], language);
     videosTotal = visibleVideos.length;
+
+    for (const v of visibleVideos as any[]) {
+      if (!videosByMilestone.has(v.milestone_id)) videosByMilestone.set(v.milestone_id, []);
+      videosByMilestone.get(v.milestone_id)!.push(v.id);
+    }
 
     if (videosTotal > 0) {
       const visibleVideoIds = visibleVideos.map((v: any) => v.id);
@@ -89,14 +104,22 @@ export async function getPathCompletionStatus(
         .eq("user_id", userId)
         .in("video_id", visibleVideoIds);
 
-      const completedSet = new Set(
-        (videoProgress || []).filter((v: any) => v.is_completed).map((v: any) => v.video_id)
-      );
-      videosCompleted = visibleVideoIds.filter((id: string) => completedSet.has(id)).length;
+      (videoProgress || [])
+        .filter((v: any) => v.is_completed)
+        .forEach((v: any) => completedVideoIds.add(v.video_id));
+      videosCompleted = visibleVideoIds.filter((id: string) => completedVideoIds.has(id)).length;
     }
   }
 
   const allVideosComplete = videosTotal === 0 || videosCompleted === videosTotal;
+
+  const milestoneCleared: Record<string, boolean> = {};
+  for (const milestone of milestones) {
+    const checkpointOk = checkpointPassStatus[milestone.id] ?? true; // no checkpoint = trivially passed
+    const milestoneVideoIds = videosByMilestone.get(milestone.id) ?? [];
+    const videosOk = milestoneVideoIds.every((id) => completedVideoIds.has(id));
+    milestoneCleared[milestone.id] = checkpointOk && videosOk;
+  }
 
   return {
     checkpointPassStatus,
@@ -107,5 +130,6 @@ export async function getPathCompletionStatus(
     allCheckpointsPassed,
     allVideosComplete,
     isEligible: allCheckpointsPassed && allVideosComplete,
+    milestoneCleared,
   };
 }

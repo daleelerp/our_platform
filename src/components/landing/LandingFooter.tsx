@@ -38,8 +38,8 @@ export function LandingFooter() {
                 </Link>
               </li>
               <li>
-                <Link href="/paths" className="text-slate-600 hover:text-[#429874] transition">
-                  {t("nav.paths")}
+                <Link href="/plans" className="text-slate-600 hover:text-[#429874] transition">
+                  {t("nav.plans")}
                 </Link>
               </li>
               <li>

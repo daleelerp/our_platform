@@ -169,7 +169,7 @@ export function OraclePathsPreview({ paths }: Props) {
         {paths.length > 0 && (
           <div className="text-center mt-10">
             <Link
-              href="/paths"
+              href="/plans"
               className="inline-flex items-center gap-2 px-6 py-3 bg-[#429874] text-white rounded-xl font-medium hover:bg-[#357a5d] transition-colors"
             >
               {t("landing.paths.viewAll")}

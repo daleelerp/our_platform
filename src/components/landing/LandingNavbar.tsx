@@ -222,7 +222,7 @@ export function LandingNavbar() {
                         {language === "ar" ? "لوحة التحكم" : "Dashboard"}
                       </Link>
                       <Link
-                        href="/paths"
+                        href="/dashboard"
                         onClick={() => setShowUserMenu(false)}
                         className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
                       >

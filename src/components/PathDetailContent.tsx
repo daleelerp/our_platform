@@ -266,8 +266,8 @@ export function PathDetailContent({ path, milestones, isLoggedIn, userId, enroll
         <div className="max-w-4xl mx-auto px-4 py-8 sm:py-12">
           {/* Breadcrumb */}
           <nav className="flex items-center gap-2 text-sm text-slate-500 mb-6">
-            <Link href="/paths" className="hover:text-teal-600 transition-colors">
-              {language === "ar" ? "المسارات" : "Paths"}
+            <Link href="/plans" className="hover:text-teal-600 transition-colors">
+              {language === "ar" ? "الخطط" : "Plans"}
             </Link>
             <span>/</span>
             <span className="text-slate-900 font-medium truncate">{title}</span>

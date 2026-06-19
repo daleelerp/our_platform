@@ -11,6 +11,12 @@ interface QuizQuestionsModalProps {
   pathTitle: string;
   videos?: VideoContent[];
   onClose: () => void;
+  onUpdateQuiz?: (quizId: string, data: Partial<Quiz>) => Promise<void>;
+}
+
+/** Checkpoints get a time limit derived from how many questions they have: ~1 min/question minus a 2-min buffer, floored at 5 min. */
+function checkpointTimeLimitFor(questionCount: number): number {
+  return Math.max(5, questionCount - 2);
 }
 
 const TYPE_LABEL: Record<string, string> = {
@@ -49,9 +55,25 @@ export default function QuizQuestionsModal({
   pathTitle,
   videos,
   onClose,
+  onUpdateQuiz,
 }: QuizQuestionsModalProps) {
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [loading, setLoading] = useState(true);
+  const [timeLimitMinutes, setTimeLimitMinutes] = useState<number | null>(quiz.time_limit_minutes);
+
+  // Checkpoints' time limit always tracks their current question count — keeps it correct
+  // whether questions were just added/removed here, or the quiz predates this feature.
+  const syncTimeLimit = async (newQuestionCount: number) => {
+    if (quiz.quiz_type !== "checkpoint" || !onUpdateQuiz) return;
+    const minutes = checkpointTimeLimitFor(newQuestionCount);
+    if (minutes === timeLimitMinutes) return;
+    setTimeLimitMinutes(minutes);
+    try {
+      await onUpdateQuiz(quiz.id, { time_limit_minutes: minutes });
+    } catch {
+      // best-effort — admin can still set the time limit manually if this fails
+    }
+  };
 
   const [showGeneratePanel, setShowGeneratePanel] = useState(false);
   const [generateCount, setGenerateCount] = useState(8);
@@ -79,12 +101,14 @@ export default function QuizQuestionsModal({
             (a: QuizQuestion, b: QuizQuestion) => (a.question_order ?? 0) - (b.question_order ?? 0)
           );
           setQuestions(sorted);
+          syncTimeLimit(sorted.length);
         }
       } finally {
         setLoading(false);
       }
     };
     fetchQuestions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quiz.id]);
 
   const handleGenerate = async () => {
@@ -168,6 +192,7 @@ export default function QuizQuestionsModal({
         if (res.ok && json.data) saved.push(json.data);
       }
       setQuestions((prev) => [...prev, ...saved]);
+      syncTimeLimit(questions.length + saved.length);
       setGeneratedQuestions([]);
       setShowReviewPanel(false);
     } catch (err: any) {
@@ -207,6 +232,7 @@ export default function QuizQuestionsModal({
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Failed to save question");
       setQuestions((prev) => [...prev, json.data]);
+      syncTimeLimit(questions.length + 1);
       setManualForm({ ...EMPTY_MANUAL });
       setShowAddManual(false);
     } catch (err: any) {
@@ -222,6 +248,7 @@ export default function QuizQuestionsModal({
       method: "DELETE",
     });
     setQuestions((prev) => prev.filter((q) => q.id !== id));
+    syncTimeLimit(questions.length - 1);
   };
 
   const toggleManualCorrectAnswer = (optionId: string) => {
@@ -253,6 +280,9 @@ export default function QuizQuestionsModal({
             {!loading && (
               <p className="text-xs text-slate-500 mt-0.5">
                 {questions.length} question{questions.length !== 1 ? "s" : ""} saved
+                {quiz.quiz_type === "checkpoint" && (
+                  <> · ⏱ {timeLimitMinutes ?? "—"} min time limit</>
+                )}
               </p>
             )}
           </div>

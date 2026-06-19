@@ -45,7 +45,7 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
     .single();
 
   if (pathError || !path) {
-    redirect("/paths");
+    redirect("/");
   }
 
   // Check if user is enrolled, if not, enroll them

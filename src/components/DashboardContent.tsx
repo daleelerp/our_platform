@@ -310,7 +310,7 @@ export function DashboardContent({
                 </p>
               </div>
               <div className="flex gap-3 shrink-0">
-                <Link href="/paths" className="px-5 py-2.5 bg-white text-[#429874] rounded-lg font-semibold text-sm hover:bg-slate-50 transition text-center">
+                <Link href="/plans" className="px-5 py-2.5 bg-white text-[#429874] rounded-lg font-semibold text-sm hover:bg-slate-50 transition text-center">
                   {language === "ar" ? "المسارات" : "Browse Paths"}
                 </Link>
                 <Link href="/plans" className="px-5 py-2.5 bg-white/10 border border-white/30 text-white rounded-lg font-semibold text-sm hover:bg-white/20 transition text-center">
@@ -649,7 +649,7 @@ export function DashboardContent({
         {/* ── QUICK ACTIONS ─────────────────────────────────────────────────── */}
         <section className="grid md:grid-cols-2 gap-4">
           <Link
-            href="/paths"
+            href="/plans"
             className="group bg-linear-to-br from-teal-500 to-emerald-600 rounded-2xl p-6 text-white hover:shadow-lg transition"
           >
             <p className="text-lg font-bold mb-1">

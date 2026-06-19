@@ -100,6 +100,7 @@ export type PathStatus = {
   allCheckpointsPassed: boolean;
   allVideosComplete: boolean;
   isEligible: boolean;
+  milestoneCleared: Record<string, boolean>;
 };
 
 type Props = {
@@ -513,13 +514,14 @@ export function LearningInterface({
   );
 
   // Derive which milestones are locked.
-  // A milestone is locked when ANY preceding milestone has a checkpoint quiz entry in
-  // checkpointPassStatus that the user has NOT yet passed.
+  // A milestone is locked when ANY preceding milestone isn't "cleared" yet — its checkpoint
+  // hasn't been passed (if it has one) and/or its videos haven't all been watched. A
+  // milestone with no checkpoint quiz still requires its videos before the next unlocks.
   const lockedMilestoneIds = useMemo(() => {
     const locked = new Set<string>();
     for (let i = 1; i < milestones.length; i++) {
       const prev = milestones[i - 1];
-      if (prev.id in checkpointPassStatus && !checkpointPassStatus[prev.id]) {
+      if (!pathStatus.milestoneCleared[prev.id]) {
         for (let j = i; j < milestones.length; j++) {
           locked.add(milestones[j].id);
         }
@@ -527,7 +529,7 @@ export function LearningInterface({
       }
     }
     return locked;
-  }, [milestones, checkpointPassStatus]);
+  }, [milestones, pathStatus.milestoneCleared]);
 
   const isCurrentMilestoneLocked = currentMilestone
     ? lockedMilestoneIds.has(currentMilestone.id)
@@ -599,7 +601,7 @@ export function LearningInterface({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Link
-                href={`/paths/${path.slug}`}
+                href="/"
                 className="text-slate-600 hover:text-slate-900 transition-colors"
               >
                 ← {language === "ar" ? "العودة" : "Back"}
@@ -628,7 +630,7 @@ export function LearningInterface({
               <div className="space-y-2">
                 {milestones.map((milestone) => {
                   const isCurrent = milestone.id === currentMilestone.id;
-                  const isCompleted = milestone.milestone_number < currentMilestone.milestone_number;
+                  const isCompleted = !!pathStatus.milestoneCleared[milestone.id];
                   const isLocked = lockedMilestoneIds.has(milestone.id);
                   const milestoneTitle = getText(milestone.title, milestone.title_ar);
 
@@ -636,7 +638,7 @@ export function LearningInterface({
                     return (
                       <div
                         key={milestone.id}
-                        title={language === "ar" ? "أكمل اختبار المرحلة السابقة لفتح هذه المرحلة" : "Pass the previous checkpoint to unlock"}
+                        title={language === "ar" ? "أكمل فيديوهات واختبار المرحلة السابقة لفتح هذه المرحلة" : "Finish the previous milestone's videos and checkpoint to unlock"}
                         className="block p-3 rounded-lg border border-slate-200 bg-slate-50 opacity-60 cursor-not-allowed select-none"
                       >
                         <div className="flex items-center gap-2">
@@ -1089,8 +1091,8 @@ export function LearningInterface({
                   </h3>
                   <p className="text-slate-600 mb-6">
                     {language === "ar"
-                      ? "يجب اجتياز اختبار المرحلة السابقة لفتح هذه المرحلة."
-                      : "You need to pass the checkpoint quiz in the previous milestone to unlock this one."}
+                      ? "يجب مشاهدة جميع فيديوهات المرحلة السابقة واجتياز اختبارها (إن وجد) لفتح هذه المرحلة."
+                      : "You need to watch all of the previous milestone's videos and pass its checkpoint quiz (if it has one) to unlock this one."}
                   </p>
                   {prevMilestone && (
                     <Link

@@ -142,7 +142,7 @@ export function AboutContent() {
       cta: {
         title: "Ready to Start Your Journey?",
         subtitle: "A structured system that helps ERP learners make the right career decisions and progress with confidence.",
-        button: "Explore Learning Paths"
+        button: "Explore Plans"
       },
 
       contact: {
@@ -284,7 +284,7 @@ export function AboutContent() {
       cta: {
         title: "مستعد لبدء رحلتك؟",
         subtitle: "نظام منظم يساعد متعلمي ERP على اتخاذ قرارات مهنية صحيحة والتقدم بثقة.",
-        button: "استكشف مسارات التعلم"
+        button: "استكشف الخطط"
       },
 
       contact: {
@@ -523,7 +523,7 @@ export function AboutContent() {
           <h2 className="text-3xl font-bold mb-4">{t.cta.title}</h2>
           <p className="text-xl text-emerald-100 mb-8">{t.cta.subtitle}</p>
           <Link
-            href="/paths"
+            href="/plans"
             className="inline-flex items-center gap-2 bg-white text-[#285c46] px-8 py-4 rounded-xl font-semibold hover:bg-emerald-50 transition-colors"
           >
             {t.cta.button}

@@ -185,7 +185,7 @@ export function PricingSection() {
               {language === "ar" ? "اكتشف ما هو مجاني" : "See What's Free"}
             </Link>
             <Link
-              href="/paths"
+              href="/plans"
               className="inline-flex items-center gap-2 rounded-xl border border-[#429874]/30 bg-white px-5 py-3 text-sm font-semibold text-[#357a5d] transition hover:bg-[#f0f9f6]"
             >
               {language === "ar" ? "استعرض المسارات المجانية" : "Browse Free Paths"}

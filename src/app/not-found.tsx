@@ -19,10 +19,10 @@ export default function NotFound() {
             Go Home
           </Link>
           <Link
-            href="/paths"
+            href="/plans"
             className="px-6 py-3 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors"
           >
-            Browse Paths
+            Browse Plans
           </Link>
         </div>
       </div>

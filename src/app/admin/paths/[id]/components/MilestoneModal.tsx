@@ -222,6 +222,7 @@ export default function MilestoneModal({
                     pathTitle={pathTitle}
                     videos={videos}
                     onClose={() => setSelectedQuizForQuestions(null)}
+                    onUpdateQuiz={(quizId, data) => onUpdateQuiz(milestone.id, quizId, data)}
                 />
             )}
         </div>

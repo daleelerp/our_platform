@@ -65,7 +65,7 @@ export default function QuizSection({
             passing_score: q.passing_score,
             time_limit_minutes: q.time_limit_minutes,
             max_attempts: q.max_attempts,
-            is_required: q.is_required,
+            is_required: q.quiz_type === "checkpoint" ? true : q.is_required,
         });
     }
 
@@ -162,7 +162,14 @@ export default function QuizSection({
                                             <select
                                                 aria-label="Quiz type"
                                                 value={editValues.quiz_type || "checkpoint"}
-                                                onChange={(e) => setEditValues((p) => ({ ...p, quiz_type: e.target.value }))}
+                                                onChange={(e) => {
+                                                    const value = e.target.value;
+                                                    setEditValues((p) => ({
+                                                        ...p,
+                                                        quiz_type: value,
+                                                        is_required: value === "checkpoint" ? true : p.is_required,
+                                                    }));
+                                                }}
                                                 className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white"
                                             >
                                                 <option value="checkpoint">🎯 Checkpoint</option>
@@ -177,16 +184,22 @@ export default function QuizSection({
                                                 onChange={(e) => setEditValues((p) => ({ ...p, passing_score: e.target.value ? Number(e.target.value) : undefined }))}
                                                 className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500 bg-white"
                                             />
-                                            <div className="flex items-center gap-2">
-                                                <input
-                                                    type="checkbox"
-                                                    id={`edit_required_${q.id}`}
-                                                    checked={editValues.is_required || false}
-                                                    onChange={(e) => setEditValues((p) => ({ ...p, is_required: e.target.checked }))}
-                                                    className="w-4 h-4 text-teal-600 border-slate-300 rounded focus:ring-teal-500"
-                                                />
-                                                <label htmlFor={`edit_required_${q.id}`} className="text-xs text-slate-600">Required</label>
-                                            </div>
+                                            {editValues.quiz_type === "checkpoint" ? (
+                                                <div className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-[11px] text-amber-700 font-medium">
+                                                    🔒 Always required
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="checkbox"
+                                                        id={`edit_required_${q.id}`}
+                                                        checked={editValues.is_required || false}
+                                                        onChange={(e) => setEditValues((p) => ({ ...p, is_required: e.target.checked }))}
+                                                        className="w-4 h-4 text-teal-600 border-slate-300 rounded focus:ring-teal-500"
+                                                    />
+                                                    <label htmlFor={`edit_required_${q.id}`} className="text-xs text-slate-600">Required</label>
+                                                </div>
+                                            )}
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                             <input
@@ -347,9 +360,14 @@ export default function QuizSection({
                         <select
                             aria-label="Quiz type"
                             value={newQuiz?.quiz_type || "checkpoint"}
-                            onChange={(e) =>
-                                setNewQuiz((prev: any) => ({ ...prev, quiz_type: e.target.value }))
-                            }
+                            onChange={(e) => {
+                                const value = e.target.value;
+                                setNewQuiz((prev: any) => ({
+                                    ...prev,
+                                    quiz_type: value,
+                                    is_required: value === "checkpoint" ? true : prev.is_required,
+                                }));
+                            }}
                             className={`px-3 py-2 border rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500 ${
                                 checkpointConflict ? "border-amber-300 bg-amber-50" : "border-slate-300"
                             }`}
@@ -371,20 +389,26 @@ export default function QuizSection({
                             }
                             className="px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
                         />
-                        <div className="flex items-center gap-2">
-                            <input
-                                type="checkbox"
-                                id="chk_quiz_required"
-                                checked={newQuiz?.is_required || false}
-                                onChange={(e) =>
-                                    setNewQuiz((prev: any) => ({ ...prev, is_required: e.target.checked }))
-                                }
-                                className="w-4 h-4 text-teal-600 border-slate-300 rounded focus:ring-teal-500"
-                            />
-                            <label htmlFor="chk_quiz_required" className="text-xs text-slate-600">
-                                Required
-                            </label>
-                        </div>
+                        {(newQuiz?.quiz_type || "checkpoint") === "checkpoint" ? (
+                            <div className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-[11px] text-amber-700 font-medium">
+                                🔒 Always required
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    id="chk_quiz_required"
+                                    checked={newQuiz?.is_required || false}
+                                    onChange={(e) =>
+                                        setNewQuiz((prev: any) => ({ ...prev, is_required: e.target.checked }))
+                                    }
+                                    className="w-4 h-4 text-teal-600 border-slate-300 rounded focus:ring-teal-500"
+                                />
+                                <label htmlFor="chk_quiz_required" className="text-xs text-slate-600">
+                                    Required
+                                </label>
+                            </div>
+                        )}
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                         <input

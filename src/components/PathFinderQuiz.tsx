@@ -1274,14 +1274,14 @@ export function PathFinderQuiz({ paths, accessiblePaths, erpSystems, erpProvider
       <div className="max-w-2xl mx-auto px-4">
         {/* Header */}
         <div className="text-center mb-8">
-          <Link 
-            href="/paths"
+          <Link
+            href="/"
             className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 mb-4"
           >
             <svg className="w-4 h-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            {language === "ar" ? "العودة للمسارات" : "Back to Paths"}
+            {language === "ar" ? "العودة للرئيسية" : "Back to Home"}
           </Link>
           <h1 className="text-2xl font-bold text-slate-900 mb-2">
             {language === "ar" ? "اكتشف مسارك المثالي" : "Find Your Ideal Path"}
