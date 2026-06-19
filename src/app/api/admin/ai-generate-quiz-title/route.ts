@@ -23,7 +23,10 @@ Context:
 
 Generate appropriate quiz settings. Rules:
 - title: concise professional English title reflecting the milestone and quiz type
-- title_ar: same title in Arabic
+- title_ar: a natural, professional Arabic title — NOT a transliteration.
+  - Translate ordinary words into proper Arabic (e.g. "Checkpoint" → "نقطة التحقق" [never "نقطة تفتيش"], "Quiz" → "اختبار", "Fundamentals" → "أساسيات").
+  - Keep product names, module names, table/field names, and other technical proper nouns in their original English/Latin spelling embedded in the Arabic sentence — never translate or transliterate them (e.g. "Fusion" stays "Fusion", never "فيوش" or "فيوجن").
+  - Example: for "Fusion Base Tables Checkpoint" write "نقطة التحقق Fusion Base Tables", NOT "نقطة تفتيش جداول البيس فيوش".
 - passing_score: integer 0-100 (checkpoint: typically 70-80, practice: typically 60-70)
 - time_limit_minutes: realistic time in minutes based on content complexity (5-60), or null if no limit needed
 - max_attempts: how many tries allowed (checkpoint: 2-3, practice: 3-5), or null for unlimited

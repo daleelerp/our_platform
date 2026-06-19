@@ -120,6 +120,12 @@ export default async function PlanDetailsPage({ params }: Props) {
     (a: any, b: any) => (a._sort_order || Number.MAX_SAFE_INTEGER) - (b._sort_order || Number.MAX_SAFE_INTEGER)
   );
 
+  // Non-subscribers get a teaser: a couple of paths in full, the rest blurred behind a
+  // "Subscribe to view more" prompt. Subscribers already paid, so they see everything.
+  const PREVIEW_PATH_COUNT = 2;
+  const visiblePaths = hasLiveAccess ? uniquePaths : uniquePaths.slice(0, PREVIEW_PATH_COUNT);
+  const hiddenPaths = hasLiveAccess ? [] : uniquePaths.slice(PREVIEW_PATH_COUNT);
+
   const featureKeys: string[] = Array.isArray(plan.features) ? plan.features : [];
   const limitations =
     plan.limitations && typeof plan.limitations === "object" ? (plan.limitations as Record<string, number>) : {};
@@ -233,21 +239,47 @@ export default async function PlanDetailsPage({ params }: Props) {
               <p className="text-slate-500 text-sm">No linked paths yet.</p>
             ) : (
               <div className="space-y-3">
-                {uniquePaths.map((path: any) => (
+                {visiblePaths.map((path: any) => (
                   <Link
                     key={path.id}
                     href={`/paths?planId=${plan.id}`}
                     className="block p-4 rounded-xl border border-slate-200 hover:border-teal-300 hover:bg-slate-50 transition-colors"
                   >
-                    <div className="flex items-center justify-between gap-3">
-                      <h3 className="font-semibold text-slate-900">{path.title}</h3>
-                      <span className="text-xs font-medium text-teal-600">Open in plan paths</span>
-                    </div>
+                    <h3 className="font-semibold text-slate-900">{path.title}</h3>
                     <p className="text-sm text-slate-500 mt-1 line-clamp-2">
                       {path.description || "Path description"}
                     </p>
                   </Link>
                 ))}
+
+                {hiddenPaths.length > 0 && (
+                  <div className="relative min-h-40 overflow-hidden rounded-xl">
+                    <div className="space-y-3 blur-sm select-none pointer-events-none" aria-hidden="true">
+                      {hiddenPaths.map((path: any) => (
+                        <div key={path.id} className="block p-4 rounded-xl border border-slate-200">
+                          <h3 className="font-semibold text-slate-900">{path.title}</h3>
+                          <p className="text-sm text-slate-500 mt-1 line-clamp-2">
+                            {path.description || "Path description"}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="absolute inset-0 flex items-center justify-center bg-linear-to-b from-white/60 via-white/85 to-white rounded-xl">
+                      <Link
+                        href={ctaHref}
+                        className="flex flex-col items-center gap-2 text-center px-4 py-3 group"
+                      >
+                        <span className="text-2xl">🔒</span>
+                        <span className="text-sm font-medium text-slate-600">
+                          +{hiddenPaths.length} more path{hiddenPaths.length !== 1 ? "s" : ""} included
+                        </span>
+                        <span className="px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-semibold group-hover:bg-teal-700 transition-colors">
+                          Subscribe to view more
+                        </span>
+                      </Link>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </section>
