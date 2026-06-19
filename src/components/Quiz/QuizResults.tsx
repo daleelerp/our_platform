@@ -1,6 +1,5 @@
 "use client";
 
-import { useAppStore } from "@/store/useAppStore";
 import { CheckCircleIcon, XCircleIcon } from "@heroicons/react/24/outline";
 
 type QuizResultsProps = {
@@ -32,6 +31,8 @@ type QuizResultsProps = {
     show_correct_answers: boolean;
     max_attempts?: number | null;
   };
+  /** Language the exam was actually taken in — not necessarily the current site language. */
+  language: "en" | "ar";
   showCorrectAnswers: boolean;
   onContinue?: () => void;
   onRetake?: () => void;
@@ -56,6 +57,7 @@ function formatCooldown(endsAt: Date): string {
 export function QuizResults({
   results,
   quiz,
+  language,
   showCorrectAnswers,
   onContinue,
   onRetake,
@@ -67,8 +69,6 @@ export function QuizResults({
   exhaustedResetAt,
   attemptsRemainingInCycle,
 }: QuizResultsProps) {
-  const language = useAppStore((state) => state.language);
-
   const correctCount = results.userAnswers.filter((a) => a.isCorrect).length;
   const incorrectCount = results.userAnswers.filter((a) => !a.isCorrect).length;
 

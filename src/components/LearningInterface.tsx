@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 import { useAppStore } from "@/store/useAppStore";
 import { VideoPlayer } from "./VideoPlayer";
 import { QuizPlayer } from "./Quiz/QuizPlayer";
@@ -14,9 +15,11 @@ import Link from "next/link";
 import { CheckCircleIcon, DocumentTextIcon, PlayIcon, LockClosedIcon, ExclamationCircleIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 import { LearningResource } from "@/types/learning";
 import { Modal } from "./admin/Modal";
+import { CollapsibleSection } from "./CollapsibleSection";
 import {
   orderVideosForLearning,
   groupOrderedVideosForSidebar,
+  filterVideosByLanguage,
 } from "@/lib/learningPlaylistOrder";
 
 type Path = {
@@ -88,6 +91,17 @@ type CertExamInfo = {
   isEligible: boolean;
 };
 
+export type PathStatus = {
+  checkpointPassStatus: Record<string, boolean>;
+  checkpointsTotal: number;
+  checkpointsPassed: number;
+  videosTotal: number;
+  videosCompleted: number;
+  allCheckpointsPassed: boolean;
+  allVideosComplete: boolean;
+  isEligible: boolean;
+};
+
 type Props = {
   path: Path;
   milestones: Milestone[];
@@ -104,6 +118,8 @@ type Props = {
   /** milestoneId → whether the user has passed that milestone's checkpoint quiz */
   checkpointPassStatus: Record<string, boolean>;
   certExamInfo?: CertExamInfo | null;
+  /** Language-agnostic baseline; refined client-side once the language preference is known */
+  initialPathStatus: PathStatus;
 };
 
 export function LearningInterface({
@@ -121,31 +137,20 @@ export function LearningInterface({
   userProfile,
   checkpointPassStatus,
   certExamInfo = null,
+  initialPathStatus,
 }: Props) {
   const language = useAppStore((state) => state.language);
   const router = useRouter();
   const hasReloadedRef = useRef(false);
   const sidebarScrollRef = useRef<HTMLDivElement>(null);
+  // Tracks the previous language so we can tell "content changed because the user
+  // switched language" apart from "content changed because they navigated milestones."
+  const prevLanguageRef = useRef(language);
 
-  const filteredVideos = useMemo(() => {
-    const sorted = orderVideosForLearning(videos);
-
-    const matchesLanguage = (video: any) => {
-      const pl = String(video.primary_language ?? "").trim().toLowerCase();
-      if (!pl) return true;
-      if (language === "ar") {
-        return pl === "ar" || pl === "mixed";
-      }
-      return pl === "en" || pl === "mixed";
-    };
-
-    const filtered = sorted.filter(matchesLanguage);
-    // If language rules hid everything (wrong casing / unexpected values), still show videos
-    if (filtered.length === 0 && sorted.length > 0) {
-      return sorted;
-    }
-    return filtered;
-  }, [videos, language]);
+  const filteredVideos = useMemo(
+    () => filterVideosByLanguage(orderVideosForLearning(videos), language),
+    [videos, language]
+  );
 
   // Filter resources by language preference
   const filteredResources = resources.filter((resource) => {
@@ -192,7 +197,9 @@ export function LearningInterface({
   const [showMilestoneDetails, setShowMilestoneDetails] = useState(false);
   const [showVideoDesc, setShowVideoDesc] = useState(false);
 
-  // Update selected resource when resources change or when switching to resources tab
+  // Update selected resource when resources change or when switching to resources tab.
+  // filteredResources is the single source of truth for resource visibility — no separate
+  // inline filter here, so this and the video-selection effect below never disagree.
   useEffect(() => {
     if (activeTab === "resources" && filteredResources.length > 0) {
       // Find first non-article resource, or first resource if no non-article exists
@@ -201,56 +208,58 @@ export function LearningInterface({
 
       // If no resource is selected, or selected resource is not in filtered list, select first one
       if (!selectedResource || !filteredResources.find((r) => r.id === selectedResource.id)) {
+        if (prevLanguageRef.current !== language && selectedResource) {
+          toast(
+            language === "ar"
+              ? "هذا المحتوى غير متاح بالعربية حالياً — يتم عرض محتوى آخر"
+              : "That content isn't available in English right now — showing something else"
+          );
+        }
         setSelectedResource(resourceToSelect);
       }
     }
-  }, [activeTab, filteredResources, selectedResource]);
+  }, [activeTab, filteredResources, selectedResource, language]);
   const [currentEnrollmentProgress, setCurrentEnrollmentProgress] = useState<number>(
     enrollment.progress_percentage || 0
   );
 
   useEffect(() => {
+    const languageChanged = prevLanguageRef.current !== language;
+    prevLanguageRef.current = language;
+
     if (filteredVideos.length > 0) {
       if (!selectedVideo || !filteredVideos.find((v: any) => v.id === selectedVideo.id)) {
+        if (languageChanged && selectedVideo) {
+          toast(
+            language === "ar"
+              ? "هذا الفيديو غير متاح بالعربية حالياً — يتم عرض فيديو آخر"
+              : "That video isn't available in English right now — showing another one instead"
+          );
+        }
         setSelectedVideo(filteredVideos[0]);
         setActiveTab("videos");
       }
     } else {
-      // No videos available in current language
+      // No videos available in current language — hand off to resources/quiz instead.
+      if (languageChanged && selectedVideo) {
+        toast(
+          language === "ar"
+            ? "لا يوجد فيديو بالعربية لهذه المرحلة حالياً"
+            : "No videos are available in English for this milestone right now"
+        );
+      }
       setSelectedVideo(null);
-      // Filter resources by language
-      const currentFilteredResources = resources.filter((resource: any) => {
-        const hasContentInLanguage = (resource.language === "both") ||
-          (language === "ar" && (resource.language === "ar" || !resource.language)) ||
-          (language === "en" && (resource.language === "en" || !resource.language));
 
-        if (!hasContentInLanguage) return false;
-
-        if (resource.language === "en") {
-          return !!(resource.title || resource.description);
-        }
-        if (resource.language === "ar") {
-          return !!(resource.title_ar || resource.description_ar);
-        }
-        if (resource.language === "both") {
-          if (language === "ar") {
-            return !!(resource.title_ar || resource.description_ar);
-          } else {
-            return !!(resource.title || resource.description);
-          }
-        }
-        return !!(resource.title || resource.title_ar || resource.description || resource.description_ar);
-      });
-
-      if (currentFilteredResources.length > 0) {
+      // filteredResources is the single source of truth for resource visibility —
+      // the resources-tab effect above will pick the actual resource once this tab is active.
+      if (filteredResources.length > 0) {
         setActiveTab("resources");
-        setSelectedResource(currentFilteredResources[0]);
       } else if (quizzes.length > 0) {
         setActiveTab("quiz");
         setSelectedQuiz(quizzes[0]);
       }
     }
-  }, [language, filteredVideos, selectedVideo, resources, quizzes]);
+  }, [language, filteredVideos, selectedVideo, filteredResources, quizzes]);
   // Track which videos have been played in the current session
   const [playedVideos, setPlayedVideos] = useState<Set<string>>(new Set());
   // Track current progress for videos being watched (updates in real-time)
@@ -284,6 +293,14 @@ export function LearningInterface({
     );
     item?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [selectedVideo?.id, accessibleVideoGroups]);
+
+  // Videos section starts open (it's the page's primary list) and is force-reopened
+  // whenever the selection changes, so the scrollIntoView above never targets a
+  // collapsed, zero-height accordion on mobile.
+  const [isVideosSectionOpen, setIsVideosSectionOpen] = useState(true);
+  useEffect(() => {
+    if (selectedVideo?.id) setIsVideosSectionOpen(true);
+  }, [selectedVideo?.id]);
 
   // Collapse the video description whenever the user switches to a different video
   useEffect(() => {
@@ -378,6 +395,29 @@ export function LearningInterface({
     }
   }, [currentMilestone?.id, path.id, enrollment.id, userId, language]);
 
+  // Language-aware "has the user finished this path's content" status — drives the
+  // Final Assessment unlock and Certification Exam eligibility. Starts from the SSR
+  // baseline (language-agnostic, strictest) and refines once the client knows the
+  // user's current language preference, same pattern as the dashboard's progress fetch.
+  const [pathStatus, setPathStatus] = useState<PathStatus>(initialPathStatus);
+
+  const fetchPathStatus = useCallback(async () => {
+    try {
+      const res = await fetch(
+        `/api/progress/path-status?pathId=${encodeURIComponent(path.id)}&language=${language}`
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+      setPathStatus(data);
+    } catch (error) {
+      console.error("Error fetching path status:", error);
+    }
+  }, [path.id, language]);
+
+  useEffect(() => {
+    fetchPathStatus();
+  }, [fetchPathStatus]);
+
   // Reset reload guard when milestone changes (used for quiz reload after completion)
   useEffect(() => {
     hasReloadedRef.current = false;
@@ -406,6 +446,9 @@ export function LearningInterface({
   const handleVideoComplete = async () => {
     // Recalculate progress immediately when video is completed
     await recalculateProgress();
+    // A finished video can be the last thing needed for the Final Assessment /
+    // Certification Exam, so refresh that eligibility right away too.
+    await fetchPathStatus();
   };
 
   if (!currentMilestone) {
@@ -436,11 +479,38 @@ export function LearningInterface({
   // Practice/final quizzes shown in sidebar (everything except the checkpoint)
   const sidebarQuizzes = accessibleQuizzes.filter((q) => (q as any).quiz_type !== "checkpoint");
 
-  // Final quiz is unlocked when ALL checkpoint quizzes across the path have been passed
-  const allCheckpointsPassed =
-    Object.keys(checkpointPassStatus).length === 0 ||
-    Object.values(checkpointPassStatus).every(Boolean);
-  const finalQuizUnlocked = !!finalQuiz && allCheckpointsPassed;
+  // Final quiz is unlocked when ALL checkpoints are passed AND all (language-visible)
+  // videos in the path are complete — the same rule the Certification Exam uses, so
+  // the two no longer disagree about what "done" means.
+  const finalQuizUnlocked = !!finalQuiz && pathStatus.allCheckpointsPassed && pathStatus.allVideosComplete;
+
+  // Shared "what's missing" checklist shown on both the Final Assessment and
+  // Certification Exam locked cards, so locks are explained instead of just stated.
+  // Counts are path-wide (every milestone, not just the one currently open) since both
+  // of those gates require the whole path — say so explicitly to avoid confusion.
+  const completionChecklist = (
+    <div className="mt-1 space-y-0.5">
+      <p className="text-[11px] text-slate-400 italic">
+        {language === "ar" ? "إجمالي المسار بالكامل:" : "Totals across the whole path:"}
+      </p>
+      {pathStatus.checkpointsTotal > 0 && (
+        <p className="text-xs text-slate-400">
+          {pathStatus.allCheckpointsPassed ? "✅" : "❌"}{" "}
+          {language === "ar"
+            ? `نقاط التحقق: ${pathStatus.checkpointsPassed}/${pathStatus.checkpointsTotal}`
+            : `Checkpoints passed: ${pathStatus.checkpointsPassed}/${pathStatus.checkpointsTotal}`}
+        </p>
+      )}
+      {pathStatus.videosTotal > 0 && (
+        <p className="text-xs text-slate-400">
+          {pathStatus.allVideosComplete ? "✅" : "❌"}{" "}
+          {language === "ar"
+            ? `الفيديوهات المكتملة: ${pathStatus.videosCompleted}/${pathStatus.videosTotal}`
+            : `Videos watched: ${pathStatus.videosCompleted}/${pathStatus.videosTotal}`}
+        </p>
+      )}
+    </div>
+  );
 
   // Derive which milestones are locked.
   // A milestone is locked when ANY preceding milestone has a checkpoint quiz entry in
@@ -554,9 +624,7 @@ export function LearningInterface({
           >
             {/* Milestones List */}
             <div className="bg-white rounded-xl border border-slate-200 p-4">
-              <h3 className="font-semibold text-slate-900 mb-3">
-                {language === "ar" ? "المراحل" : "Milestones"}
-              </h3>
+              <CollapsibleSection title={language === "ar" ? "المراحل" : "Milestones"}>
               <div className="space-y-2">
                 {milestones.map((milestone) => {
                   const isCurrent = milestone.id === currentMilestone.id;
@@ -615,14 +683,16 @@ export function LearningInterface({
                 })}
 
               </div>
+              </CollapsibleSection>
             </div>
 
             {/* Final Assessment — separate section, visually distinct from milestones */}
             {finalQuiz && (
               <div className="bg-white rounded-xl border-2 border-teal-200 p-4">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-teal-600 mb-3">
-                  {language === "ar" ? "الاختبار النهائي" : "Final Assessment"}
-                </p>
+              <CollapsibleSection
+                title={language === "ar" ? "الاختبار النهائي" : "Final Assessment"}
+                headerClassName="text-[11px] font-semibold uppercase tracking-wider text-teal-600"
+              >
                 {finalQuizUnlocked ? (
                   <button
                     type="button"
@@ -660,27 +730,24 @@ export function LearningInterface({
                           <p className="text-sm font-medium text-slate-500 truncate">
                             {language === "ar" ? "الاختبار النهائي" : "Final Assessment"}
                           </p>
-                          <p className="text-xs text-slate-400 mt-0.5">
-                            {language === "ar" ? "أكمل جميع نقاط التحقق أولاً" : "Pass all checkpoints to unlock"}
-                          </p>
+                          {completionChecklist}
                         </div>
                       </div>
                     </div>
                   </div>
                 )}
+              </CollapsibleSection>
               </div>
             )}
 
             {/* Videos List */}
             <div className="bg-white rounded-xl border border-slate-200 p-4">
-              <h3 className="font-semibold text-slate-900 mb-3">
-                {language === "ar" ? "الفيديوهات" : "Videos"}
-                {accessibleVideos.length > 0 && (
-                  <span className="ml-1.5 font-normal text-slate-500">
-                    ({accessibleVideos.length})
-                  </span>
-                )}
-              </h3>
+              <CollapsibleSection
+                title={language === "ar" ? "الفيديوهات" : "Videos"}
+                count={accessibleVideos.length}
+                open={isVideosSectionOpen}
+                onOpenChange={setIsVideosSectionOpen}
+              >
               {videos.length > 0 ? (
                 <div className="space-y-3">
                   {accessibleVideoGroups.map((group, groupIdx) => (
@@ -788,14 +855,16 @@ export function LearningInterface({
                   </p>
                 </div>
               )}
+              </CollapsibleSection>
             </div>
 
             {/* Resources List */}
             {filteredResources.length > 0 && (
               <div className="bg-white rounded-xl border border-slate-200 p-4">
-                <h3 className="font-semibold text-slate-900 mb-3">
-                  {language === "ar" ? "موارد هامة" : "Important Resources"}
-                </h3>
+                <CollapsibleSection
+                  title={language === "ar" ? "موارد هامة" : "Important Resources"}
+                  count={accessibleResources.length}
+                >
                 <div className="space-y-2">
                   {accessibleResources.map((resource) => {
                     const isSelected = selectedResource?.id === resource.id;
@@ -848,15 +917,17 @@ export function LearningInterface({
                     );
                   })}
                 </div>
+                </CollapsibleSection>
               </div>
             )}
 
             {/* Practice Quizzes in sidebar (checkpoint quiz shown in main content area) */}
             {sidebarQuizzes.length > 0 && (
               <div className="bg-white rounded-xl border border-slate-200 p-4">
-                <h3 className="font-semibold text-slate-900 mb-3">
-                  {language === "ar" ? "اختبارات تدريبية" : "Practice Quizzes"}
-                </h3>
+                <CollapsibleSection
+                  title={language === "ar" ? "اختبارات تدريبية" : "Practice Quizzes"}
+                  count={sidebarQuizzes.length}
+                >
                 <div className="space-y-2">
                   {sidebarQuizzes.map((quiz) => {
                     const isSelected = selectedQuiz?.id === quiz.id;
@@ -887,11 +958,12 @@ export function LearningInterface({
                     );
                   })}
                 </div>
+                </CollapsibleSection>
               </div>
             )}
 
             {/* Certification Exam card — locked until all content completed */}
-            {certExamInfo && !certExamInfo.isEligible && (
+            {certExamInfo && !pathStatus.isEligible && (
               <div className="bg-linear-to-br from-amber-50 to-orange-50 rounded-xl border border-amber-200 p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-lg">🏆</span>
@@ -907,10 +979,11 @@ export function LearningInterface({
                     ? "أكمل جميع الفيديوهات والمراحل لفتح اختبار الاعتماد."
                     : "Complete all videos and milestones to unlock the certification exam."}
                 </p>
+                {completionChecklist}
               </div>
             )}
 
-            {certExamInfo?.isEligible && (
+            {certExamInfo && pathStatus.isEligible && (
               <button
                 type="button"
                 onClick={() => setShowCertExam(true)}
@@ -930,7 +1003,7 @@ export function LearningInterface({
           </div>
 
           {/* Certification Exam — inline player (shown when student clicks sidebar button) */}
-          {showCertExam && certExamInfo?.isEligible && (
+          {showCertExam && certExamInfo && pathStatus.isEligible && (
             <div className="order-1 lg:order-0 lg:col-span-3">
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-lg font-bold text-slate-900">
@@ -1160,19 +1233,6 @@ export function LearningInterface({
               </div>
             )}
 
-            {/* Empty State - No Video Selected but videos exist (filtered out by language) */}
-            {!isCurrentMilestoneLocked && activeTab === "videos" && !selectedVideo && videos.length > 0 && filteredVideos.length === 0 && language === "ar" && (
-              <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
-                <div className="text-4xl mb-4">📹</div>
-                <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                  لا يوجد فيديو بالعربية في الوقت الحالي
-                </h3>
-                <p className="text-slate-600">
-                  لا يوجد فيديو بالعربية لهذه المرحلة في الوقت الحالي. سيتم إضافة المحتوى العربي قريباً.
-                </p>
-              </div>
-            )}
-
             {/* Empty State - No Video Selected but filtered videos exist */}
             {!isCurrentMilestoneLocked && activeTab === "videos" && !selectedVideo && filteredVideos.length > 0 && (
               <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
@@ -1217,6 +1277,8 @@ export function LearningInterface({
                         setCheckpointPassedLocally(true);
                         // Re-run server component so checkpointPassStatus refreshes and milestones unlock
                         router.refresh();
+                        // Final Assessment / Certification Exam may unlock right now too
+                        await fetchPathStatus();
                       }
                       await recalculateProgress();
                     }}

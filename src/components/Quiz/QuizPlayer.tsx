@@ -124,7 +124,12 @@ export function QuizPlayer({
   videosTotal,
   videosCompleted,
 }: QuizPlayerProps) {
-  const language = useAppStore((state) => state.language);
+  const siteLanguage = useAppStore((state) => state.language);
+  // Per-attempt override: once the user has passed the pre-start screen, `language`
+  // resolves to their choice there (defaulting to English when the site is in Arabic).
+  // Before that point it's just the real site language, so the pre-start screen itself
+  // is never shown in the "wrong" language.
+  const [examLanguageOverride, setExamLanguageOverride] = useState<"en" | "ar" | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string | string[]>>({});
   const [markedForReview, setMarkedForReview] = useState<Set<string>>(new Set());
@@ -141,8 +146,12 @@ export function QuizPlayer({
   const [exhaustedResetAt, setExhaustedResetAt] = useState<Date | null>(null);
   // How many attempts remain in the current cycle (final quiz only)
   const [attemptsRemainingInCycle, setAttemptsRemainingInCycle] = useState<number | null>(null);
-  // Pre-start warning screen (only for checkpoints, first time per session)
+  // Pre-start warning screen (checkpoint + final quiz, before every attempt)
   const [quizStarted, setQuizStarted] = useState(false);
+
+  const language = quizStarted
+    ? examLanguageOverride ?? (siteLanguage === "ar" ? "en" : siteLanguage)
+    : siteLanguage;
 
   const [loadingCooldown, setLoadingCooldown] = useState(true);
   const supabase = createClient();
@@ -352,6 +361,11 @@ export function QuizPlayer({
     setIsSubmitted(false);
     setTimeRemaining(quiz.time_limit_minutes ? quiz.time_limit_minutes * 60 : null);
     setAttemptNumber((n) => n + 1);
+    // Re-show the pre-start screen (and language choice) before every new attempt
+    if (isCheckpoint || isFinalQuiz) {
+      setQuizStarted(false);
+      setExamLanguageOverride(null);
+    }
   }, [quiz.time_limit_minutes, cooldownEndsAt, isCheckpoint, isFinalQuiz, exhaustedResetAt]);
 
   const formatTime = (seconds: number) => {
@@ -512,8 +526,8 @@ export function QuizPlayer({
     );
   }
 
-  // Pre-start warning screen (checkpoint only, before first attempt each session)
-  if (isCheckpoint && !quizStarted && !results) {
+  // Pre-start warning screen (checkpoint + final quiz, before every attempt)
+  if ((isCheckpoint || isFinalQuiz) && !quizStarted && !results) {
     const allVideosWatched = !videosTotal || videosTotal === 0 || (videosCompleted ?? 0) >= videosTotal;
     const maxAtt = quiz.max_attempts ?? 3;
 
@@ -522,18 +536,20 @@ export function QuizPlayer({
         <div className="text-center mb-6">
           <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-3 text-2xl">🎯</div>
           <h2 className="text-lg font-bold text-slate-900">
-            {language === "ar" ? "قبل أن تبدأ الاختبار" : "Before You Start the Quiz"}
+            {language === "ar"
+              ? isFinalQuiz ? "قبل أن تبدأ الاختبار النهائي" : "قبل أن تبدأ الاختبار"
+              : isFinalQuiz ? "Before You Start the Final Assessment" : "Before You Start the Quiz"}
           </h2>
           <p className="text-sm text-slate-500 mt-1">
             {language === "ar"
-              ? "تأكد من أنك مستعد — هذا اختبار نقطة التحقق"
-              : "Make sure you're ready — this is a checkpoint quiz"}
+              ? isFinalQuiz ? "تأكد من أنك مستعد — هذا الاختبار النهائي لهذا المسار" : "تأكد من أنك مستعد — هذا اختبار نقطة التحقق"
+              : isFinalQuiz ? "Make sure you're ready — this is the final assessment for this path" : "Make sure you're ready — this is a checkpoint quiz"}
           </p>
         </div>
 
         <div className="space-y-3 mb-6">
-          {/* Video completion status */}
-          {videosTotal !== undefined && videosTotal > 0 && (
+          {/* Video completion status (checkpoint only — milestone video counts aren't meaningful for a path-level final exam) */}
+          {isCheckpoint && videosTotal !== undefined && videosTotal > 0 && (
             <div className={`flex items-start gap-3 p-3 rounded-lg border ${allVideosWatched ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200"}`}>
               <span className="text-lg mt-0.5">{allVideosWatched ? "✅" : "⚠️"}</span>
               <div>
@@ -578,26 +594,70 @@ export function QuizPlayer({
               </p>
             </div>
           </div>
-        </div>
 
-        <div className="flex flex-col sm:flex-row gap-3">
-          <button
-            type="button"
-            onClick={() => setQuizStarted(true)}
-            className="flex-1 py-3 bg-teal-600 text-white rounded-lg font-semibold text-sm hover:bg-teal-700 transition-colors"
-          >
-            {language === "ar" ? "أنا مستعد — ابدأ الاختبار" : "I'm ready — Start Quiz"}
-          </button>
-          {onContinue && (
-            <button
-              type="button"
-              onClick={onContinue}
-              className="px-4 py-3 border border-slate-300 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition-colors"
-            >
-              {language === "ar" ? "العودة للمحتوى" : "Back to Content"}
-            </button>
+          {/* Language choice — only relevant when the site is in Arabic */}
+          {language === "ar" && (
+            <div className="flex items-start gap-3 p-3 rounded-lg border bg-purple-50 border-purple-200">
+              <span className="text-lg mt-0.5">🌐</span>
+              <div>
+                <p className="text-sm font-medium text-purple-800">في أي لغة تفضل أداء الاختبار؟</p>
+                <p className="text-xs text-purple-700 mt-0.5">
+                  ننصح بأداء الاختبار بالإنجليزية لأن بعض المصطلحات والأسماء التقنية قد تختلف بالعربية.
+                </p>
+              </div>
+            </div>
           )}
         </div>
+
+        {language === "ar" ? (
+          <div className="flex flex-col gap-3">
+            <button
+              type="button"
+              onClick={() => setQuizStarted(true)}
+              className="w-full py-3 bg-teal-600 text-white rounded-lg font-semibold text-sm hover:bg-teal-700 transition-colors"
+            >
+              ابدأ بالإنجليزية (موصى به)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setExamLanguageOverride("ar");
+                setQuizStarted(true);
+              }}
+              className="w-full py-3 border border-slate-300 rounded-lg font-medium text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              الاستمرار بالعربية
+            </button>
+            {onContinue && (
+              <button
+                type="button"
+                onClick={onContinue}
+                className="w-full py-2.5 text-sm text-slate-500 hover:text-slate-700 transition-colors"
+              >
+                العودة للمحتوى
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              type="button"
+              onClick={() => setQuizStarted(true)}
+              className="flex-1 py-3 bg-teal-600 text-white rounded-lg font-semibold text-sm hover:bg-teal-700 transition-colors"
+            >
+              I'm ready — Start Quiz
+            </button>
+            {onContinue && (
+              <button
+                type="button"
+                onClick={onContinue}
+                className="px-4 py-3 border border-slate-300 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition-colors"
+              >
+                Back to Content
+              </button>
+            )}
+          </div>
+        )}
       </div>
     );
   }
@@ -608,6 +668,7 @@ export function QuizPlayer({
       <QuizResults
         results={results}
         quiz={quiz}
+        language={language}
         showCorrectAnswers={quiz.show_correct_answers}
         onContinue={onContinue}
         onRetake={results.isPassed ? undefined : handleRetake}

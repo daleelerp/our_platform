@@ -340,23 +340,27 @@ export function UserCardClient({ userId, userProfile }: Props) {
         {/* Quiz attempts */}
         {quizAttempts && quizAttempts.length > 0 && (
           <Section title={`Quiz attempts (${quizAttempts.length})`}>
-            <div className="max-h-40 overflow-y-auto rounded-lg border border-slate-100 divide-y divide-slate-100">
+            <div className="max-h-40 overflow-y-auto rounded-lg border border-slate-100 divide-y divide-slate-100 mb-2">
               {quizAttempts.map((q: any) => (
                 <div key={q.id} className="flex items-center justify-between px-3 py-2 hover:bg-slate-50">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-slate-800">
-                      {q.score != null ? `${q.score}%` : "—"}
+                      {q.score != null ? `${Math.round(q.score)}%` : "—"}
                     </span>
-                    {q.passed != null && (
-                      <span className={`text-xs font-medium ${q.passed ? "text-emerald-600" : "text-red-500"}`}>
-                        {q.passed ? "Passed" : "Failed"}
-                      </span>
-                    )}
+                    <span className={`text-xs font-medium ${q.is_passed ? "text-emerald-600" : "text-red-500"}`}>
+                      {q.is_passed ? "Passed" : "Failed"}
+                    </span>
                   </div>
                   <span className="text-[11px] text-slate-400">{fmtDate(q.completed_at)}</span>
                 </div>
               ))}
             </div>
+            <a
+              href={`/admin/users/${userId}/quiz-analytics`}
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-teal-700 hover:text-teal-900 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-lg px-3 py-1.5 transition-colors"
+            >
+              📊 View Full Quiz Analytics →
+            </a>
           </Section>
         )}
 

@@ -4,6 +4,7 @@ import { getAdminSupabaseClient } from "@/utils/admin-supabase";
 import { redirect } from "next/navigation";
 import { LearningInterface } from "@/components/LearningInterface";
 import { orderVideosForLearning } from "@/lib/learningPlaylistOrder";
+import { getPathCompletionStatus } from "@/utils/pathCompletion";
 
 /** Always fresh data — avoids CDN/browser serving an empty cached lesson page */
 export const dynamic = "force-dynamic";
@@ -193,38 +194,15 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
         })
     : [];
 
-  // Fetch checkpoint pass status for every milestone in this path.
-  // A milestone is "checkpoint passed" when the user has at least one passing attempt
-  // on any quiz with quiz_type = 'checkpoint' belonging to that milestone.
-  const checkpointPassStatus: Record<string, boolean> = {};
-  if (milestones && milestones.length > 0) {
-    const { data: checkpointQuizzes } = await supabase
-      .from("quizzes")
-      .select("id, milestone_id")
-      .in("milestone_id", milestones.map((m) => m.id))
-      .eq("quiz_type", "checkpoint")
-      .eq("is_active", true);
+  // Admin client bypasses RLS — used for path completion, certification exam lookup,
+  // and the video/milestone progress reads below.
+  const supabaseAdmin = getAdminSupabaseClient();
 
-    if (checkpointQuizzes && checkpointQuizzes.length > 0) {
-      const checkpointQuizIds = checkpointQuizzes.map((q) => q.id);
-      const { data: passedAttempts } = await supabase
-        .from("user_quiz_attempts")
-        .select("quiz_id")
-        .eq("user_id", user.id)
-        .in("quiz_id", checkpointQuizIds)
-        .eq("is_passed", true);
-
-      const passedQuizIds = new Set((passedAttempts || []).map((a) => a.quiz_id));
-      for (const quiz of checkpointQuizzes) {
-        // Keep the most optimistic value (passed) if multiple checkpoints per milestone
-        if (!checkpointPassStatus[quiz.milestone_id]) {
-          checkpointPassStatus[quiz.milestone_id] = passedQuizIds.has(quiz.id);
-        } else if (passedQuizIds.has(quiz.id)) {
-          checkpointPassStatus[quiz.milestone_id] = true;
-        }
-      }
-    }
-  }
+  // Language-agnostic baseline ("has the user finished every video/checkpoint, in any
+  // language") — the client refines this via /api/progress/path-status once it knows
+  // the user's current language preference, so this can only go locked -> unlocked.
+  const pathCompletion = await getPathCompletionStatus(supabaseAdmin, user.id, milestones || []);
+  const { checkpointPassStatus } = pathCompletion;
 
   // Fetch certification exam via path → plan_paths (no subscription dependency)
   let certExamInfo: { examId: string; title: string; planId: string; isEligible: boolean } | null = null;
@@ -239,8 +217,7 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
 
     if (planIds.length > 0) {
       // Admin client bypasses RLS — certification_exams has no student read policy
-      const certAdminClient = getAdminSupabaseClient();
-      const { data: certExam } = await certAdminClient
+      const { data: certExam } = await supabaseAdmin
         .from("certification_exams")
         .select("id, title, plan_id")
         .in("plan_id", planIds)
@@ -248,41 +225,11 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
         .maybeSingle();
 
       if (certExam) {
-        // Check eligibility: all milestone checkpoints passed
-        const allCheckpointsPassed =
-          Object.keys(checkpointPassStatus).length === 0 ||
-          Object.values(checkpointPassStatus).every(Boolean);
-
-        // Check eligibility: all videos in ALL milestones completed
-        let allVideosComplete = true;
-        const allMilestoneIds = (milestones || []).map((m) => m.id);
-        if (allMilestoneIds.length > 0) {
-          const { data: allPathVideos } = await certAdminClient
-            .from("video_content")
-            .select("id")
-            .in("milestone_id", allMilestoneIds)
-            .neq("is_active", false);
-
-          const allVideoIds = (allPathVideos || []).map((v: any) => v.id);
-          if (allVideoIds.length > 0) {
-            const { data: allVideoProgress } = await certAdminClient
-              .from("user_video_progress")
-              .select("video_id, is_completed")
-              .eq("user_id", user.id)
-              .in("video_id", allVideoIds);
-
-            const completedSet = new Set(
-              (allVideoProgress || []).filter((v: any) => v.is_completed).map((v: any) => v.video_id)
-            );
-            allVideosComplete = allVideoIds.every((id: string) => completedSet.has(id));
-          }
-        }
-
         certExamInfo = {
           examId: certExam.id,
           title: certExam.title || "Certification Exam",
           planId: certExam.plan_id,
-          isEligible: allVideosComplete && allCheckpointsPassed,
+          isEligible: pathCompletion.isEligible,
         };
       }
     }
@@ -308,8 +255,6 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
 
   // Fetch user's video progress — admin client bypasses RLS so saved progress
   // is always returned even when user-facing RLS policies are restrictive.
-  const supabaseAdmin = getAdminSupabaseClient();
-
   const { data: videoProgress } =
     videos.length > 0
       ? await supabaseAdmin
@@ -348,6 +293,7 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
       userProfile={{ ...userProfileWithBudget, budgetAmount }}
       checkpointPassStatus={checkpointPassStatus}
       certExamInfo={certExamInfo}
+      initialPathStatus={pathCompletion}
     />
   );
 }

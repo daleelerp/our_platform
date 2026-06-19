@@ -11,6 +11,7 @@
 // This utility is primarily for client-side use
 // For server-side, pass supabase client as parameter
 import { createClient } from "@/utils/supabase/client";
+import { filterVideosByLanguage } from "@/lib/learningPlaylistOrder";
 
 export type MilestoneCompletionStatus = {
   isCompleted: boolean;
@@ -64,20 +65,13 @@ export async function checkMilestoneCompletion(
     .eq("milestone_id", milestoneId)
     .eq("is_active", true);
 
-  const videos = language
-    ? (allVideos ?? []).filter((v: any) => {
-        const pl = String(v.primary_language ?? "").trim().toLowerCase();
-        if (!pl) return true;
-        if (language === "ar") return pl === "ar" || pl === "mixed";
-        return pl === "en" || pl === "mixed";
-      })
-    : (allVideos ?? []);
+  const videos = filterVideosByLanguage(allVideos ?? [], language);
 
   status.videosTotal = videos.length;
 
   let videoProgressRows: any[] = [];
   if (status.videosTotal > 0) {
-    const videoIds = videos.map((v: { id: string }) => v.id);
+    const videoIds = videos.map((v: any) => v.id);
 
     const { data: videoProgress } = await supabase
       .from("user_video_progress")
@@ -310,14 +304,7 @@ export async function calculatePathProgress(
     .eq("is_active", true);
 
   // Filter videos by language when provided
-  const visibleVideos = language
-    ? (allVideos ?? []).filter((v: any) => {
-        const pl = String(v.primary_language ?? "").trim().toLowerCase();
-        if (!pl) return true;
-        if (language === "ar") return pl === "ar" || pl === "mixed";
-        return pl === "en" || pl === "mixed";
-      })
-    : (allVideos ?? []);
+  const visibleVideos = filterVideosByLanguage(allVideos ?? [], language);
 
   // Create a map of which milestones have content (videos or quizzes only)
   const milestonesWithContent = new Set<string>();

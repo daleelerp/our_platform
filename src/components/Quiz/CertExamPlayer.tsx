@@ -166,7 +166,16 @@ type Props = {
 };
 
 export function CertExamPlayer({ examId, userId, onContinue }: Props) {
-  const language = useAppStore((s) => s.language);
+  const siteLanguage = useAppStore((s) => s.language);
+  // Pre-start screen + per-attempt language override, same pattern as QuizPlayer.tsx:
+  // before the exam is started, `language` is just the real site language (so the
+  // pre-start screen itself is shown correctly); after starting, it resolves to the
+  // user's choice there, defaulting to English when the site is in Arabic.
+  const [examStarted, setExamStarted] = useState(false);
+  const [examLanguageOverride, setExamLanguageOverride] = useState<"en" | "ar" | null>(null);
+  const language = examStarted
+    ? examLanguageOverride ?? (siteLanguage === "ar" ? "en" : siteLanguage)
+    : siteLanguage;
 
   // Remote data
   const [exam, setExam] = useState<ExamData | null>(null);
@@ -223,7 +232,7 @@ export function CertExamPlayer({ examId, userId, onContinue }: Props) {
   // ── Timer ─────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (timeRemaining === null || timeRemaining <= 0 || isSubmitted || showResults) return;
-    if (certState?.status !== "ready") return;
+    if (certState?.status !== "ready" || !examStarted) return;
     const interval = setInterval(() => {
       setTimeRemaining((prev) => {
         if (prev === null || prev <= 1) { handleSubmit(); return 0; }
@@ -296,6 +305,9 @@ export function CertExamPlayer({ examId, userId, onContinue }: Props) {
           setLastPassed(null);
           setGradedAnswers([]);
           if (data.exam?.time_limit_minutes) setTimeRemaining(data.exam.time_limit_minutes * 60);
+          // Re-show the pre-start screen (and language choice) before every new attempt
+          setExamStarted(false);
+          setExamLanguageOverride(null);
         } else {
           setShowResults(false);
         }
@@ -419,6 +431,122 @@ export function CertExamPlayer({ examId, userId, onContinue }: Props) {
             >
               {language === "ar" ? "العودة للمحتوى" : "Back to Course"}
             </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── PRE-START (ready, not yet started) ────────────────────────────────────
+  if (certState?.status === "ready" && !examStarted && questions.length && exam) {
+    const { attemptsLeft: readyAttemptsLeft } = certState;
+
+    return (
+      <div className="bg-white rounded-xl border-2 border-amber-200 p-8 max-w-lg mx-auto">
+        <div className="text-center mb-6">
+          <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-3 text-2xl">🏆</div>
+          <h2 className="text-lg font-bold text-slate-900">
+            {language === "ar" ? "قبل أن تبدأ اختبار الاعتماد" : "Before You Start the Certification Exam"}
+          </h2>
+          <p className="text-sm text-slate-500 mt-1">
+            {language === "ar"
+              ? "تأكد من أنك مستعد — هذا الاختبار الرسمي للحصول على الشهادة"
+              : "Make sure you're ready — this is the official certification exam"}
+          </p>
+        </div>
+
+        <div className="space-y-3 mb-6">
+          {/* Resources reminder */}
+          <div className="flex items-start gap-3 p-3 rounded-lg border bg-blue-50 border-blue-200">
+            <span className="text-lg mt-0.5">📚</span>
+            <div>
+              <p className="text-sm font-medium text-blue-800">
+                {language === "ar" ? "راجع المواد والموارد" : "Review materials & resources"}
+              </p>
+              <p className="text-xs text-blue-700 mt-0.5">
+                {language === "ar"
+                  ? "تأكد من مراجعة جميع الفيديوهات والموارد في هذا المسار"
+                  : "Make sure you've reviewed all videos and resources in this path"}
+              </p>
+            </div>
+          </div>
+
+          {/* Attempt limit warning */}
+          <div className="flex items-start gap-3 p-3 rounded-lg border bg-red-50 border-red-200">
+            <span className="text-lg mt-0.5">⏳</span>
+            <div>
+              <p className="text-sm font-medium text-red-800">
+                {language === "ar" ? "تحذير: حد المحاولات" : "Attempt limit warning"}
+              </p>
+              <p className="text-xs text-red-700 mt-0.5">
+                {language === "ar"
+                  ? `لديك ${readyAttemptsLeft} محاولة متبقية في هذه الدفعة. إذا فشلت في جميعها، ستنتظر قبل فتح دفعة جديدة.`
+                  : `You have ${readyAttemptsLeft} attempt${readyAttemptsLeft !== 1 ? "s" : ""} left in this batch. If you fail all of them, you'll wait before a new batch opens.`}
+              </p>
+            </div>
+          </div>
+
+          {/* Language choice — only relevant when the site is in Arabic */}
+          {language === "ar" && (
+            <div className="flex items-start gap-3 p-3 rounded-lg border bg-purple-50 border-purple-200">
+              <span className="text-lg mt-0.5">🌐</span>
+              <div>
+                <p className="text-sm font-medium text-purple-800">في أي لغة تفضل أداء الاختبار؟</p>
+                <p className="text-xs text-purple-700 mt-0.5">
+                  ننصح بأداء الاختبار بالإنجليزية لأن بعض المصطلحات والأسماء التقنية قد تختلف بالعربية.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {language === "ar" ? (
+          <div className="flex flex-col gap-3">
+            <button
+              type="button"
+              onClick={() => setExamStarted(true)}
+              className="w-full py-3 bg-teal-600 text-white rounded-lg font-semibold text-sm hover:bg-teal-700 transition-colors"
+            >
+              ابدأ بالإنجليزية (موصى به)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setExamLanguageOverride("ar");
+                setExamStarted(true);
+              }}
+              className="w-full py-3 border border-slate-300 rounded-lg font-medium text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+            >
+              الاستمرار بالعربية
+            </button>
+            {onContinue && (
+              <button
+                type="button"
+                onClick={onContinue}
+                className="w-full py-2.5 text-sm text-slate-500 hover:text-slate-700 transition-colors"
+              >
+                العودة للمحتوى
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              type="button"
+              onClick={() => setExamStarted(true)}
+              className="flex-1 py-3 bg-teal-600 text-white rounded-lg font-semibold text-sm hover:bg-teal-700 transition-colors"
+            >
+              I'm ready — Start Exam
+            </button>
+            {onContinue && (
+              <button
+                type="button"
+                onClick={onContinue}
+                className="px-4 py-3 border border-slate-300 rounded-lg text-sm text-slate-600 hover:bg-slate-50 transition-colors"
+              >
+                Back to Content
+              </button>
+            )}
           </div>
         )}
       </div>

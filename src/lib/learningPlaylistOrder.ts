@@ -84,6 +84,27 @@ export function orderVideosForLearning<T extends LearningVideoLike>(videos: T[])
   return out;
 }
 
+/** True if a video's primary_language matches the given UI language (or has no language set, or is "mixed"). */
+export function matchesLanguage(primaryLanguage: string | null | undefined, language: string): boolean {
+  const pl = String(primaryLanguage ?? "").trim().toLowerCase();
+  if (!pl) return true;
+  return language === "ar" ? pl === "ar" || pl === "mixed" : pl === "en" || pl === "mixed";
+}
+
+/**
+ * Filter videos to the ones visible in a given UI language.
+ * Falls back to showing everything if the filter would otherwise hide all videos
+ * (unexpected/missing language values shouldn't make a milestone look empty).
+ */
+export function filterVideosByLanguage<T extends { primary_language?: string | null }>(
+  videos: T[],
+  language?: string
+): T[] {
+  if (!language) return videos;
+  const filtered = videos.filter((v) => matchesLanguage(v.primary_language, language));
+  return filtered.length > 0 || videos.length === 0 ? filtered : videos;
+}
+
 export type SidebarVideoGroup<T extends LearningVideoLike = LearningVideoLike> = {
   label: string;
   videos: T[];
