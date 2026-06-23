@@ -187,8 +187,6 @@ export default function MilestoneModal({
                                 onUpdateQuiz={(quizId, data) => onUpdateQuiz(milestone.id, quizId, data)}
                                 onAddQuiz={() => onAddQuiz(milestone.id)}
                                 milestoneTitle={milestone.title}
-                                milestoneDescription={milestone.description || undefined}
-                                pathTitle={pathTitle}
                             />
                         </div>
                     </div>
