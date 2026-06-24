@@ -458,6 +458,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       enrolledPaths={sortedEnrollments}
       enrolledPathPlanMap={enrolledPathPlanMap}
       purchasedPlans={dedupedPurchasedPlans}
+      freePlanId={freePlanIds[0] ?? null}
       recommendedPaths={recommendedPaths}
       savedPreferences={savedPreferences}
       subscriptionActivated={subscriptionActivated}

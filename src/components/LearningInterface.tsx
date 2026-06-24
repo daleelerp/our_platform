@@ -101,6 +101,7 @@ export type PathStatus = {
   allVideosComplete: boolean;
   isEligible: boolean;
   milestoneCleared: Record<string, boolean>;
+  milestoneHasContent: Record<string, boolean>;
 };
 
 type Props = {
@@ -265,6 +266,9 @@ export function LearningInterface({
   const [playedVideos, setPlayedVideos] = useState<Set<string>>(new Set());
   // Track current progress for videos being watched (updates in real-time)
   const [currentVideoProgress, setCurrentVideoProgress] = useState<Map<string, number>>(new Map());
+  // Videos for which we've already requested a milestone-lock refresh this session —
+  // a one-time guard so the ≥90% check below doesn't refetch on every progress tick.
+  const lockRefreshRequestedRef = useRef<Set<string>>(new Set());
 
   // Calculate user's content tier from budget
   const userBudgetEgp = userProfile?.budgetAmount || 0;
@@ -366,6 +370,13 @@ export function LearningInterface({
     return en || "";
   };
 
+  // An article with no text content is just a pointer to an external page — open it
+  // directly instead of popping a modal that can only show "open externally" anyway.
+  const isLinkOnlyArticle = (r: LearningResource) =>
+    r.resource_type === "article" &&
+    !(r.description || r.description_ar) &&
+    !!(r.url && r.url.trim().length > 0);
+
   // Function to recalculate and update progress via server API (uses admin client, bypasses RLS)
   const recalculateProgress = useCallback(async () => {
     if (!currentMilestone || !userId) return;
@@ -401,15 +412,23 @@ export function LearningInterface({
   // baseline (language-agnostic, strictest) and refines once the client knows the
   // user's current language preference, same pattern as the dashboard's progress fetch.
   const [pathStatus, setPathStatus] = useState<PathStatus>(initialPathStatus);
+  // Guards against out-of-order responses: multi-video milestones can fire several
+  // fetchPathStatus() calls in quick succession (one per video), and if an earlier
+  // request's response lands after a later one, it would overwrite fresher state with
+  // stale data — the exact "progress randomly reverts" bug this avoids.
+  const pathStatusRequestIdRef = useRef(0);
 
   const fetchPathStatus = useCallback(async () => {
+    const requestId = ++pathStatusRequestIdRef.current;
     try {
       const res = await fetch(
         `/api/progress/path-status?pathId=${encodeURIComponent(path.id)}&language=${language}`
       );
       if (!res.ok) return;
       const data = await res.json();
-      setPathStatus(data);
+      if (requestId === pathStatusRequestIdRef.current) {
+        setPathStatus(data);
+      }
     } catch (error) {
       console.error("Error fetching path status:", error);
     }
@@ -513,28 +532,6 @@ export function LearningInterface({
     </div>
   );
 
-  // Derive which milestones are locked.
-  // A milestone is locked when ANY preceding milestone isn't "cleared" yet — its checkpoint
-  // hasn't been passed (if it has one) and/or its videos haven't all been watched. A
-  // milestone with no checkpoint quiz still requires its videos before the next unlocks.
-  const lockedMilestoneIds = useMemo(() => {
-    const locked = new Set<string>();
-    for (let i = 1; i < milestones.length; i++) {
-      const prev = milestones[i - 1];
-      if (!pathStatus.milestoneCleared[prev.id]) {
-        for (let j = i; j < milestones.length; j++) {
-          locked.add(milestones[j].id);
-        }
-        break;
-      }
-    }
-    return locked;
-  }, [milestones, pathStatus.milestoneCleared]);
-
-  const isCurrentMilestoneLocked = currentMilestone
-    ? lockedMilestoneIds.has(currentMilestone.id)
-    : false;
-
   // Local state so the checkpoint banner updates immediately when the user passes in-session
   const [checkpointPassedLocally, setCheckpointPassedLocally] = useState<boolean>(
     checkpointQuiz ? (checkpointPassStatus[currentMilestone?.id ?? ""] ?? false) : true
@@ -549,6 +546,55 @@ export function LearningInterface({
   // checkpointQuiz and checkpointPassStatus both change when currentMilestone changes
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentMilestone?.id]);
+
+  // Optimistic, client-side view of "is the CURRENT milestone done." `pathStatus` only
+  // updates after a server round trip (save, then refetch), which lags behind — especially
+  // noticeable with multi-video milestones, where each video's save has to land before the
+  // next one even starts counting. This applies the same "cleared" rule (checkpoint
+  // passed/absent AND every video done) directly from state already available client-side,
+  // so the next milestone can unlock the instant the last video finishes.
+  const currentMilestoneClearedLocally = useMemo(() => {
+    if (!currentMilestone) return false;
+    const checkpointOk = checkpointQuiz ? checkpointPassedLocally : true;
+    const videosOk = filteredVideos.every((v) => {
+      if (videoProgressMap.get(v.id)?.is_completed) return true;
+      const live = currentVideoProgress.get(v.id);
+      return typeof live === "number" && live >= 90;
+    });
+    return checkpointOk && videosOk;
+  }, [currentMilestone, checkpointQuiz, checkpointPassedLocally, filteredVideos, videoProgressMap, currentVideoProgress]);
+
+  // Merge the optimistic current-milestone view into the server-confirmed map — this only
+  // ever adds an early "true" for the milestone the user is actively finishing; every other
+  // milestone's cleared/lock state still comes straight from the server.
+  const effectiveMilestoneCleared = useMemo(() => {
+    if (!currentMilestone || pathStatus.milestoneCleared[currentMilestone.id] || !currentMilestoneClearedLocally) {
+      return pathStatus.milestoneCleared;
+    }
+    return { ...pathStatus.milestoneCleared, [currentMilestone.id]: true };
+  }, [pathStatus.milestoneCleared, currentMilestone, currentMilestoneClearedLocally]);
+
+  // Derive which milestones are locked.
+  // A milestone is locked when ANY preceding milestone isn't "cleared" yet — its checkpoint
+  // hasn't been passed (if it has one) and/or its videos haven't all been watched. A
+  // milestone with no checkpoint quiz still requires its videos before the next unlocks.
+  const lockedMilestoneIds = useMemo(() => {
+    const locked = new Set<string>();
+    for (let i = 1; i < milestones.length; i++) {
+      const prev = milestones[i - 1];
+      if (!effectiveMilestoneCleared[prev.id]) {
+        for (let j = i; j < milestones.length; j++) {
+          locked.add(milestones[j].id);
+        }
+        break;
+      }
+    }
+    return locked;
+  }, [milestones, effectiveMilestoneCleared]);
+
+  const isCurrentMilestoneLocked = currentMilestone
+    ? lockedMilestoneIds.has(currentMilestone.id)
+    : false;
 
   // Next milestone for post-checkpoint navigation
   const nextMilestone = useMemo(() => {
@@ -630,7 +676,12 @@ export function LearningInterface({
               <div className="space-y-2">
                 {milestones.map((milestone) => {
                   const isCurrent = milestone.id === currentMilestone.id;
-                  const isCompleted = !!pathStatus.milestoneCleared[milestone.id];
+                  // A content-less milestone is trivially "cleared" so it never locks the
+                  // next one, but that's not the same as the user having completed
+                  // something — only show the checkmark when there was real content to do.
+                  const isCompleted =
+                    !!effectiveMilestoneCleared[milestone.id] &&
+                    !!pathStatus.milestoneHasContent[milestone.id];
                   const isLocked = lockedMilestoneIds.has(milestone.id);
                   const milestoneTitle = getText(milestone.title, milestone.title_ar);
 
@@ -871,6 +922,55 @@ export function LearningInterface({
                   {accessibleResources.map((resource) => {
                     const isSelected = selectedResource?.id === resource.id;
                     const resourceTitle = getText(resource.title, resource.title_ar, resource.language);
+                    const linkOnly = isLinkOnlyArticle(resource);
+
+                    const itemClassName = `w-full text-left p-3 rounded-lg border transition-colors ${isSelected
+                        ? "border-teal-500 bg-teal-50"
+                        : "border-slate-200 hover:border-slate-300"
+                      }`;
+
+                    const itemContent = (
+                      <div className="flex items-start gap-2">
+                        {resource.resource_type === "article" ? (
+                          <DocumentTextIcon className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" aria-hidden />
+                        ) : (
+                          <PlayIcon className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" aria-hidden />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p
+                            className={`text-sm ${isSelected ? "font-semibold text-teal-900" : "text-slate-700"
+                              }`}
+                          >
+                            {resourceTitle}
+                          </p>
+                          <p className="text-xs text-slate-500 mt-1">
+                            {resource.resource_type === "video"
+                              ? (language === "ar" ? "فيديو" : "Video")
+                              : resource.resource_type === "article"
+                                ? (language === "ar" ? "مقال" : "Article")
+                                : resource.resource_type === "test"
+                                  ? (language === "ar" ? "اختبار" : "Test")
+                                  : resource.resource_type}
+                          </p>
+                        </div>
+                      </div>
+                    );
+
+                    // A link-only article has nothing to show in a modal — send the user
+                    // straight to the link, like any other external link.
+                    if (linkOnly) {
+                      return (
+                        <a
+                          key={resource.id}
+                          href={resource.url ?? undefined}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={itemClassName}
+                        >
+                          {itemContent}
+                        </a>
+                      );
+                    }
 
                     return (
                       <button
@@ -886,35 +986,9 @@ export function LearningInterface({
                             setActiveTab("resources");
                           }
                         }}
-                        className={`w-full text-left p-3 rounded-lg border transition-colors ${isSelected
-                            ? "border-teal-500 bg-teal-50"
-                            : "border-slate-200 hover:border-slate-300"
-                          }`}
+                        className={itemClassName}
                       >
-                        <div className="flex items-start gap-2">
-                          {resource.resource_type === "article" ? (
-                            <DocumentTextIcon className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" aria-hidden />
-                          ) : (
-                            <PlayIcon className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" aria-hidden />
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <p
-                              className={`text-sm ${isSelected ? "font-semibold text-teal-900" : "text-slate-700"
-                                }`}
-                            >
-                              {resourceTitle}
-                            </p>
-                            <p className="text-xs text-slate-500 mt-1">
-                              {resource.resource_type === "video"
-                                ? (language === "ar" ? "فيديو" : "Video")
-                                : resource.resource_type === "article"
-                                  ? (language === "ar" ? "مقال" : "Article")
-                                  : resource.resource_type === "test"
-                                    ? (language === "ar" ? "اختبار" : "Test")
-                                    : resource.resource_type}
-                            </p>
-                          </div>
-                        </div>
+                        {itemContent}
                       </button>
                     );
                   })}
@@ -1145,7 +1219,19 @@ export function LearningInterface({
                             return newMap;
                           });
 
-                          // Progress tracking removed
+                          // Defensive refresh of the milestone lock state once this video is
+                          // effectively done. VideoPlayer's own onComplete normally handles this,
+                          // but the YouTube iframe's "ended" event isn't always reliable — without
+                          // this, the next milestone can stay locked until a manual reload even
+                          // though the video clearly finished. Fired once now (covers the case
+                          // where the completion save already landed) and once more after the
+                          // periodic 5s autosave would have run, in case that's what ends up
+                          // persisting is_completed.
+                          if (progress >= 90 && !lockRefreshRequestedRef.current.has(selectedVideo.id)) {
+                            lockRefreshRequestedRef.current.add(selectedVideo.id);
+                            fetchPathStatus();
+                            setTimeout(() => fetchPathStatus(), 6000);
+                          }
                         }}
                         onComplete={handleVideoComplete}
                       />
@@ -1314,6 +1400,45 @@ export function LearningInterface({
                 userId={userId}
                 milestoneId={currentMilestone?.id}
               />
+            )}
+
+            {/* Articles open in a modal, not inline — without this, auto-selecting an
+                article (e.g. when a milestone has no videos) left the main panel blank. */}
+            {!isCurrentMilestoneLocked && activeTab === "resources" && selectedResource && selectedResource.resource_type === "article" && (
+              <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
+                <DocumentTextIcon className="w-12 h-12 text-teal-500 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                  {getText(selectedResource.title, selectedResource.title_ar, selectedResource.language)}
+                </h3>
+                {(selectedResource.description || selectedResource.description_ar) && (
+                  <p className="text-slate-600 mb-4 max-w-md mx-auto">
+                    {getText(selectedResource.description, selectedResource.description_ar, selectedResource.language)}
+                  </p>
+                )}
+                {isLinkOnlyArticle(selectedResource) ? (
+                  <a
+                    href={selectedResource.url ?? undefined}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 transition-colors"
+                  >
+                    <DocumentTextIcon className="w-4 h-4" aria-hidden />
+                    {language === "ar" ? "فتح المقال" : "Open Article"}
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setArticleToShow(selectedResource);
+                      setIsArticleModalOpen(true);
+                    }}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 transition-colors"
+                  >
+                    <DocumentTextIcon className="w-4 h-4" aria-hidden />
+                    {language === "ar" ? "فتح المقال" : "Open Article"}
+                  </button>
+                )}
+              </div>
             )}
 
             {/* Empty State - No Resource Selected but resources exist */}
@@ -1542,6 +1667,7 @@ export function LearningInterface({
             return getText(articleToShow.title, articleToShow.title_ar, articleToShow.language) || (language === "ar" ? "مقال" : "Article");
           })()}
           size="xl"
+          backdrop="blur"
         >
           <ResourceViewer
             resource={articleToShow}

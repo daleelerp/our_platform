@@ -8,9 +8,12 @@ type ModalProps = {
   title: string;
   children: React.ReactNode;
   size?: "sm" | "md" | "lg" | "xl" | "full";
+  /** "dark" (default) is the solid dim overlay used across admin. "blur" is a lighter,
+   * frosted-glass backdrop with no heavy dimming — used for learner-facing popups. */
+  backdrop?: "dark" | "blur";
 };
 
-export function Modal({ isOpen, onClose, title, children, size = "md" }: ModalProps) {
+export function Modal({ isOpen, onClose, title, children, size = "md", backdrop = "dark" }: ModalProps) {
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
@@ -42,9 +45,11 @@ export function Modal({ isOpen, onClose, title, children, size = "md" }: ModalPr
     full: "max-w-7xl",
   };
 
+  const backdropClasses = backdrop === "blur" ? "bg-black/10 backdrop-blur-sm" : "bg-black bg-opacity-50";
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50"
+      className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${backdropClasses}`}
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           onClose();

@@ -324,7 +324,7 @@ function PricingCard({
                 </div>
               </div>
               <Link
-                href={`/paths?planId=${plan.id}`}
+                href={`/plans/${plan.id}`}
                 className="block w-full py-2 px-3 text-center rounded-lg text-xs font-semibold bg-white border border-[#429874] text-[#429874] hover:bg-[#429874]/5 transition-colors"
               >
                 {t.viewPathsCta}
@@ -369,7 +369,7 @@ function PricingCard({
         </div>
 
         <Link
-          href={isFree ? `/paths?planId=${plan.id}` : `/plans/${plan.id}`}
+          href={`/plans/${plan.id}`}
           className="block w-full mb-2 py-2 px-3 text-center border border-slate-200 text-slate-700 rounded-lg text-xs font-medium hover:bg-slate-50 transition-colors"
         >
           {isFree ? t.freePlanPathsCta : t.viewDetails}

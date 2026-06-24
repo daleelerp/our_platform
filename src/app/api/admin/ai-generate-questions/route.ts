@@ -168,6 +168,7 @@ export async function POST(request: NextRequest) {
       provider = "groq",
       batchNumber = 1,
       totalBatches = 1,
+      existingQuestions,
     } = await request.json();
 
     if (!milestoneTitle) {
@@ -321,6 +322,15 @@ export async function POST(request: NextRequest) {
       ? `\nIMPORTANT — naming rule: Always refer to the system/technology as "${erpSystem}" in questions. Never use the full course title verbatim.`
       : "";
 
+    // Cap to bound prompt size — older questions matter less than recent ones for avoiding repeats.
+    const MAX_EXISTING_QUESTIONS_IN_PROMPT = 60;
+    const existingQuestionsBlock = Array.isArray(existingQuestions) && existingQuestions.length > 0
+      ? `\n🚫 ALREADY-EXISTING QUESTIONS for this quiz — do NOT repeat these, do NOT generate close variations/rephrasings of them, and do NOT reuse the same topic or angle. Every new question must cover a topic, sub-topic, or angle not already represented below:\n${existingQuestions
+          .slice(-MAX_EXISTING_QUESTIONS_IN_PROMPT)
+          .map((q: string, i: number) => `${i + 1}. ${q}`)
+          .join("\n")}\n`
+      : "";
+
     const prompt = `${persona}
 ${systemNameRule}
 Context:
@@ -329,7 +339,7 @@ Context:
 - Description: ${milestoneDescription || "No description provided"}
 - Learning Objectives: ${Array.isArray(learningObjectives) && learningObjectives.length > 0 ? learningObjectives.join(", ") : "Not specified"}
 ${planContentBlock}
-${videoLines ? `\nVideos/lessons (questions MUST align with what is covered in these):\n${videoLines}\n` : ""}${batchDiversityInstruction}
+${videoLines ? `\nVideos/lessons (questions MUST align with what is covered in these):\n${videoLines}\n` : ""}${batchDiversityInstruction}${existingQuestionsBlock}
 Generate exactly ${count} quiz questions with this distribution:
 - ${mcqCount} multiple_choice questions (4 options each, ids: "a", "b", "c", "d")
 - 1 true_false question (options: null, correct_answers: ["true"] or ["false"])
@@ -389,7 +399,11 @@ Return ONLY valid JSON, no markdown, no extra text:
     const messages = [
       {
         role: "system",
-        content: `${persona} Generate quiz questions as valid JSON only. No markdown, no explanations outside the JSON. Only generate questions about the specific course content provided — do not default to generic domain examples.`,
+        content: `${persona} Generate quiz questions as valid JSON only. No markdown, no explanations outside the JSON. Only generate questions about the specific course content provided — do not default to generic domain examples.${
+          Array.isArray(existingQuestions) && existingQuestions.length > 0
+            ? " The user's prompt lists questions that already exist for this quiz — every question you generate must be on a genuinely new topic or angle, not a rephrasing of any existing one."
+            : ""
+        }`,
       },
       {
         role: "user",

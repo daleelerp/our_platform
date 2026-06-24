@@ -405,7 +405,7 @@ export function CertExamPlayer({ examId, userId, onContinue }: Props) {
   if (certState?.status === "cooldown") {
     const { endsAt, attemptsLeft, batchIndex } = certState;
     return (
-      <div className="bg-white rounded-xl border-2 border-amber-200 p-8 text-center">
+      <div className="bg-white rounded-xl border-2 border-amber-200 p-8 text-center" dir={language === "ar" ? "rtl" : "ltr"}>
         <div className="text-4xl mb-3">⏰</div>
         <h2 className="text-xl font-bold text-slate-900 mb-2">
           {language === "ar" ? "الاختبار مقفل مؤقتاً" : "Quiz Temporarily Locked"}
@@ -442,7 +442,7 @@ export function CertExamPlayer({ examId, userId, onContinue }: Props) {
     const { attemptsLeft: readyAttemptsLeft } = certState;
 
     return (
-      <div className="bg-white rounded-xl border-2 border-amber-200 p-8 max-w-lg mx-auto">
+      <div className="bg-white rounded-xl border-2 border-amber-200 p-8 max-w-lg mx-auto" dir={language === "ar" ? "rtl" : "ltr"}>
         <div className="text-center mb-6">
           <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-3 text-2xl">🏆</div>
           <h2 className="text-lg font-bold text-slate-900">
@@ -565,7 +565,7 @@ export function CertExamPlayer({ examId, userId, onContinue }: Props) {
   const totalPoints = questions.reduce((s, q) => s + q.points, 0);
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-6">
+    <div className="bg-white rounded-xl border border-slate-200 p-6" dir={language === "ar" ? "rtl" : "ltr"}>
       {/* Last attempt warning */}
       {isLastAttempt && (
         <div className="mb-4 flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
@@ -745,7 +745,7 @@ function CertificateCard({
     { day: "numeric", month: "long", year: "numeric" }
   );
   return (
-    <div className="bg-gradient-to-br from-amber-50 to-teal-50 rounded-xl border-2 border-amber-300 p-8 text-center">
+    <div className="bg-gradient-to-br from-amber-50 to-teal-50 rounded-xl border-2 border-amber-300 p-8 text-center" dir={language === "ar" ? "rtl" : "ltr"}>
       <div className="text-5xl mb-4">🏆</div>
       <h2 className="text-2xl font-bold text-slate-900 mb-1">
         {language === "ar" ? "تهانيّ! لقد حصلت على الشهادة" : "Congratulations!"}
@@ -832,7 +832,7 @@ function WaitingScreen({
   const helpPrice = planMonthlyPriceEgp ? Math.floor(planMonthlyPriceEgp / 2) : null;
 
   return (
-    <div className="bg-white rounded-xl border-2 border-slate-200 p-8 text-center">
+    <div className="bg-white rounded-xl border-2 border-slate-200 p-8 text-center" dir={language === "ar" ? "rtl" : "ltr"}>
       <div className="text-4xl mb-3">{showHelpOffer ? "🤝" : "📚"}</div>
       <h2 className="text-xl font-bold text-slate-900 mb-2">
         {showHelpOffer
@@ -990,7 +990,7 @@ function SubmitResults({
   const isCooldown = certState?.status === "cooldown";
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-6">
+    <div className="bg-white rounded-xl border border-slate-200 p-6" dir={language === "ar" ? "rtl" : "ltr"}>
       {/* Score header */}
       <div className="text-center mb-8">
         <div className={`inline-flex items-center justify-center w-24 h-24 rounded-full mb-4 ${passed ? "bg-green-100" : "bg-red-100"}`}>

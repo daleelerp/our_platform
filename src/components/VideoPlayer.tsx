@@ -243,8 +243,14 @@ export function VideoPlayer({
 
       if (onProgressRef.current) onProgressRef.current(pct, cur);
 
-      // Early completion at 90%
-      if (pct >= 90 && hasPlayedRef.current && cur > 10 && cur < tot * 0.98) {
+      // Early completion at 90% — notifyComplete is idempotent (hasTriggeredCompleteRef
+      // guards it), so firing here doesn't risk double-completing once the YouTube
+      // "ended" event (handleStateChange) also fires. No upper bound on `cur` here on
+      // purpose: waiting for `cur < tot * 0.98` meant a tick that skipped past 98% (or a
+      // player that never reliably emits "ended") fell back to the 5s periodic autosave,
+      // which doesn't notify anyone — so a fresh page load for the next milestone could
+      // see stale "not completed" data for up to 5 seconds after the user actually finished.
+      if (pct >= 90 && hasPlayedRef.current && cur > 10) {
         notifyComplete(cur, pct);
       }
     } catch { /* player not ready */ }

@@ -1,9 +1,12 @@
+import { filterVideosByLanguage } from "@/lib/learningPlaylistOrder";
+
 /**
  * Shared utility for computing per-path progress.
  * Used by both the dashboard server component (page.tsx) and /api/progress/dashboard.
  *
  * Logic: proportional video completion (33% watched → 33% contribution).
- * Language filter: when `language` is provided, only videos matching that language count.
+ * Language filter: when `language` is provided, only videos matching that language count
+ * (applied per milestone — see filterVideosByLanguage's per-milestone fallback).
  * Milestone-weighted: each milestone contributes equally to path progress.
  */
 export async function computePathProgress(
@@ -33,15 +36,17 @@ export async function computePathProgress(
     .in("milestone_id", milestoneIds)
     .neq("is_active", false);
 
-  // Filter to language-relevant videos when a preference is set
-  const videos = language
-    ? (allVideosRaw ?? []).filter((v: any) => {
-        const pl = String(v.primary_language ?? "").trim().toLowerCase();
-        if (!pl) return true; // no language tag → counts for all
-        if (language === "ar") return pl === "ar" || pl === "mixed";
-        return pl === "en" || pl === "mixed";
-      })
-    : (allVideosRaw ?? []);
+  // Apply the language filter per milestone, not across the whole path at once — a
+  // milestone whose videos are all in the "other" language must fall back to showing
+  // them, same as it would if it were checked on its own. Filtering everything together
+  // would let one milestone's matching videos satisfy the "don't hide everything"
+  // fallback on behalf of every other milestone too, silently dropping their videos.
+  const rawByMilestone = new Map<string, any[]>();
+  for (const v of allVideosRaw ?? []) {
+    if (!rawByMilestone.has(v.milestone_id)) rawByMilestone.set(v.milestone_id, []);
+    rawByMilestone.get(v.milestone_id)!.push(v);
+  }
+  const videos = [...rawByMilestone.values()].flatMap((group) => filterVideosByLanguage(group, language));
 
   const allVideoIds = videos.map((v: any) => v.id);
 
@@ -78,13 +83,16 @@ export async function computePathProgress(
 
     for (const milestoneId of pathMilestoneIds) {
       const milestoneVideoIds = videosByMilestone.get(milestoneId) ?? [];
-      milestonesToCount++;
 
       if (milestoneVideoIds.length === 0) {
-        // Milestone with no language-visible videos → auto-complete
-        totalMilestonePct += 100;
+        // No language-visible videos in this milestone (none authored yet, or it's
+        // resource-only) — nothing to measure, so it's left out of the average
+        // rather than auto-credited, which would otherwise inflate progress for
+        // paths that still have unbuilt milestones.
         continue;
       }
+
+      milestonesToCount++;
 
       const sumPct = milestoneVideoIds.reduce((sum: number, vid: string) => {
         const vp = vpMap.get(vid) as any;

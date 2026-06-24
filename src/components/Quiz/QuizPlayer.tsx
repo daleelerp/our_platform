@@ -387,7 +387,7 @@ export function QuizPlayer({
   // Exhausted screen — final quiz, all 3 attempts used, reset not yet due
   if (isFinalQuiz && exhaustedResetAt && Date.now() < exhaustedResetAt.getTime()) {
     return (
-      <div className="bg-white rounded-xl border-2 border-red-200 p-8 text-center">
+      <div className="bg-white rounded-xl border-2 border-red-200 p-8 text-center" dir={language === "ar" ? "rtl" : "ltr"}>
         <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4 text-3xl">
           🔒
         </div>
@@ -456,7 +456,7 @@ export function QuizPlayer({
   // 24h cooldown screen (checkpoint or final quiz between attempts)
   if (!results && (isCheckpoint || isFinalQuiz) && cooldownEndsAt && Date.now() < cooldownEndsAt.getTime()) {
     return (
-      <div className="bg-white rounded-xl border-2 border-amber-200 p-8 text-center">
+      <div className="bg-white rounded-xl border-2 border-amber-200 p-8 text-center" dir={language === "ar" ? "rtl" : "ltr"}>
         <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4 text-3xl">
           ⏰
         </div>
@@ -532,7 +532,7 @@ export function QuizPlayer({
     const maxAtt = quiz.max_attempts ?? 3;
 
     return (
-      <div className="bg-white rounded-xl border-2 border-amber-200 p-8 max-w-lg mx-auto">
+      <div className="bg-white rounded-xl border-2 border-amber-200 p-8 max-w-lg mx-auto" dir={language === "ar" ? "rtl" : "ltr"}>
         <div className="text-center mb-6">
           <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-3 text-2xl">🎯</div>
           <h2 className="text-lg font-bold text-slate-900">
@@ -689,7 +689,7 @@ export function QuizPlayer({
   const isLastAttempt = isFinalQuiz && attemptsRemainingInCycle === 1;
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-6">
+    <div className="bg-white rounded-xl border border-slate-200 p-6" dir={language === "ar" ? "rtl" : "ltr"}>
       {/* Last attempt warning */}
       {isLastAttempt && (
         <div className="mb-4 flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">

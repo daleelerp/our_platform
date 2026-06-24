@@ -107,7 +107,7 @@ export function QuizResults({
       : learningObjectives;
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-6">
+    <div className="bg-white rounded-xl border border-slate-200 p-6" dir={language === "ar" ? "rtl" : "ltr"}>
       {/* Score Summary */}
       <div className="text-center mb-8">
         <div

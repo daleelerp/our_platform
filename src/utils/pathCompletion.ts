@@ -14,11 +14,20 @@ export type PathCompletionStatus = {
   isEligible: boolean;
   /**
    * milestoneId -> whether THIS milestone is done: its checkpoint is passed (or it has
-   * none) AND every (language-visible) video in it is complete. Drives both the
-   * milestone-to-milestone lock and the "completed" checkmark in the sidebar — a
-   * milestone with no checkpoint quiz still requires its videos to be watched.
+   * none) AND every (language-visible) video in it is complete. Drives the
+   * milestone-to-milestone lock — a milestone with no checkpoint quiz still requires its
+   * videos to be watched, and a milestone with neither is trivially "cleared" so it never
+   * blocks the next one from unlocking.
    */
   milestoneCleared: Record<string, boolean>;
+  /**
+   * milestoneId -> whether this milestone has any checkpoint quiz or video at all. A
+   * milestone with no content is trivially `cleared` (so it doesn't lock progression),
+   * but that's not the same as the user having actually completed something — use this
+   * to gate the "completed" checkmark so empty/not-yet-authored milestones don't show as
+   * done just because there's nothing to do in them.
+   */
+  milestoneHasContent: Record<string, boolean>;
 };
 
 /**
@@ -88,7 +97,19 @@ export async function getPathCompletionStatus(
       .in("milestone_id", allMilestoneIds)
       .neq("is_active", false);
 
-    const visibleVideos = filterVideosByLanguage(allPathVideos ?? [], language);
+    // Apply the language filter per milestone, not across the whole path at once — a
+    // milestone whose videos are all in the "other" language must fall back to showing
+    // them, same as it would if it were checked on its own. Filtering everything together
+    // would let one milestone's matching videos satisfy the "don't hide everything"
+    // fallback on behalf of every other milestone too, silently dropping their videos.
+    const rawByMilestone = new Map<string, any[]>();
+    for (const v of allPathVideos ?? []) {
+      if (!rawByMilestone.has(v.milestone_id)) rawByMilestone.set(v.milestone_id, []);
+      rawByMilestone.get(v.milestone_id)!.push(v);
+    }
+    const visibleVideos = [...rawByMilestone.values()].flatMap((group) =>
+      filterVideosByLanguage(group, language)
+    );
     videosTotal = visibleVideos.length;
 
     for (const v of visibleVideos as any[]) {
@@ -114,11 +135,14 @@ export async function getPathCompletionStatus(
   const allVideosComplete = videosTotal === 0 || videosCompleted === videosTotal;
 
   const milestoneCleared: Record<string, boolean> = {};
+  const milestoneHasContent: Record<string, boolean> = {};
   for (const milestone of milestones) {
+    const hasCheckpoint = Object.prototype.hasOwnProperty.call(checkpointPassStatus, milestone.id);
     const checkpointOk = checkpointPassStatus[milestone.id] ?? true; // no checkpoint = trivially passed
     const milestoneVideoIds = videosByMilestone.get(milestone.id) ?? [];
     const videosOk = milestoneVideoIds.every((id) => completedVideoIds.has(id));
     milestoneCleared[milestone.id] = checkpointOk && videosOk;
+    milestoneHasContent[milestone.id] = hasCheckpoint || milestoneVideoIds.length > 0;
   }
 
   return {
@@ -131,5 +155,6 @@ export async function getPathCompletionStatus(
     allVideosComplete,
     isEligible: allCheckpointsPassed && allVideosComplete,
     milestoneCleared,
+    milestoneHasContent,
   };
 }

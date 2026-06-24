@@ -338,8 +338,8 @@ export function ResourceViewer({ resource, userId, milestoneId }: Props) {
             ) : (
               <div className="text-center py-12">
                 <p className="text-slate-500 mb-4">
-                  {language === "ar" 
-                    ? "لا يوجد محتوى نصي متاح حالياً." 
+                  {language === "ar"
+                    ? "لا يوجد محتوى نصي متاح حالياً."
                     : "No text content available at the moment."}
                 </p>
                 {hasValidUrl && (

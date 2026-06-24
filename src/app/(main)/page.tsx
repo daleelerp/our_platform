@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { HeroSection } from "@/components/landing/HeroSection";
 import { CurrentStatusBanner } from "@/components/landing/CurrentStatusBanner";
 import { ErpSystemsGrid } from "@/components/landing/ErpSystemsGrid";
@@ -62,12 +62,7 @@ export default async function HomePage() {
 
     learningPaths = learningPathsData;
   } catch (error: any) {
-    if (
-      error?.digest === "NEXT_REDIRECT" ||
-      error?.digest === "DYNAMIC_SERVER_USAGE"
-    ) {
-      throw error;
-    }
+    unstable_rethrow(error);
 
     const errorMessage = error?.message || String(error);
     const isNetworkError =

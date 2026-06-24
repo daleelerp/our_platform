@@ -95,6 +95,8 @@ type Props = {
   enrolledPaths?: EnrolledPath[];
   enrolledPathPlanMap?: Record<string, EnrolledPathPlanBadge[]>;
   purchasedPlans?: PurchasedPlanRecord[];
+  /** The active free plan's id, resolved independently of the user's own subscriptions */
+  freePlanId?: string | null;
   recommendedPaths: Path[];
   savedPreferences?: SavedPreferences;
   subscriptionActivated?: boolean;
@@ -132,6 +134,7 @@ export function DashboardContent({
   enrolledPaths = [],
   enrolledPathPlanMap = {},
   purchasedPlans = [],
+  freePlanId = null,
   recommendedPaths,
   savedPreferences,
   subscriptionActivated = false,
@@ -180,18 +183,34 @@ export function DashboardContent({
 
   // Fetch progress whenever language changes (including on mount to stay in sync).
   // The mount fetch returns the same values as initialProgress so there is no flash.
+  // Also re-fetches on focus/visibility so progress made on another page (e.g. watching
+  // a video) shows up here without requiring a manual reload when the user comes back.
   useEffect(() => {
-    fetch(`/api/progress/dashboard?lang=${language}`)
-      .then((r) => r.json())
-      .then(({ progress }) => {
-        if (!progress) return;
-        const m = new Map<string, number>();
-        for (const [pathId, pct] of Object.entries(progress)) {
-          m.set(pathId, Number(pct));
-        }
-        setLiveProgressMap(m);
-      })
-      .catch(() => {});
+    const fetchProgress = () => {
+      fetch(`/api/progress/dashboard?lang=${language}`)
+        .then((r) => r.json())
+        .then(({ progress }) => {
+          if (!progress) return;
+          const m = new Map<string, number>();
+          for (const [pathId, pct] of Object.entries(progress)) {
+            m.set(pathId, Number(pct));
+          }
+          setLiveProgressMap(m);
+        })
+        .catch(() => {});
+    };
+
+    fetchProgress();
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") fetchProgress();
+    };
+    window.addEventListener("focus", fetchProgress);
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      window.removeEventListener("focus", fetchProgress);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, [language]);
 
   const getText = (en: string | null, ar: string | null) => (language === "ar" && ar ? ar : en ?? "");
@@ -310,8 +329,8 @@ export function DashboardContent({
                 </p>
               </div>
               <div className="flex gap-3 shrink-0">
-                <Link href="/plans" className="px-5 py-2.5 bg-white text-[#429874] rounded-lg font-semibold text-sm hover:bg-slate-50 transition text-center">
-                  {language === "ar" ? "المسارات" : "Browse Paths"}
+                <Link href={freePlanId ? `/plans/${freePlanId}` : "/plans"} className="px-5 py-2.5 bg-white text-[#429874] rounded-lg font-semibold text-sm hover:bg-slate-50 transition text-center">
+                  {language === "ar" ? "المسارات المجانية" : "Free Paths"}
                 </Link>
                 <Link href="/plans" className="px-5 py-2.5 bg-white/10 border border-white/30 text-white rounded-lg font-semibold text-sm hover:bg-white/20 transition text-center">
                   {language === "ar" ? "عرض الخطط" : "View Plans"}
@@ -363,7 +382,7 @@ export function DashboardContent({
                       </div>
                       {!isPending && (
                         <Link
-                          href={`/paths?planId=${plan.id}`}
+                          href={`/plans/${plan.id}`}
                           className="shrink-0 text-xs text-teal-600 hover:text-teal-700 font-medium whitespace-nowrap"
                         >
                           {language === "ar" ? "كل المسارات" : "All paths"} →

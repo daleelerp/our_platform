@@ -163,6 +163,7 @@ export default function QuizQuestionsModal({
           pathTitle,
           videos: videoContext.length > 0 ? videoContext : undefined,
           count: generateCount,
+          existingQuestions: questions.length > 0 ? questions.map((q) => q.question_text) : undefined,
         }),
       });
       const json = await res.json();
