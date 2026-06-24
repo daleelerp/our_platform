@@ -484,7 +484,44 @@ Return ONLY valid JSON, no markdown, no extra text:
       );
     }
 
-    return NextResponse.json({ questions, count: questions.length });
+    // The model occasionally drops or renames a field (e.g. "correct_answer" instead of
+    // "correct_answers"). Normalize here, at the boundary where untrusted LLM output enters
+    // the app, so a malformed question can't reach the admin UI and crash it on render.
+    const VALID_TYPES = new Set(["multiple_choice", "true_false", "multiple_select"]);
+    const validQuestions = questions
+      .map((q: any) => {
+        if (!q || typeof q !== "object") return null;
+        if (!VALID_TYPES.has(q.question_type)) return null;
+        if (typeof q.question_text !== "string" || !q.question_text.trim()) return null;
+
+        let correct_answers = q.correct_answers ?? q.correct_answer ?? q.answer;
+        if (typeof correct_answers === "string") correct_answers = [correct_answers];
+        if (!Array.isArray(correct_answers) || correct_answers.length === 0) return null;
+
+        const options = q.question_type === "true_false" ? null : q.options;
+        if (q.question_type !== "true_false" && (!Array.isArray(options) || options.length === 0)) return null;
+
+        return {
+          question_type: q.question_type,
+          question_text: q.question_text,
+          question_text_ar: q.question_text_ar || "",
+          options,
+          correct_answers,
+          explanation: q.explanation || "",
+          explanation_ar: q.explanation_ar || "",
+          points: typeof q.points === "number" ? q.points : 1,
+        };
+      })
+      .filter((q: any) => q !== null);
+
+    if (validQuestions.length === 0) {
+      return NextResponse.json(
+        { error: "AI returned questions in an unexpected format. Please try generating again." },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ questions: validQuestions, count: validQuestions.length });
   } catch (error: any) {
     console.error("Question generation error:", error);
     return NextResponse.json(
