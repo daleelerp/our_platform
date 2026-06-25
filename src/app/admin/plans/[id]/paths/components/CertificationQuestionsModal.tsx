@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { autoTimeLimitFor } from "@/utils/autoTimeLimit";
 
 interface CertExam {
   id: string;
@@ -8,6 +9,7 @@ interface CertExam {
   title: string | null;
   title_ar: string | null;
   passing_score: number;
+  time_limit_minutes: number | null;
 }
 
 interface CertQuestion {
@@ -40,6 +42,7 @@ interface Props {
   exam: CertExam;
   planTitle: string;
   onClose: () => void;
+  onExamUpdated?: (data: Partial<CertExam>) => void;
 }
 
 const TYPE_LABEL: Record<string, string> = {
@@ -123,8 +126,9 @@ async function generateBatch(
   return (json.questions || []).map((q: GeneratedQuestion) => ({ ...q, status: "pending" as const }));
 }
 
-export default function CertificationQuestionsModal({ exam, planTitle, onClose }: Props) {
+export default function CertificationQuestionsModal({ exam, planTitle, onClose, onExamUpdated }: Props) {
   const [questions, setQuestions] = useState<CertQuestion[]>([]);
+  const [timeLimitMinutes, setTimeLimitMinutes] = useState<number | null>(exam.time_limit_minutes);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [genProgress, setGenProgress] = useState("");
@@ -162,9 +166,28 @@ export default function CertificationQuestionsModal({ exam, planTitle, onClose }
           (a: CertQuestion, b: CertQuestion) => (a.sort_order || 0) - (b.sort_order || 0)
         );
         setQuestions(sorted);
+        syncTimeLimit(sorted.length);
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Certification exams are always auto-timed off their question count (same formula as
+  // milestone checkpoint/final quizzes) — there's no manual time limit field for exams.
+  const syncTimeLimit = async (newQuestionCount: number) => {
+    const minutes = autoTimeLimitFor(newQuestionCount);
+    if (minutes === timeLimitMinutes) return;
+    setTimeLimitMinutes(minutes);
+    try {
+      const res = await fetch(`/api/admin/data?table=certification_exams&id=${exam.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ time_limit_minutes: minutes }),
+      });
+      if (res.ok) onExamUpdated?.({ time_limit_minutes: minutes });
+    } catch {
+      // best-effort — re-opening this modal will retry the sync
     }
   };
 
@@ -265,7 +288,11 @@ export default function CertificationQuestionsModal({ exam, planTitle, onClose }
     const res = await fetch(`/api/admin/data?table=certification_exam_questions&id=${id}`, {
       method: "DELETE",
     });
-    if (res.ok) setQuestions((prev) => prev.filter((q) => q.id !== id));
+    if (res.ok) {
+      const next = questions.filter((q) => q.id !== id);
+      setQuestions(next);
+      syncTimeLimit(next.length);
+    }
   };
 
   const approvedCount = generatedQueue.filter((q) => q.status === "approved").length;
@@ -281,7 +308,7 @@ export default function CertificationQuestionsModal({ exam, planTitle, onClose }
               🏆 Certification Exam Questions
             </h2>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              {planTitle} · {questions.length} questions saved
+              {planTitle} · {questions.length} questions saved · ⏱ {timeLimitMinutes ?? "—"} min time limit (auto)
             </p>
           </div>
           <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl font-light">

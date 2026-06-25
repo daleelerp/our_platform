@@ -17,7 +17,6 @@ type CertExam = {
 
 type FormValues = {
   passing_score: number | string;
-  time_limit_minutes: number | string;
 };
 
 type PathEntry = {
@@ -38,7 +37,6 @@ type PlanData = {
 
 const DEFAULT_FORM: FormValues = {
   passing_score: 70,
-  time_limit_minutes: "",
 };
 
 export default function CertificationExamsPage() {
@@ -87,10 +85,7 @@ export default function CertificationExamsPage() {
             saving: false,
             error: null,
             form: exam
-              ? {
-                  passing_score: exam.passing_score,
-                  time_limit_minutes: exam.time_limit_minutes ?? "",
-                }
+              ? { passing_score: exam.passing_score }
               : { ...DEFAULT_FORM },
           };
         })
@@ -119,7 +114,6 @@ export default function CertificationExamsPage() {
           title: `${pd.plan.display_name_en || pd.plan.name} — Certification Exam`,
           title_ar: "اختبار الاعتماد",
           passing_score: Number(pd.form.passing_score),
-          time_limit_minutes: pd.form.time_limit_minutes !== "" ? Number(pd.form.time_limit_minutes) : null,
           max_attempts: 2,
           is_active: true,
         }),
@@ -143,7 +137,6 @@ export default function CertificationExamsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           passing_score: Number(pd.form.passing_score),
-          time_limit_minutes: pd.form.time_limit_minutes !== "" ? Number(pd.form.time_limit_minutes) : null,
         }),
       });
       const json = await res.json();
@@ -331,19 +324,18 @@ export default function CertificationExamsPage() {
                           value={pd.form.passing_score}
                           onChange={(v) => setForm(pd.plan.id, { passing_score: v })}
                         />
-                        <FormField
-                          label="Time limit (min)"
-                          type="number"
-                          placeholder="No limit"
-                          value={pd.form.time_limit_minutes}
-                          onChange={(v) => setForm(pd.plan.id, { time_limit_minutes: v })}
-                        />
                       </div>
                       <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1">
                         <span className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded font-medium text-slate-600">
                           2 attempts per cycle
                         </span>
                         <span>— automatic, not editable. 2-day gap after cycle 1, then 8/16/32… day gaps with help offer.</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                        <span className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded font-medium text-slate-600">
+                          Time limit: auto
+                        </span>
+                        <span>— set from question count (questions − 2, floored at 5 min) once questions are added.</span>
                       </div>
                       <div className="flex gap-2">
                         {pd.editing ? (
@@ -362,10 +354,7 @@ export default function CertificationExamsPage() {
                                 updatePlan(pd.plan.id, {
                                   editing: false,
                                   error: null,
-                                  form: {
-                                    passing_score: pd.exam!.passing_score,
-                                    time_limit_minutes: pd.exam!.time_limit_minutes ?? "",
-                                  },
+                                  form: { passing_score: pd.exam!.passing_score },
                                 })
                               }
                               className="px-4 py-2 text-sm border border-slate-300 text-slate-600 rounded-lg hover:bg-slate-50"
@@ -405,6 +394,14 @@ export default function CertificationExamsPage() {
           exam={questionsModal.exam}
           planTitle={questionsModal.planTitle}
           onClose={() => setQuestionsModal(null)}
+          onExamUpdated={(updateData) => {
+            const planId = questionsModal.exam.plan_id;
+            setPlans((prev) =>
+              prev.map((p) =>
+                p.plan.id === planId && p.exam ? { ...p, exam: { ...p.exam, ...updateData } } : p
+              )
+            );
+          }}
         />
       )}
     </div>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Quiz, QuizQuestion, GeneratedQuestion, VideoContent } from "../types";
+import { autoTimeLimitFor } from "@/utils/autoTimeLimit";
 
 interface QuizQuestionsModalProps {
   quiz: Quiz;
@@ -12,11 +13,6 @@ interface QuizQuestionsModalProps {
   videos?: VideoContent[];
   onClose: () => void;
   onUpdateQuiz?: (quizId: string, data: Partial<Quiz>) => Promise<void>;
-}
-
-/** Gated quizzes (checkpoint, final) get a time limit derived from their question count: ~1 min/question minus a 2-min buffer, floored at 5 min. */
-function autoTimeLimitFor(questionCount: number): number {
-  return Math.max(5, questionCount - 2);
 }
 
 const AUTO_TIMED_QUIZ_TYPES = new Set(["checkpoint", "final"]);
