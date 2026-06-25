@@ -484,6 +484,27 @@ Return ONLY valid JSON, no markdown, no extra text:
       );
     }
 
+    // LLMs are biased toward placing the correct answer in option A (sometimes B), regardless
+    // of prompt instructions — across a batch this lets students guess without knowing the
+    // material. Re-shuffle which option text gets which letter, server-side, so the position
+    // of the correct answer is actually randomized.
+    function shuffleOptionPositions(options: Array<{ id: string; [k: string]: any }>, correctAnswers: string[]) {
+      const ids = options.map((o) => o.id);
+      const shuffledContent = [...options];
+      for (let i = shuffledContent.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffledContent[i], shuffledContent[j]] = [shuffledContent[j], shuffledContent[i]];
+      }
+      const oldToNewId: Record<string, string> = {};
+      const newOptions = shuffledContent.map((opt, i) => {
+        const newId = ids[i];
+        oldToNewId[opt.id] = newId;
+        return { ...opt, id: newId };
+      });
+      const newCorrectAnswers = correctAnswers.map((a) => oldToNewId[a] ?? a);
+      return { options: newOptions, correct_answers: newCorrectAnswers };
+    }
+
     // The model occasionally drops or renames a field (e.g. "correct_answer" instead of
     // "correct_answers"). Normalize here, at the boundary where untrusted LLM output enters
     // the app, so a malformed question can't reach the admin UI and crash it on render.
@@ -498,8 +519,14 @@ Return ONLY valid JSON, no markdown, no extra text:
         if (typeof correct_answers === "string") correct_answers = [correct_answers];
         if (!Array.isArray(correct_answers) || correct_answers.length === 0) return null;
 
-        const options = q.question_type === "true_false" ? null : q.options;
+        let options = q.question_type === "true_false" ? null : q.options;
         if (q.question_type !== "true_false" && (!Array.isArray(options) || options.length === 0)) return null;
+
+        if (options && options.length > 1) {
+          const shuffled = shuffleOptionPositions(options, correct_answers);
+          options = shuffled.options;
+          correct_answers = shuffled.correct_answers;
+        }
 
         return {
           question_type: q.question_type,
