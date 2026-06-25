@@ -7,7 +7,6 @@ interface CertExam {
   plan_id: string;
   title: string | null;
   title_ar: string | null;
-  price_egp: number;
   passing_score: number;
 }
 

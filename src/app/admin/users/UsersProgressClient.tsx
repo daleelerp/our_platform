@@ -22,8 +22,6 @@ export default function UsersProgressClient({ users, summaries }: Props) {
   const [teamStats, setTeamStats] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"progress" | "list">("list");
-  const [bulkGranting, setBulkGranting] = useState(false);
-  const [bulkResult, setBulkResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
   useEffect(() => {
     loadProgressData();
@@ -47,26 +45,6 @@ export default function UsersProgressClient({ users, summaries }: Props) {
     }
   };
 
-  const handleBulkGrant = async () => {
-    if (!confirm("Grant free certification exam access to ALL currently active subscribers? This cannot be undone.")) return;
-    setBulkGranting(true);
-    setBulkResult(null);
-    try {
-      const res = await fetch("/api/admin/grant-exam-access", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bulk: true }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Failed");
-      setBulkResult({ ok: true, msg: `Done — granted access to ${json.granted} subscriber${json.granted !== 1 ? "s" : ""}. ${json.message || ""}` });
-    } catch (err: any) {
-      setBulkResult({ ok: false, msg: err.message || "Failed to bulk grant" });
-    } finally {
-      setBulkGranting(false);
-    }
-  };
-
   if (loading) {
     return (
       <div className="bg-white rounded-xl shadow-sm p-12 text-center">
@@ -77,32 +55,6 @@ export default function UsersProgressClient({ users, summaries }: Props) {
 
   return (
     <div className="space-y-6">
-      {/* Bulk Certification Access */}
-      <div className="bg-white rounded-xl shadow-sm px-5 py-4 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h3 className="text-sm font-semibold text-slate-900">Certification Exam Access</h3>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Grant all active subscribers free access to their plan's certification exam at once.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={handleBulkGrant}
-          disabled={bulkGranting}
-          className="text-sm px-4 py-2 bg-teal-600 text-white rounded-xl font-semibold hover:bg-teal-700 disabled:opacity-50 transition-colors flex items-center gap-2"
-        >
-          {bulkGranting && (
-            <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-          )}
-          {bulkGranting ? "Granting…" : "Grant Access to All Subscribers"}
-        </button>
-        {bulkResult && (
-          <div className={`w-full text-xs px-3 py-2 rounded-lg ${bulkResult.ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
-            {bulkResult.msg}
-          </div>
-        )}
-      </div>
-
       {/* Tabs */}
       <div className="bg-white rounded-xl shadow-sm p-1 flex gap-1">
         <button

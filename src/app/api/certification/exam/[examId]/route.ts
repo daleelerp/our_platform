@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { createClient as createServiceRoleClient } from "@supabase/supabase-js";
+import { checkPathCompletion } from "@/utils/checkPathCompletion";
 
 const adminSupabase = createServiceRoleClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,62 +16,6 @@ function shuffleArray<T>(arr: T[]): T[] {
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
-}
-
-async function checkPathCompletion(userId: string, pathId: string): Promise<boolean> {
-  // Get all active milestones
-  const { data: milestones } = await adminSupabase
-    .from("path_milestones")
-    .select("id")
-    .eq("learning_path_id", pathId)
-    .eq("is_active", true);
-
-  const milestoneIds = (milestones || []).map((m) => m.id);
-  if (!milestoneIds.length) return true;
-
-  // Check all videos completed (≥90%)
-  const { data: allVideos } = await adminSupabase
-    .from("video_content")
-    .select("id")
-    .in("milestone_id", milestoneIds)
-    .neq("is_active", false);
-
-  const videoIds = (allVideos || []).map((v) => v.id);
-  if (videoIds.length > 0) {
-    const { data: videoProgress } = await adminSupabase
-      .from("user_video_progress")
-      .select("video_id, is_completed")
-      .eq("user_id", userId)
-      .in("video_id", videoIds);
-
-    const completedSet = new Set(
-      (videoProgress || []).filter((v) => v.is_completed).map((v) => v.video_id)
-    );
-    if (!videoIds.every((id) => completedSet.has(id))) return false;
-  }
-
-  // Check all milestone checkpoint quizzes passed
-  const { data: checkpoints } = await adminSupabase
-    .from("quizzes")
-    .select("id")
-    .in("milestone_id", milestoneIds)
-    .eq("quiz_type", "checkpoint")
-    .eq("is_active", true);
-
-  const checkpointIds = (checkpoints || []).map((q) => q.id);
-  if (checkpointIds.length > 0) {
-    const { data: passedAttempts } = await adminSupabase
-      .from("user_quiz_attempts")
-      .select("quiz_id")
-      .eq("user_id", userId)
-      .in("quiz_id", checkpointIds)
-      .eq("is_passed", true);
-
-    const passedSet = new Set((passedAttempts || []).map((a) => a.quiz_id));
-    if (!checkpointIds.every((id) => passedSet.has(id))) return false;
-  }
-
-  return true;
 }
 
 export async function GET(
@@ -118,7 +63,7 @@ export async function GET(
 
   // Check that ALL enrolled paths are fully completed
   for (const enrollment of enrollments) {
-    const complete = await checkPathCompletion(user.id, enrollment.learning_path_id);
+    const complete = await checkPathCompletion(adminSupabase, user.id, enrollment.learning_path_id);
     if (!complete) {
       return NextResponse.json(
         { error: "Complete all videos and milestones before taking the certification exam" },

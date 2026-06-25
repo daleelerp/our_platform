@@ -9,7 +9,6 @@ type CertExam = {
   plan_id: string;
   title: string | null;
   title_ar: string | null;
-  price_egp: number;
   passing_score: number;
   time_limit_minutes: number | null;
   max_attempts: number | null;
@@ -17,7 +16,6 @@ type CertExam = {
 };
 
 type FormValues = {
-  price_egp: number | string;
   passing_score: number | string;
   time_limit_minutes: number | string;
 };
@@ -39,7 +37,6 @@ type PlanData = {
 };
 
 const DEFAULT_FORM: FormValues = {
-  price_egp: 299,
   passing_score: 70,
   time_limit_minutes: "",
 };
@@ -91,7 +88,6 @@ export default function CertificationExamsPage() {
             error: null,
             form: exam
               ? {
-                  price_egp: exam.price_egp,
                   passing_score: exam.passing_score,
                   time_limit_minutes: exam.time_limit_minutes ?? "",
                 }
@@ -122,7 +118,6 @@ export default function CertificationExamsPage() {
           plan_id: pd.plan.id,
           title: `${pd.plan.display_name_en || pd.plan.name} — Certification Exam`,
           title_ar: "اختبار الاعتماد",
-          price_egp: Number(pd.form.price_egp),
           passing_score: Number(pd.form.passing_score),
           time_limit_minutes: pd.form.time_limit_minutes !== "" ? Number(pd.form.time_limit_minutes) : null,
           max_attempts: 2,
@@ -147,7 +142,6 @@ export default function CertificationExamsPage() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          price_egp: Number(pd.form.price_egp),
           passing_score: Number(pd.form.passing_score),
           time_limit_minutes: pd.form.time_limit_minutes !== "" ? Number(pd.form.time_limit_minutes) : null,
         }),
@@ -202,7 +196,7 @@ export default function CertificationExamsPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Certification Exams</h1>
           <p className="text-slate-500 mt-1 text-sm">
-            One exam per subscription plan — students who finish all paths can purchase it to earn a certificate.
+            One exam per subscription plan — included in the plan price. Students who finish all paths can take it to earn a certificate.
           </p>
         </div>
         <div className="flex gap-3 shrink-0">
@@ -292,7 +286,6 @@ export default function CertificationExamsPage() {
                     /* ── Exam exists: show stats + actions ── */
                     <div className="flex items-center justify-between gap-4 flex-wrap">
                       <div className="flex items-center gap-3 flex-wrap">
-                        <StatPill label="Price" value={`${pd.exam!.price_egp} EGP`} color="amber" />
                         <StatPill label="Passing" value={`${pd.exam!.passing_score}%`} color="teal" />
                         <StatPill
                           label="Time"
@@ -331,13 +324,7 @@ export default function CertificationExamsPage() {
                       {pd.editing && (
                         <p className="text-xs font-medium text-slate-500">Edit exam settings</p>
                       )}
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                        <FormField
-                          label="Price (EGP)"
-                          type="number"
-                          value={pd.form.price_egp}
-                          onChange={(v) => setForm(pd.plan.id, { price_egp: v })}
-                        />
+                      <div className="grid grid-cols-2 gap-3">
                         <FormField
                           label="Passing score (%)"
                           type="number"
@@ -376,7 +363,6 @@ export default function CertificationExamsPage() {
                                   editing: false,
                                   error: null,
                                   form: {
-                                    price_egp: pd.exam!.price_egp,
                                     passing_score: pd.exam!.passing_score,
                                     time_limit_minutes: pd.exam!.time_limit_minutes ?? "",
                                   },

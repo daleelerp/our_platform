@@ -69,8 +69,6 @@ function fmtDate(iso: string | null | undefined) {
 export function UserCardClient({ userId, userProfile }: Props) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [granting, setGranting] = useState(false);
-  const [grantResult, setGrantResult] = useState<{ ok: boolean; msg: string } | null>(null);
 
   useEffect(() => {
     fetch(`/api/admin/users/${userId}`)
@@ -80,28 +78,6 @@ export function UserCardClient({ userId, userProfile }: Props) {
       .finally(() => setLoading(false));
   }, [userId]);
 
-  const handleGrantAccess = async (examId: string) => {
-    setGranting(true);
-    setGrantResult(null);
-    try {
-      const res = await fetch("/api/admin/grant-exam-access", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, examId }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Failed");
-      setGrantResult({ ok: true, msg: "Access granted — user can now take the exam for free." });
-      // Refresh data to show updated status
-      const refreshed = await fetch(`/api/admin/users/${userId}`).then((r) => r.json());
-      if (refreshed.data) setData(refreshed.data);
-    } catch (err: any) {
-      setGrantResult({ ok: false, msg: err.message || "Failed to grant access" });
-    } finally {
-      setGranting(false);
-    }
-  };
-
   if (loading) {
     return <div className="p-6 text-slate-500 text-sm">Loading…</div>;
   }
@@ -110,8 +86,7 @@ export function UserCardClient({ userId, userProfile }: Props) {
     return <div className="p-6 text-red-500 text-sm">Failed to load user data.</div>;
   }
 
-  const { email, lastSignIn, createdAt, subscription, enrollments, activityLogs, sessions, videoProgress, quizAttempts, payments, learningAnalytics, certExam, certPurchases } = data;
-  const certPurchase = certExam ? (certPurchases || []).find((p: any) => p.exam_id === certExam.id) : null;
+  const { email, lastSignIn, createdAt, subscription, enrollments, activityLogs, sessions, videoProgress, quizAttempts, payments, learningAnalytics, certExam, certEligibility, certificate } = data;
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
@@ -254,7 +229,7 @@ export function UserCardClient({ userId, userProfile }: Props) {
           </Section>
         )}
 
-        {/* Certification Exam Access */}
+        {/* Certification Exam Access — included in the plan price; gated by path completion, not payment */}
         <Section title="Certification Exam Access">
           {certExam ? (
             <div className="rounded-lg border border-slate-200 overflow-hidden">
@@ -264,45 +239,28 @@ export function UserCardClient({ userId, userProfile }: Props) {
                     {certExam.title || "Certification Exam"}
                   </p>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    {certExam.price_egp > 0 ? `${Number(certExam.price_egp).toLocaleString()} EGP` : "Free"}
-                    {" · "}Passing: {certExam.passing_score}%
+                    Passing: {certExam.passing_score}%
                     {certExam.time_limit_minutes ? ` · ${certExam.time_limit_minutes} min` : ""}
                   </p>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
-                  {certPurchase?.status === "paid" ? (
+                  {certificate ? (
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      ✓ Access Granted
-                      {certPurchase.amount_paid_egp === 0 && (
-                        <span className="text-emerald-500">(Free)</span>
-                      )}
+                      🏆 Certificate issued
                     </span>
-                  ) : certPurchase?.status === "pending" ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                      Pending Payment
+                  ) : certEligibility?.isEligible ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      ✓ Eligible — paths complete
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-500">
-                      No Access
+                      {certEligibility?.enrolledPathCount
+                        ? `In progress — ${certEligibility.completedPathCount}/${certEligibility.enrolledPathCount} paths complete`
+                        : "Not enrolled in a plan path yet"}
                     </span>
-                  )}
-                  {certPurchase?.status !== "paid" && (
-                    <button
-                      type="button"
-                      onClick={() => handleGrantAccess(certExam.id)}
-                      disabled={granting}
-                      className="text-xs px-3 py-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 disabled:opacity-50 font-medium transition-colors"
-                    >
-                      {granting ? "Granting…" : "Grant Free Access"}
-                    </button>
                   )}
                 </div>
               </div>
-              {grantResult && (
-                <div className={`px-4 py-2 text-xs border-t ${grantResult.ok ? "bg-emerald-50 text-emerald-700 border-emerald-100" : "bg-red-50 text-red-700 border-red-100"}`}>
-                  {grantResult.msg}
-                </div>
-              )}
             </div>
           ) : subscription ? (
             <p className="text-xs text-slate-400">No certification exam has been set up for this user's plan yet.</p>
