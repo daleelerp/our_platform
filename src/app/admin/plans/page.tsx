@@ -61,6 +61,30 @@ const audienceOptions: { value: AudienceType; label: string; labelAr: string; ic
   { value: "all", label: "All Career Tracks", labelAr: "جميع المسارات المهنية", icon: "🎯" },
 ];
 
+// sort_order only controls relative display order (see public pricing page `.order("sort_order")`),
+// so deleting a plan can safely leave a gap (e.g. 7, 9) — self-heal it back to a dense 1..N
+// sequence on every load instead of leaving the admin list showing skipped numbers.
+async function resequenceSortOrders(plans: Plan[]): Promise<Plan[]> {
+  const sorted = [...plans].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+  const mismatches = sorted
+    .map((plan, i) => ({ plan, expected: i + 1 }))
+    .filter(({ plan, expected }) => (plan.sort_order || 0) !== expected);
+
+  if (mismatches.length === 0) return sorted;
+
+  await Promise.all(
+    mismatches.map(({ plan, expected }) =>
+      fetch(`/api/admin/data?table=subscription_plans&id=${plan.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sort_order: expected }),
+      })
+    )
+  );
+
+  return sorted.map((plan, i) => ({ ...plan, sort_order: i + 1 }));
+}
+
 export default function PlansPage() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [features, setFeatures] = useState<Feature[]>([]);
@@ -89,7 +113,7 @@ export default function PlansPage() {
       const providersJson = await providersRes.json();
 
       if (plansRes.ok && plansJson.data) {
-        setPlans(plansJson.data);
+        setPlans(await resequenceSortOrders(plansJson.data));
       }
       if (featuresRes.ok && featuresJson.data) {
         setFeatures(featuresJson.data);
