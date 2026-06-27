@@ -34,14 +34,14 @@ const audienceConfig: Record<AudienceType, {
     ar: "تقني",
     icon: "💻",
     description_en: "For Technical Professionals",
-    description_ar: "للمتخصصين التقنيين",
+    description_ar: "للمبرمجين ومسؤولي النظام",
   },
   business_functional: {
     en: "Business Functional",
     ar: "وظيفي",
     icon: "📊",
     description_en: "For Business Functional Consultants",
-    description_ar: "للاستشاريين الوظيفيين",
+    description_ar: "لمستشاري الأعمال",
   },
   business_consultant: {
     en: "Business Consultant",
