@@ -80,6 +80,43 @@ function isOversizedRequest(errorText: string): boolean {
   return errorText.includes("Request too large") || errorText.includes("reduce your message size");
 }
 
+/**
+ * Certification exams concatenate every path/milestone in the whole plan into one prompt —
+ * for multi-path plans this can run several thousand characters regardless of how many
+ * questions are requested (the prompt doesn't shrink with question count), which is exactly
+ * what blows past the 8B fallback model's tiny 6000 TPM budget. Truncating from the end would
+ * silently drop whichever path happens to be listed last — often the most relevant one for the
+ * exam — so the budget is split evenly across "Path: ..." sections instead, keeping every path
+ * represented.
+ */
+function capPlanContentFairly(content: string, maxChars: number): string {
+  if (content.length <= maxChars) return content;
+
+  const lines = content.split("\n");
+  const blocks: string[][] = [];
+  for (const line of lines) {
+    if (line.startsWith("Path: ") || blocks.length === 0) {
+      blocks.push([line]);
+    } else {
+      blocks[blocks.length - 1].push(line);
+    }
+  }
+
+  const perBlockBudget = Math.max(1, Math.floor(maxChars / blocks.length));
+  const kept = blocks.map((block) => {
+    const keptLines = [block[0]];
+    let total = block[0].length;
+    for (const line of block.slice(1)) {
+      if (total + line.length + 1 > perBlockBudget) break;
+      keptLines.push(line);
+      total += line.length + 1;
+    }
+    return keptLines.join("\n");
+  });
+
+  return `${kept.join("\n")}\n…(some milestones omitted per path to fit the AI model's prompt limit)`;
+}
+
 async function fetchGroqWithRetry(payload: object, maxRetries = 4): Promise<Response> {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     const res = await fetch(GROQ_API_URL, {
@@ -113,7 +150,13 @@ async function fetchGroqWithRetry(payload: object, maxRetries = 4): Promise<Resp
   return new Response(JSON.stringify({ error: "Max retries exceeded" }), { status: 500 });
 }
 
-async function callGroq(messages: object[], temperature: number, max_tokens: number, model: string): Promise<Response> {
+async function callGroq(
+  messages: object[],
+  temperature: number,
+  max_tokens: number,
+  model: string,
+  fallbackMessages?: object[]
+): Promise<Response> {
   const res = await fetchGroqWithRetry({
     model,
     messages,
@@ -127,11 +170,13 @@ async function callGroq(messages: object[], temperature: number, max_tokens: num
     const errText = await res.clone().text();
     if (isDailyLimit(errText)) {
       // 8B model has a 6000 TPM (total tokens) limit.
-      // Cap max_tokens so prompt (~2000) + output stays under 6000.
+      // Cap max_tokens so prompt (~2000) + output stays under 6000 — and use the
+      // pre-shrunk fallbackMessages (if provided) so a large prompt that the primary
+      // model handled fine doesn't also blow the fallback's much tighter budget.
       const fallbackMaxTokens = Math.min(max_tokens, 3800);
       return fetchGroqWithRetry({
         model: FALLBACK_MODEL,
-        messages,
+        messages: fallbackMessages || messages,
         temperature,
         max_tokens: fallbackMaxTokens,
         response_format: { type: "json_object" },
@@ -314,32 +359,38 @@ export async function POST(request: NextRequest) {
         }).join("\n")
       : null;
 
-    const planContentBlock = planContent && planContent.trim()
-      ? `\n⚠️ COURSE CONTENT (this is what was actually taught — ALL questions MUST come from these specific topics ONLY):\n${planContent.trim()}\n\nDo NOT generate questions about topics not listed above.`
-      : "";
+    function buildPlanContentBlock(maxChars: number | null): string {
+      if (!planContent || !planContent.trim()) return "";
+      const trimmed = planContent.trim();
+      const content = maxChars != null ? capPlanContentFairly(trimmed, maxChars) : trimmed;
+      return `\n⚠️ COURSE CONTENT (this is what was actually taught — ALL questions MUST come from these specific topics ONLY):\n${content}\n\nDo NOT generate questions about topics not listed above.`;
+    }
 
     const systemNameRule = systemName && systemName !== pathTitle
       ? `\nIMPORTANT — naming rule: Always refer to the system/technology as "${erpSystem}" in questions. Never use the full course title verbatim.`
       : "";
 
+    function buildExistingQuestionsBlock(maxCount: number): string {
+      if (!Array.isArray(existingQuestions) || existingQuestions.length === 0) return "";
+      return `\n🚫 ALREADY-EXISTING QUESTIONS for this quiz — do NOT repeat these, do NOT generate close variations/rephrasings of them, and do NOT reuse the same topic or angle. Every new question must cover a topic, sub-topic, or angle not already represented below:\n${existingQuestions
+        .slice(-maxCount)
+        .map((q: string, i: number) => `${i + 1}. ${q}`)
+        .join("\n")}\n`;
+    }
+
     // Cap to bound prompt size — older questions matter less than recent ones for avoiding repeats.
     const MAX_EXISTING_QUESTIONS_IN_PROMPT = 60;
-    const existingQuestionsBlock = Array.isArray(existingQuestions) && existingQuestions.length > 0
-      ? `\n🚫 ALREADY-EXISTING QUESTIONS for this quiz — do NOT repeat these, do NOT generate close variations/rephrasings of them, and do NOT reuse the same topic or angle. Every new question must cover a topic, sub-topic, or angle not already represented below:\n${existingQuestions
-          .slice(-MAX_EXISTING_QUESTIONS_IN_PROMPT)
-          .map((q: string, i: number) => `${i + 1}. ${q}`)
-          .join("\n")}\n`
-      : "";
 
-    const prompt = `${persona}
+    function buildUserPrompt(planContentBlockValue: string, existingQuestionsBlockValue: string): string {
+      return `${persona}
 ${systemNameRule}
 Context:
 - Course/System: ${erpSystem}
 - Exam: ${milestoneTitle}
 - Description: ${milestoneDescription || "No description provided"}
 - Learning Objectives: ${Array.isArray(learningObjectives) && learningObjectives.length > 0 ? learningObjectives.join(", ") : "Not specified"}
-${planContentBlock}
-${videoLines ? `\nVideos/lessons (questions MUST align with what is covered in these):\n${videoLines}\n` : ""}${batchDiversityInstruction}${existingQuestionsBlock}
+${planContentBlockValue}
+${videoLines ? `\nVideos/lessons (questions MUST align with what is covered in these):\n${videoLines}\n` : ""}${batchDiversityInstruction}${existingQuestionsBlockValue}
 Generate exactly ${count} quiz questions with this distribution:
 - ${mcqCount} multiple_choice questions (4 options each, ids: "a", "b", "c", "d")
 - 1 true_false question (options: null, correct_answers: ["true"] or ["false"])
@@ -395,25 +446,40 @@ Return ONLY valid JSON, no markdown, no extra text:
     }
   ]
 }`;
+    }
 
+    const systemMessageContent = `${persona} Generate quiz questions as valid JSON only. No markdown, no explanations outside the JSON. Only generate questions about the specific course content provided — do not default to generic domain examples.${
+      Array.isArray(existingQuestions) && existingQuestions.length > 0
+        ? " The user's prompt lists questions that already exist for this quiz — every question you generate must be on a genuinely new topic or angle, not a rephrasing of any existing one."
+        : ""
+    }`;
+
+    const prompt = buildUserPrompt(
+      buildPlanContentBlock(null),
+      buildExistingQuestionsBlock(MAX_EXISTING_QUESTIONS_IN_PROMPT)
+    );
     const messages = [
-      {
-        role: "system",
-        content: `${persona} Generate quiz questions as valid JSON only. No markdown, no explanations outside the JSON. Only generate questions about the specific course content provided — do not default to generic domain examples.${
-          Array.isArray(existingQuestions) && existingQuestions.length > 0
-            ? " The user's prompt lists questions that already exist for this quiz — every question you generate must be on a genuinely new topic or angle, not a rephrasing of any existing one."
-            : ""
-        }`,
-      },
-      {
-        role: "user",
-        content: prompt,
-      },
+      { role: "system", content: systemMessageContent },
+      { role: "user", content: prompt },
+    ];
+
+    // Shrunk variant used only if the primary model hits its daily limit and we fall back to
+    // the 8B model — its 6000 TPM budget is far tighter than the prompt size that's fine for
+    // the primary model, especially for certification exams spanning many paths.
+    const FALLBACK_MAX_PLAN_CONTENT_CHARS = 2000;
+    const FALLBACK_MAX_EXISTING_QUESTIONS = 15;
+    const fallbackPrompt = buildUserPrompt(
+      buildPlanContentBlock(FALLBACK_MAX_PLAN_CONTENT_CHARS),
+      buildExistingQuestionsBlock(FALLBACK_MAX_EXISTING_QUESTIONS)
+    );
+    const fallbackMessages = [
+      { role: "system", content: systemMessageContent },
+      { role: "user", content: fallbackPrompt },
     ];
 
     const groqRes = provider === "gemini"
       ? await callGemini(messages, 0.7, 6000)
-      : await callGroq(messages, 0.7, 6000, PRIMARY_MODEL);
+      : await callGroq(messages, 0.7, 6000, PRIMARY_MODEL, fallbackMessages);
 
     if (!groqRes.ok) {
       const errorText = await groqRes.text();
