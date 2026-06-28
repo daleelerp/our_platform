@@ -449,12 +449,14 @@ export default function EditPathPage() {
   };
 
   const handleDeleteMilestone = async (id: string) => {
-    if (!confirm("Are you sure?")) return;
+    if (!confirm("Delete this milestone and ALL its videos, resources, quizzes, and questions? This cannot be undone.")) return;
     try {
-      await fetch(
-        `/api/admin/data?table=path_milestones&id=${encodeURIComponent(id)}`,
+      const res = await fetch(
+        `/api/admin/delete-milestone?id=${encodeURIComponent(id)}`,
         { method: "DELETE" }
       );
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to delete milestone");
       setMilestones((prev) => prev.filter((m) => m.id !== id));
       if (openMilestoneModal === id) setOpenMilestoneModal(null);
     } catch (err: any) {

@@ -101,7 +101,6 @@ async function generateBatch(
   planContent: string,
   count: number,
   batchLabel: string,
-  provider: "groq" | "gemini",
   batchNumber: number = 1,
   totalBatches: number = 1,
 ): Promise<GeneratedQuestion[]> {
@@ -116,7 +115,7 @@ async function generateBatch(
       planContent,
       videos: [],
       count,
-      provider,
+      provider: "groq",
       batchNumber,
       totalBatches,
     }),
@@ -140,7 +139,6 @@ export default function CertificationQuestionsModal({ exam, planTitle, onClose, 
   const [systemName, setSystemName] = useState(planTitle);
   const [planContent, setPlanContent] = useState("");
   const [loadingContent, setLoadingContent] = useState(false);
-  const [provider, setProvider] = useState<"groq" | "gemini">("gemini");
 
   useEffect(() => {
     loadQuestions();
@@ -201,7 +199,7 @@ export default function CertificationQuestionsModal({ exam, planTitle, onClose, 
 
       if (genCount <= BATCH_SIZE) {
         setGenProgress(`Generating ${genCount} questions…`);
-        all = await generateBatch(systemName, planTitle, planContent, genCount, "Part 1", provider, 1, 1);
+        all = await generateBatch(systemName, planTitle, planContent, genCount, "Part 1", 1, 1);
       } else {
         const batches: number[] = [];
         let remaining = genCount;
@@ -211,7 +209,7 @@ export default function CertificationQuestionsModal({ exam, planTitle, onClose, 
         }
         for (let i = 0; i < batches.length; i++) {
           setGenProgress(`Generating batch ${i + 1} of ${batches.length} (${batches[i]} questions)…`);
-          const batch = await generateBatch(systemName, planTitle, planContent, batches[i], `Part ${i + 1} of ${batches.length}`, provider, i + 1, batches.length);
+          const batch = await generateBatch(systemName, planTitle, planContent, batches[i], `Part ${i + 1} of ${batches.length}`, i + 1, batches.length);
           all = [...all, ...batch];
         }
       }
@@ -463,39 +461,16 @@ export default function CertificationQuestionsModal({ exam, planTitle, onClose, 
                     <p className="text-[10px] text-slate-400 mt-0.5">
                       AI uses this to generate questions relevant to what was actually taught. You can edit it.
                     </p>
+                    {!loadingContent && !planContent.trim() && (
+                      <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 mt-1.5">
+                        ⚠️ No paths are attached to this plan yet, so there's no course content to base questions
+                        on. Add paths via "Manage Paths" first, or generation will produce generic questions
+                        unrelated to what's actually taught.
+                      </p>
+                    )}
                   </div>
 
                   <div className="p-4 bg-violet-50 border border-violet-200 rounded-xl space-y-3">
-                    {/* Provider toggle */}
-                    <div>
-                      <p className="text-[11px] text-slate-500 mb-1.5">AI Provider</p>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setProvider("gemini")}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-colors ${
-                            provider === "gemini"
-                              ? "bg-blue-600 text-white border-blue-600"
-                              : "bg-white text-slate-600 border-slate-300 hover:border-blue-400"
-                          }`}
-                        >
-                          <span>🔵</span> Google Gemini
-                          <span className="text-[10px] opacity-70">(recommended)</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setProvider("groq")}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-colors ${
-                            provider === "groq"
-                              ? "bg-orange-500 text-white border-orange-500"
-                              : "bg-white text-slate-600 border-slate-300 hover:border-orange-400"
-                          }`}
-                        >
-                          <span>⚡</span> Groq
-                        </button>
-                      </div>
-                    </div>
-
                     <div className="flex items-end gap-3 flex-wrap">
                       <div>
                         <label htmlFor="cert-gen-count" className="text-[11px] text-slate-500 block mb-1">
@@ -526,7 +501,7 @@ export default function CertificationQuestionsModal({ exam, planTitle, onClose, 
                             {genProgress || "Generating…"}
                           </>
                         ) : (
-                          `✨ Generate with ${provider === "gemini" ? "Gemini" : "Groq"}`
+                          "✨ Generate with Groq"
                         )}
                       </button>
                     </div>
