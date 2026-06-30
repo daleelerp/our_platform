@@ -98,7 +98,11 @@ export function HeroSection({ liveErpNames, pendingErpNames }: Props) {
                   <span className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 text-sm font-bold flex items-center justify-center">3</span>
                   <div className="flex-1">
                     <p className="text-sm font-semibold text-slate-800">{language === "ar" ? "تغطية أشمل" : "Broader coverage"}</p>
-                    <p className="text-xs text-slate-500">{language === "ar" ? "ERP + Software fields" : "ERP + Software fields"}</p>
+                    <p className="text-xs text-slate-500">
+                      {language === "ar"
+                        ? "باقي شركات ERP، كل المسارات الإدارية، وخرائط جديدة لمجالات تانية"
+                        : "More ERP platforms, full business tracks, and new field roadmaps"}
+                    </p>
                   </div>
                 </div>
               </div>
