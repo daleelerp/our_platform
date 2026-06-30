@@ -106,8 +106,6 @@ export type ErpSystem = {
   launch_date: string | null;
   priority_order: number;
   avg_salary_range: string | null;
-  job_demand_level: string | null;
-  learning_difficulty: string | null;
   certification_available: boolean;
   primary_industries: string[] | null;
   /** Optional MENA salary bands (EGP / month) — see docs/sql/add_salary_fields_to_erp_systems.sql */

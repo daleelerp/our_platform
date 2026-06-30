@@ -321,8 +321,6 @@ export type ErpSystem = {
   launch_date: string | null;
   priority_order: number;
   avg_salary_range: string | null;
-  job_demand_level: 'very_high' | 'high' | 'medium' | 'low' | null;
-  learning_difficulty: 'beginner' | 'intermediate' | 'advanced' | null;
   certification_available: boolean;
   primary_industries: string[] | null;
 };

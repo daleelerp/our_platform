@@ -38,18 +38,17 @@ export default function AdminErpSystemsPage() {
           launch_date: null,
           priority_order: 1,
           avg_salary_range: "",
-          job_demand_level: "",
-          learning_difficulty: "",
           certification_available: true,
         }}
         columns={[
           { key: "id", label: "ID", hidden: true, readOnly: true },
           { key: "name", label: "Name", type: "text" },
-          { key: "vendor", label: "Vendor", type: "text" },
+          { key: "vendor", label: "Vendor", type: "text", hideInTable: true },
           {
             key: "description",
             label: "Description (EN) — search also fills AR",
             type: "textarea",
+            hideInTable: true,
             scraper: {
               enabled: true,
               type: "description",
@@ -60,11 +59,12 @@ export default function AdminErpSystemsPage() {
             key: "description_ar",
             label: "Description (AR)",
             type: "textarea",
+            hideInTable: true,
           },
           /* Salary Range — commented out per product request (tooltip + field). Re-enable by uncommenting.
-          { 
-            key: "avg_salary_range", 
-            label: "Salary Range", 
+          {
+            key: "avg_salary_range",
+            label: "Salary Range",
             type: "text",
             scraper: {
               enabled: true,
@@ -73,18 +73,7 @@ export default function AdminErpSystemsPage() {
             },
           },
           */
-          { 
-            key: "job_demand_level", 
-            label: "Demand Level", 
-            type: "text",
-            scraper: {
-              enabled: true,
-              type: "demand_level",
-              searchField: "name", // Use ERP system name as search query
-            },
-          },
-          { key: "learning_difficulty", label: "Difficulty", type: "text" },
-          { key: "priority_order", label: "Order", type: "number" },
+          { key: "priority_order", label: "Order", type: "number", hideInTable: true },
           { key: "is_active", label: "Active", type: "checkbox" },
         ]}
       />
