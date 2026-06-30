@@ -191,7 +191,7 @@
     "otherInterestLabel": "ما هو نظام ERP الذي تبحث عنه؟",
     "otherInterestPlaceholder": "مثال: Oracle NetSuite أو ERPNext أو Workday...",
     "emailLabel": "البريد الإلكتروني",
-    "emailPlaceholder": "you@company.com",
+    "emailPlaceholder": "you@gmail.com",
     "submitButton": "انضم لقائمة الانتظار",
     "submitting": "جاري الانضمام...",
     "successTitle": "أنت في القائمة! 🎉",

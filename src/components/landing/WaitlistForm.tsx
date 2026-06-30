@@ -187,14 +187,16 @@ export function WaitlistForm({ onSuccess, compact = false, preselectedErp }: Wai
             <label className="block text-sm font-medium text-slate-700 mb-1">
               {t("waitlist.otherInterestLabel")} *
             </label>
-            <input
-              type="text"
+            <textarea
               value={customInterest}
-              onChange={(e) => setCustomInterest(e.target.value)}
+              onChange={(e) => setCustomInterest(e.target.value.slice(0, 1000))}
               placeholder={t("waitlist.otherInterestPlaceholder")}
               required={selectedErp === "other"}
-              className="w-full px-4 py-3 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#429874] focus:border-transparent"
+              maxLength={1000}
+              rows={3}
+              className="w-full px-4 py-3 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#429874] focus:border-transparent resize-y"
             />
+            <p className="mt-1 text-xs text-slate-400 text-right">{customInterest.length}/1000</p>
           </div>
         )}
 

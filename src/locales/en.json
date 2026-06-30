@@ -191,7 +191,7 @@
     "otherInterestLabel": "Which ERP are you looking for?",
     "otherInterestPlaceholder": "e.g. Oracle Netsuite, ERPNext, Workday...",
     "emailLabel": "Email",
-    "emailPlaceholder": "you@company.com",
+    "emailPlaceholder": "you@gmail.com",
     "submitButton": "Join the Waitlist",
     "submitting": "Joining...",
     "successTitle": "You're on the list!",
