@@ -180,7 +180,7 @@ export function WaitlistTable({ initialData }: Props) {
                             <span className="inline-flex items-center px-2 py-1 rounded bg-emerald-50 text-emerald-700 text-xs capitalize">
                               {entry.interest_track}
                             </span>
-                            {entry.interest_track === "other" && entry.custom_interest && (
+                            {entry.interested_erp === "other" && entry.custom_interest && (
                               <div className="text-xs text-slate-500">
                                 {entry.custom_interest}
                               </div>
