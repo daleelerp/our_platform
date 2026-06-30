@@ -28,7 +28,7 @@ export function WaitlistTable({ initialData }: Props) {
   const [entries, setEntries] = useState<WaitlistEntry[]>(initialData);
   const [filter, setFilter] = useState<"all" | "pending" | "invited" | "contact">("all");
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
-  const [expandedRow, setExpandedRow] = useState<string | null>(null);
+  const [viewingEntry, setViewingEntry] = useState<WaitlistEntry | null>(null);
 
   const filteredEntries = entries.filter((entry) => {
     if (filter === "all") return true;
@@ -143,11 +143,10 @@ export function WaitlistTable({ initialData }: Props) {
               filteredEntries.map((entry) => {
                 const isContactForm = entry.referral_source?.includes("contact_form");
                 const contactData = parseContactFormData(entry.referral_source);
-                const isExpanded = expandedRow === entry.id;
+                const hasMessage = (isContactForm && contactData) || !!entry.custom_interest;
 
                 return (
-                  <>
-                    <tr key={entry.id} className="hover:bg-slate-50">
+                  <tr key={entry.id} className="hover:bg-slate-50">
                       <td className="px-4 py-3 text-sm text-slate-900">{entry.email}</td>
                       <td className="px-4 py-3 text-sm text-slate-700">
                         {entry.full_name || "-"}
@@ -181,7 +180,7 @@ export function WaitlistTable({ initialData }: Props) {
                               {entry.interest_track}
                             </span>
                             {entry.interested_erp === "other" && entry.custom_interest && (
-                              <div className="text-xs text-slate-500">
+                              <div className="text-xs text-slate-500 max-w-xs truncate">
                                 {entry.custom_interest}
                               </div>
                             )}
@@ -218,56 +217,81 @@ export function WaitlistTable({ initialData }: Props) {
                             <option value="invited">Invited</option>
                             <option value="converted">Converted</option>
                           </select>
-                          {isContactForm && (
+                          {hasMessage && (
                             <button
-                              onClick={() => setExpandedRow(isExpanded ? null : entry.id)}
-                              className="text-xs px-2 py-1 text-[#429874] hover:bg-[#f0f9f6] rounded"
+                              type="button"
+                              onClick={() => setViewingEntry(entry)}
+                              className="text-xs px-2 py-1 text-[#429874] hover:bg-[#f0f9f6] rounded border border-[#a9dbc7]"
                               title="View message"
                             >
-                              {isExpanded ? "▲" : "▼"}
+                              View
                             </button>
                           )}
-                          <a
-                            href={`mailto:${entry.email}?subject=Re: ${contactData?.title || "Your inquiry"}`}
-                            className="text-xs px-2 py-1 bg-[#429874] text-white rounded hover:bg-[#357a5d] transition"
-                            title="Reply via email"
-                          >
-                            📧
-                          </a>
                         </div>
                       </td>
                     </tr>
-                    {isExpanded && contactData && (
-                      <tr>
-                        <td colSpan={7} className="px-4 py-4 bg-slate-50 border-b border-slate-200">
-                          <div className="space-y-3">
-                            <div>
-                              <h4 className="text-sm font-semibold text-slate-900 mb-1">Request Title:</h4>
-                              <p className="text-sm text-slate-700">{contactData.title || "No title"}</p>
-                            </div>
-                            <div>
-                              <h4 className="text-sm font-semibold text-slate-900 mb-1">Message:</h4>
-                              <p className="text-sm text-slate-700 whitespace-pre-wrap">{contactData.message || "No message"}</p>
-                            </div>
-                            {entry.interested_erp && (
-                              <div>
-                                <h4 className="text-sm font-semibold text-slate-900 mb-1">Interested ERP:</h4>
-                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-purple-50 text-purple-700 text-xs">
-                                  {entry.interested_erp}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </>
-                );
+                  );
               })
             )}
           </tbody>
         </table>
       </div>
+
+      {viewingEntry && (() => {
+        const contactData = parseContactFormData(viewingEntry.referral_source);
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            onClick={() => setViewingEntry(null)}
+          >
+            <div
+              className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-slate-900">{viewingEntry.email}</h3>
+                <button
+                  type="button"
+                  onClick={() => setViewingEntry(null)}
+                  aria-label="Close"
+                  className="text-slate-400 hover:text-slate-600 text-xl leading-none"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {contactData && (
+                  <>
+                    <div>
+                      <h4 className="text-sm font-semibold text-slate-900 mb-1">Request Title:</h4>
+                      <p className="text-sm text-slate-700">{contactData.title || "No title"}</p>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold text-slate-900 mb-1">Message:</h4>
+                      <p className="text-sm text-slate-700 whitespace-pre-wrap">{contactData.message || "No message"}</p>
+                    </div>
+                  </>
+                )}
+                {viewingEntry.custom_interest && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-900 mb-1">Custom Interest:</h4>
+                    <p className="text-sm text-slate-700 whitespace-pre-wrap">{viewingEntry.custom_interest}</p>
+                  </div>
+                )}
+                {viewingEntry.interested_erp && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-900 mb-1">Interested ERP:</h4>
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-purple-50 text-purple-700 text-xs">
+                      {viewingEntry.interested_erp}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
