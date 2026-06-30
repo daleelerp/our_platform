@@ -466,6 +466,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       planCertMap={planCertMap}
       certByPathId={certByPathId}
       initialProgress={serverProgress}
+      userEmail={user.email}
     />
   );
 }

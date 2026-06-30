@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAppStore } from "@/store/useAppStore";
 import { useSubscription } from "@/hooks/useSubscription";
 import Link from "next/link";
+import { RequestTrackCard } from "@/components/dashboard/RequestTrackCard";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -105,6 +106,8 @@ type Props = {
   certByPathId?: Record<string, PlanCertData>;
   /** Server-computed progress per pathId — rendered immediately, no client-side flash */
   initialProgress?: Record<string, number>;
+  /** Logged-in user's account email — used to prefill the "request a track" form */
+  userEmail?: string | null;
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -142,6 +145,7 @@ export function DashboardContent({
   planCertMap = {},
   certByPathId = {},
   initialProgress,
+  userEmail,
 }: Props) {
   const router = useRouter();
   const language = useAppStore((s) => s.language);
@@ -666,7 +670,7 @@ export function DashboardContent({
         )}
 
         {/* ── QUICK ACTIONS ─────────────────────────────────────────────────── */}
-        <section className="grid md:grid-cols-2 gap-4">
+        <section className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
           <Link
             href="/plans"
             className="group bg-linear-to-br from-teal-500 to-emerald-600 rounded-2xl p-6 text-white hover:shadow-lg transition"
@@ -700,6 +704,8 @@ export function DashboardContent({
               {language === "ar" ? "أجب على الاختبار ←" : "Take the Quiz →"}
             </span>
           </Link>
+
+          <RequestTrackCard userEmail={userEmail} userName={profile?.full_name} />
         </section>
 
       </div>

@@ -9,6 +9,14 @@ type WaitlistFormProps = {
   onSuccess?: () => void;
   compact?: boolean;
   preselectedErp?: string;
+  /** Prefills + locks the email field, e.g. for a logged-in user's account email */
+  defaultEmail?: string;
+  /** Prefills the name field (still editable) */
+  defaultName?: string;
+  /** Hides the "why join" benefits list — useful inside a compact modal */
+  hideBenefits?: boolean;
+  /** Hides the built-in title/subtitle — useful when the parent already has its own heading */
+  hideHeader?: boolean;
 };
 
 // Inactive ERP systems for waitlist
@@ -22,10 +30,18 @@ const inactiveErpSystems = [
   { value: "other", label: "Other", label_ar: "أخرى" },
 ];
 
-export function WaitlistForm({ onSuccess, compact = false, preselectedErp }: WaitlistFormProps) {
+export function WaitlistForm({
+  onSuccess,
+  compact = false,
+  preselectedErp,
+  defaultEmail,
+  defaultName,
+  hideBenefits = false,
+  hideHeader = false,
+}: WaitlistFormProps) {
   const { t, language } = useTranslation();
-  const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
+  const [email, setEmail] = useState(defaultEmail || "");
+  const [name, setName] = useState(defaultName || "");
   const [selectedErp, setSelectedErp] = useState(preselectedErp || "");
   const [interestTrack, setInterestTrack] = useState("");
   const [customInterest, setCustomInterest] = useState("");
@@ -108,10 +124,14 @@ export function WaitlistForm({ onSuccess, compact = false, preselectedErp }: Wai
 
   return (
     <div>
-      <h3 className="text-2xl font-bold text-slate-900 mb-2">{t("waitlist.title")}</h3>
-      <p className="text-slate-600 mb-6">
-        {t("waitlist.subtitle")}
-      </p>
+      {!hideHeader && (
+        <>
+          <h3 className="text-2xl font-bold text-slate-900 mb-2">{t("waitlist.title")}</h3>
+          <p className="text-slate-600 mb-6">
+            {t("waitlist.subtitle")}
+          </p>
+        </>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
@@ -133,7 +153,10 @@ export function WaitlistForm({ onSuccess, compact = false, preselectedErp }: Wai
             onChange={(e) => setEmail(e.target.value)}
             placeholder={t("waitlist.emailPlaceholder")}
             required
-            className="w-full px-4 py-3 bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#429874] focus:border-transparent"
+            readOnly={!!defaultEmail}
+            className={`w-full px-4 py-3 border rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#429874] focus:border-transparent ${
+              defaultEmail ? "bg-slate-50 border-slate-200 text-slate-500" : "bg-white border-slate-300"
+            }`}
           />
         </div>
 
@@ -225,29 +248,31 @@ export function WaitlistForm({ onSuccess, compact = false, preselectedErp }: Wai
       </form>
 
       {/* Benefits */}
-      <div className="mt-6 pt-6 border-t border-slate-200">
-        <p className="text-sm font-medium text-slate-700 mb-3">{t("waitlist.benefitsTitle")}</p>
-        <ul className="space-y-2 text-sm text-slate-600">
-          <li className="flex items-center gap-2">
-            <svg className="w-4 h-4 text-[#429874]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            {t("waitlist.benefit1")}
-          </li>
-          <li className="flex items-center gap-2">
-            <svg className="w-4 h-4 text-[#429874]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            {t("waitlist.benefit2")}
-          </li>
-          <li className="flex items-center gap-2">
-            <svg className="w-4 h-4 text-[#429874]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            {t("waitlist.benefit3")}
-          </li>
-        </ul>
-      </div>
+      {!hideBenefits && (
+        <div className="mt-6 pt-6 border-t border-slate-200">
+          <p className="text-sm font-medium text-slate-700 mb-3">{t("waitlist.benefitsTitle")}</p>
+          <ul className="space-y-2 text-sm text-slate-600">
+            <li className="flex items-center gap-2">
+              <svg className="w-4 h-4 text-[#429874]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              {t("waitlist.benefit1")}
+            </li>
+            <li className="flex items-center gap-2">
+              <svg className="w-4 h-4 text-[#429874]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              {t("waitlist.benefit2")}
+            </li>
+            <li className="flex items-center gap-2">
+              <svg className="w-4 h-4 text-[#429874]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              {t("waitlist.benefit3")}
+            </li>
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
