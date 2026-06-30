@@ -739,60 +739,6 @@ export function LearningInterface({
               </CollapsibleSection>
             </div>
 
-            {/* Final Assessment — separate section, visually distinct from milestones */}
-            {finalQuiz && (
-              <div className="bg-white rounded-xl border-2 border-teal-200 p-4">
-              <CollapsibleSection
-                title={language === "ar" ? "الاختبار النهائي" : "Final Assessment"}
-                headerClassName="text-[11px] font-semibold uppercase tracking-wider text-teal-600"
-              >
-                {finalQuizUnlocked ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedQuiz(finalQuiz);
-                      setActiveTab("quiz");
-                    }}
-                    className={`w-full text-left rounded-lg p-3 transition-colors ${
-                      selectedQuiz?.id === finalQuiz.id
-                        ? "bg-teal-600 text-white"
-                        : "bg-teal-50 hover:bg-teal-100 text-teal-900"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="text-lg shrink-0">🏁</span>
-                        <div className="min-w-0">
-                          <p className={`text-sm font-semibold truncate ${selectedQuiz?.id === finalQuiz.id ? "text-white" : "text-teal-900"}`}>
-                            {getText(finalQuiz.title, finalQuiz.title_ar) || (language === "ar" ? "الاختبار النهائي" : "Final Assessment")}
-                          </p>
-                          <p className={`text-xs mt-0.5 ${selectedQuiz?.id === finalQuiz.id ? "text-teal-100" : "text-teal-600"}`}>
-                            {language === "ar" ? "اختبر معرفتك الكاملة" : "Test your full knowledge"}
-                          </p>
-                        </div>
-                      </div>
-                      <ChevronRightIcon className={`w-4 h-4 shrink-0 ${selectedQuiz?.id === finalQuiz.id ? "text-white" : "text-teal-500"}`} />
-                    </div>
-                  </button>
-                ) : (
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 cursor-not-allowed">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <LockClosedIcon className="w-5 h-5 text-slate-400 shrink-0" />
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-slate-500 truncate">
-                            {language === "ar" ? "الاختبار النهائي" : "Final Assessment"}
-                          </p>
-                          {completionChecklist}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </CollapsibleSection>
-              </div>
-            )}
-
             {/* Videos List */}
             <div className="bg-white rounded-xl border border-slate-200 p-4">
               <CollapsibleSection
@@ -1035,6 +981,62 @@ export function LearningInterface({
                   })}
                 </div>
                 </CollapsibleSection>
+              </div>
+            )}
+
+            {/* Final Assessment — separate section, visually distinct from milestones. Placed
+                after all milestone content (videos/resources/practice quizzes) and right
+                before the Certification Exam card, matching the actual completion order. */}
+            {finalQuiz && (
+              <div className="bg-white rounded-xl border-2 border-teal-200 p-4">
+              <CollapsibleSection
+                title={language === "ar" ? "الاختبار النهائي" : "Final Assessment"}
+                headerClassName="text-[11px] font-semibold uppercase tracking-wider text-teal-600"
+              >
+                {finalQuizUnlocked ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedQuiz(finalQuiz);
+                      setActiveTab("quiz");
+                    }}
+                    className={`w-full text-left rounded-lg p-3 transition-colors ${
+                      selectedQuiz?.id === finalQuiz.id
+                        ? "bg-teal-600 text-white"
+                        : "bg-teal-50 hover:bg-teal-100 text-teal-900"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="text-lg shrink-0">🏁</span>
+                        <div className="min-w-0">
+                          <p className={`text-sm font-semibold truncate ${selectedQuiz?.id === finalQuiz.id ? "text-white" : "text-teal-900"}`}>
+                            {getText(finalQuiz.title, finalQuiz.title_ar) || (language === "ar" ? "الاختبار النهائي" : "Final Assessment")}
+                          </p>
+                          <p className={`text-xs mt-0.5 ${selectedQuiz?.id === finalQuiz.id ? "text-teal-100" : "text-teal-600"}`}>
+                            {language === "ar" ? "اختبر معرفتك الكاملة" : "Test your full knowledge"}
+                          </p>
+                        </div>
+                      </div>
+                      <ChevronRightIcon className={`w-4 h-4 shrink-0 ${selectedQuiz?.id === finalQuiz.id ? "text-white" : "text-teal-500"}`} />
+                    </div>
+                  </button>
+                ) : (
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 cursor-not-allowed">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <LockClosedIcon className="w-5 h-5 text-slate-400 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-slate-500 truncate">
+                            {language === "ar" ? "الاختبار النهائي" : "Final Assessment"}
+                          </p>
+                          {completionChecklist}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CollapsibleSection>
               </div>
             )}
 
