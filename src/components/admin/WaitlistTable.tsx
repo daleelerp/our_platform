@@ -127,7 +127,7 @@ export function WaitlistTable({ initialData }: Props) {
               <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase">
                 Date
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase">
+              <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase sticky right-0 bg-slate-50 border-l border-slate-200">
                 Actions
               </th>
             </tr>
@@ -205,13 +205,15 @@ export function WaitlistTable({ initialData }: Props) {
                       <td className="px-4 py-3 text-sm text-slate-500">
                         {new Date(entry.created_at).toLocaleDateString()}
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
+                      <td className="px-4 py-3 sticky right-0 bg-white border-l border-slate-200">
+                        <div className="flex flex-col items-stretch gap-1.5 w-28">
                           <select
                             value={entry.status}
                             onChange={(e) => updateStatus(entry.id, e.target.value)}
                             disabled={isUpdating === entry.id}
-                            className="text-xs border border-slate-300 rounded px-2 py-1 bg-white"
+                            aria-label="Update status"
+                            title="Update status"
+                            className="text-xs border border-slate-300 rounded px-2 py-1.5 bg-white w-full"
                           >
                             <option value="pending">Pending</option>
                             <option value="invited">Invited</option>
@@ -221,10 +223,10 @@ export function WaitlistTable({ initialData }: Props) {
                             <button
                               type="button"
                               onClick={() => setViewingEntry(entry)}
-                              className="text-xs px-2 py-1 text-[#429874] hover:bg-[#f0f9f6] rounded border border-[#a9dbc7]"
+                              className="text-xs px-2 py-1.5 text-[#429874] hover:bg-[#f0f9f6] rounded border border-[#a9dbc7] w-full whitespace-nowrap"
                               title="View message"
                             >
-                              View
+                              View message
                             </button>
                           )}
                         </div>

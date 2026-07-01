@@ -120,11 +120,14 @@ export default async function PlanDetailsPage({ params }: Props) {
     (a: any, b: any) => (a._sort_order || Number.MAX_SAFE_INTEGER) - (b._sort_order || Number.MAX_SAFE_INTEGER)
   );
 
+  const isFree = isFreePlan(plan);
+
   // Non-subscribers get a teaser: a couple of paths in full, the rest blurred behind a
-  // "Subscribe to view more" prompt. Subscribers already paid, so they see everything.
+  // "Subscribe to view more" prompt. Subscribers already paid, and free plans have no
+  // paid CTA to upsell, so both see everything.
   const PREVIEW_PATH_COUNT = 2;
-  const visiblePaths = hasLiveAccess ? uniquePaths : uniquePaths.slice(0, PREVIEW_PATH_COUNT);
-  const hiddenPaths = hasLiveAccess ? [] : uniquePaths.slice(PREVIEW_PATH_COUNT);
+  const visiblePaths = hasLiveAccess || isFree ? uniquePaths : uniquePaths.slice(0, PREVIEW_PATH_COUNT);
+  const hiddenPaths = hasLiveAccess || isFree ? [] : uniquePaths.slice(PREVIEW_PATH_COUNT);
 
   const featureKeys: string[] = Array.isArray(plan.features) ? plan.features : [];
   const limitations =
@@ -142,8 +145,6 @@ export default async function PlanDetailsPage({ params }: Props) {
     ((plan.price_one_time_egp || 0) > 0 &&
       (plan.price_monthly_egp || 0) === 0 &&
       (plan.price_yearly_egp || 0) === 0);
-
-  const isFree = isFreePlan(plan);
 
   const ctaHref = oneTime
     ? `/checkout?planId=${plan.id}`
