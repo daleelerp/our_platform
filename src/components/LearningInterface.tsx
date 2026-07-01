@@ -89,6 +89,8 @@ type CertExamInfo = {
   title: string;
   planId: string;
   isEligible: boolean;
+  requiresSubscription: boolean;
+  subscribeCtaHref: string | null;
 };
 
 export type PathStatus = {
@@ -1040,8 +1042,35 @@ export function LearningInterface({
               </div>
             )}
 
+            {/* Certification Exam card — path reachable via a free plan, but the exam
+                itself belongs to a paid plan the user hasn't subscribed to */}
+            {certExamInfo && certExamInfo.requiresSubscription && (
+              <Link
+                href={certExamInfo.subscribeCtaHref || "/plans"}
+                className="block bg-linear-to-br from-teal-50 to-emerald-50 rounded-xl border border-teal-200 p-4 hover:border-teal-300 transition-colors"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">🏆</span>
+                  <p className="text-xs font-semibold text-teal-800 uppercase tracking-wider">
+                    {language === "ar" ? "شهادة الاعتماد" : "Certification Exam"}
+                  </p>
+                </div>
+                <p className="text-sm font-semibold text-slate-900 mb-1 leading-tight">
+                  {certExamInfo.title}
+                </p>
+                <p className="text-xs text-slate-500 mb-3">
+                  {language === "ar"
+                    ? "هذا المسار مجاني، لكن اختبار الاعتماد يتطلب الاشتراك في الخطة المدفوعة."
+                    : "This path is free, but the certification exam requires subscribing to the paid plan."}
+                </p>
+                <span className="inline-block px-4 py-2 rounded-lg bg-teal-600 text-white text-sm font-semibold">
+                  {language === "ar" ? "اشترك لفتح الاختبار" : "Subscribe to unlock exam"}
+                </span>
+              </Link>
+            )}
+
             {/* Certification Exam card — locked until all content completed */}
-            {certExamInfo && !pathStatus.isEligible && (
+            {certExamInfo && !certExamInfo.requiresSubscription && !pathStatus.isEligible && (
               <div className="bg-linear-to-br from-amber-50 to-orange-50 rounded-xl border border-amber-200 p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-lg">🏆</span>
@@ -1061,7 +1090,7 @@ export function LearningInterface({
               </div>
             )}
 
-            {certExamInfo && pathStatus.isEligible && (
+            {certExamInfo && !certExamInfo.requiresSubscription && pathStatus.isEligible && (
               <button
                 type="button"
                 onClick={() => setShowCertExam(true)}

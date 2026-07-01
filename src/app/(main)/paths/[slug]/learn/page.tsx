@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { LearningInterface } from "@/components/LearningInterface";
 import { orderVideosForLearning } from "@/lib/learningPlaylistOrder";
 import { getPathCompletionStatus } from "@/utils/pathCompletion";
+import { isFreePlan } from "@/utils/pathAccess";
 
 /** Always fresh data — avoids CDN/browser serving an empty cached lesson page */
 export const dynamic = "force-dynamic";
@@ -205,7 +206,14 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
   const { checkpointPassStatus } = pathCompletion;
 
   // Fetch certification exam via path → plan_paths (no subscription dependency)
-  let certExamInfo: { examId: string; title: string; planId: string; isEligible: boolean } | null = null;
+  let certExamInfo: {
+    examId: string;
+    title: string;
+    planId: string;
+    isEligible: boolean;
+    requiresSubscription: boolean;
+    subscribeCtaHref: string | null;
+  } | null = null;
   {
     const { data: planPathRows } = await supabase
       .from("plan_paths")
@@ -225,11 +233,50 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
         .maybeSingle();
 
       if (certExam) {
+        let requiresSubscription = false;
+        let subscribeCtaHref: string | null = null;
+
+        // The path may also be offered through a free plan (accessible without payment).
+        // In that case the certification exam — which belongs to a specific paid plan —
+        // must not unlock just from watching videos; the user still needs that plan.
+        const { data: planRows } = await supabaseAdmin
+          .from("subscription_plans")
+          .select("id, price_monthly_egp, price_yearly_egp, price_one_time_egp, price_per_user_egp, payment_type")
+          .in("id", planIds);
+
+        const pathReachableViaFreePlan = (planRows || []).some((p: any) => isFreePlan(p));
+        const certPlan = (planRows || []).find((p: any) => p.id === certExam.plan_id);
+
+        if (pathReachableViaFreePlan && certPlan && !isFreePlan(certPlan)) {
+          const { data: certPlanAccess } = await supabase
+            .from("user_subscriptions")
+            .select("id")
+            .eq("user_id", user.id)
+            .eq("plan_id", certExam.plan_id)
+            .in("status", ["active", "trial", "paused"])
+            .limit(1)
+            .maybeSingle();
+
+          if (!certPlanAccess) {
+            requiresSubscription = true;
+            const oneTime =
+              certPlan.payment_type === "one_time" ||
+              ((certPlan.price_one_time_egp || 0) > 0 &&
+                (certPlan.price_monthly_egp || 0) === 0 &&
+                (certPlan.price_yearly_egp || 0) === 0);
+            subscribeCtaHref = oneTime
+              ? `/checkout?planId=${certExam.plan_id}`
+              : `/checkout?planId=${certExam.plan_id}&billingCycle=monthly`;
+          }
+        }
+
         certExamInfo = {
           examId: certExam.id,
           title: certExam.title || "Certification Exam",
           planId: certExam.plan_id,
           isEligible: pathCompletion.isEligible,
+          requiresSubscription,
+          subscribeCtaHref,
         };
       }
     }
