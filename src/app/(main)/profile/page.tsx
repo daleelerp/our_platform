@@ -49,6 +49,18 @@ export default function ProfilePage() {
   const setLanguage = useAppStore((state) => state.setLanguage);
   
   const { subscription, plan, usage, isLoading: subLoading, daysRemaining, refresh: refreshSubscription } = useSubscription();
+
+  // Per the published Refund Policy: refunds may be requested within 3 calendar days of purchase.
+  const REFUND_WINDOW_DAYS = 3;
+  const daysSincePurchase = subscription?.started_at
+    ? Math.floor((Date.now() - new Date(subscription.started_at).getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+  const canRequestRefund =
+    !!subscription &&
+    subscription.status !== "cancelled" &&
+    subscription.status !== "expired" &&
+    daysSincePurchase !== null &&
+    daysSincePurchase < REFUND_WINDOW_DAYS;
   
   const [activeTab, setActiveTab] = useState<"info" | "subscription" | "settings">("info");
   const [isLoading, setIsLoading] = useState(false);
@@ -77,6 +89,8 @@ export default function ProfilePage() {
   const [preferences, setPreferences] = useState<any>(null);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [isRequestingRefund, setIsRequestingRefund] = useState(false);
+  const [refundRequested, setRefundRequested] = useState(false);
 
   const isArabic = language === "ar";
 
@@ -135,7 +149,9 @@ export default function ProfilePage() {
     erpProvider: isArabic ? "مزود ERP" : "ERP Provider",
     weeklyHours: isArabic ? "ساعات أسبوعية" : "Weekly Hours",
     careerTimeline: isArabic ? "الجدول الزمني المهني" : "Career Timeline",
-    cancelSubscription: isArabic ? "إلغاء الاشتراك" : "Cancel Subscription",
+    requestRefund: isArabic ? "طلب استرداد" : "Request Refund",
+    requestingRefund: isArabic ? "جاري الإرسال..." : "Requesting...",
+    refundRequested: isArabic ? "تم إرسال الطلب" : "Refund Requested",
     cancellationCycle: isArabic ? "دورة الإلغاء" : "Cancellation Cycle",
     cancelAtPeriodEnd: isArabic ? "سيتم الإلغاء في نهاية الفترة الحالية" : "Will cancel at end of current period",
     willRenew: isArabic ? "سيتم التجديد تلقائياً" : "Will renew automatically",
@@ -369,6 +385,34 @@ export default function ProfilePage() {
       setError(err.message || t.error);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleRequestRefund = async () => {
+    const confirmMessage = isArabic
+      ? "هل تريد إرسال طلب استرداد؟ سنتواصل معك خلال 24-48 ساعة."
+      : "Send a refund request? We'll get back to you within 24-48 hours.";
+    if (!window.confirm(confirmMessage)) return;
+
+    setIsRequestingRefund(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/subscription/refund-request", { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || t.error);
+
+      setRefundRequested(true);
+      setSuccess(
+        isArabic
+          ? "تم إرسال طلب الاسترداد. سنتواصل معك قريباً."
+          : "Refund request submitted. We'll be in touch soon."
+      );
+      setTimeout(() => setSuccess(null), 5000);
+    } catch (err: any) {
+      setError(err.message || t.error);
+      setTimeout(() => setError(null), 5000);
+    } finally {
+      setIsRequestingRefund(false);
     }
   };
 
@@ -870,7 +914,7 @@ export default function ProfilePage() {
                     )}
                   </div>
 
-                  {/* CTA Buttons - Always show subscribe/upgrade options */}
+                  {/* CTA Buttons */}
                   <div className="flex flex-wrap gap-4 pt-4 border-t border-slate-200 mt-6">
                     {/* Show Subscribe Now if no active subscription */}
                     {(!subscription || subscription.status === "cancelled" || subscription.status === "expired") && (
@@ -889,60 +933,16 @@ export default function ProfilePage() {
                         </Link>
                       </>
                     )}
-                    
-                    {/* Show Upgrade if has subscription */}
-                    {subscription && subscription.status !== "cancelled" && subscription.status !== "expired" && (
-                      <>
-                        <Link
-                          href="/plans"
-                          className="px-6 py-3 bg-[#429874] text-white rounded-lg font-medium hover:bg-[#357a5d] transition-colors shadow-md hover:shadow-lg"
-                        >
-                          {t.upgradePlan}
-                        </Link>
-                        {subscription && !subscription.cancelled_at && (
-                          <button
-                            onClick={async () => {
-                              const confirmMessage = isArabic 
-                                ? "هل أنت متأكد من إلغاء الاشتراك؟ سيستمر الاشتراك حتى نهاية الفترة الحالية."
-                                : "Are you sure you want to cancel your subscription? It will remain active until the end of the current period.";
-                              
-                              if (window.confirm(confirmMessage)) {
-                                setIsSaving(true);
-                                setError(null);
-                                try {
-                                  const supabase = createClient();
-                                  const { error: updateError } = await supabase
-                                    .from("user_subscriptions")
-                                    .update({ 
-                                      cancelled_at: new Date().toISOString(),
-                                      // Don't change status to cancelled immediately - keep it active until period end
-                                    })
-                                    .eq("id", subscription.id)
-                                    .eq("user_id", user.id);
-                                  
-                                  if (updateError) {
-                                    throw updateError;
-                                  }
-                                  
-                                  await refreshSubscription();
-                                  setSuccess(isArabic ? "تم إلغاء الاشتراك. سيستمر حتى نهاية الفترة الحالية." : "Subscription cancelled. It will remain active until the end of the current period.");
-                                  setTimeout(() => setSuccess(null), 5000);
-                                } catch (err: any) {
-                                  console.error("Cancel subscription error:", err);
-                                  setError(err.message || (isArabic ? "فشل إلغاء الاشتراك" : "Failed to cancel subscription"));
-                                  setTimeout(() => setError(null), 5000);
-                                } finally {
-                                  setIsSaving(false);
-                                }
-                              }
-                            }}
-                            disabled={isSaving}
-                            className="px-6 py-3 bg-red-50 border-2 border-red-200 text-red-600 rounded-lg font-medium hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {isSaving ? (isArabic ? "جاري الإلغاء..." : "Cancelling...") : t.cancelSubscription}
-                          </button>
-                        )}
-                      </>
+
+                    {/* Refund request — only within the 3-day window from the published Refund Policy */}
+                    {canRequestRefund && (
+                      <button
+                        onClick={handleRequestRefund}
+                        disabled={isRequestingRefund || refundRequested}
+                        className="px-6 py-3 bg-red-50 border-2 border-red-200 text-red-600 rounded-lg font-medium hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {refundRequested ? t.refundRequested : isRequestingRefund ? t.requestingRefund : t.requestRefund}
+                      </button>
                     )}
                   </div>
                 </>
