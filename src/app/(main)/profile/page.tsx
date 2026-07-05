@@ -50,18 +50,18 @@ export default function ProfilePage() {
   
   const { subscription, plan, usage, isLoading: subLoading, daysRemaining, refresh: refreshSubscription } = useSubscription();
 
-  // Per the published Refund Policy: refunds may be requested within 3 calendar days of purchase.
+  // Per the published Refund Policy: refunds may be requested within 3 calendar
+  // days of purchase, per plan (not per subscription overall) — this is a
+  // client-side convenience check only; the API route re-verifies per purchase.
   const REFUND_WINDOW_DAYS = 3;
-  const daysSincePurchase = subscription?.started_at
-    ? Math.floor((Date.now() - new Date(subscription.started_at).getTime()) / (1000 * 60 * 60 * 24))
-    : null;
-  const canRequestRefund =
-    !!subscription &&
-    subscription.status !== "cancelled" &&
-    subscription.status !== "expired" &&
-    daysSincePurchase !== null &&
-    daysSincePurchase < REFUND_WINDOW_DAYS;
-  
+  const canRequestRefundFor = (record: PurchasedPlanRecord): boolean => {
+    if (refundedRecordIds.has(record.id)) return false;
+    if (record.status === "cancelled" || record.status === "expired") return false;
+    if (!record.created_at) return false;
+    const daysSince = Math.floor((Date.now() - new Date(record.created_at).getTime()) / (1000 * 60 * 60 * 24));
+    return daysSince < REFUND_WINDOW_DAYS;
+  };
+
   const [activeTab, setActiveTab] = useState<"info" | "subscription" | "settings">("info");
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -89,8 +89,11 @@ export default function ProfilePage() {
   const [preferences, setPreferences] = useState<any>(null);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
-  const [isRequestingRefund, setIsRequestingRefund] = useState(false);
-  const [refundRequested, setRefundRequested] = useState(false);
+  const [refundModalRecord, setRefundModalRecord] = useState<PurchasedPlanRecord | null>(null);
+  const [refundReason, setRefundReason] = useState("");
+  const [refundReasonError, setRefundReasonError] = useState(false);
+  const [isSubmittingRefund, setIsSubmittingRefund] = useState(false);
+  const [refundedRecordIds, setRefundedRecordIds] = useState<Set<string>>(new Set());
 
   const isArabic = language === "ar";
 
@@ -152,6 +155,18 @@ export default function ProfilePage() {
     requestRefund: isArabic ? "طلب استرداد" : "Request Refund",
     requestingRefund: isArabic ? "جاري الإرسال..." : "Requesting...",
     refundRequested: isArabic ? "تم إرسال الطلب" : "Refund Requested",
+    refundModalTitle: isArabic ? "طلب استرداد" : "Request a Refund",
+    refundPolicyNote: isArabic
+      ? "يمكن طلب الاسترداد خلال 3 أيام من الشراء فقط. يتم إرجاع المبلغ إلى وسيلة الدفع الأصلية، بعد خصم أي رسوم معالجة."
+      : "Refunds can only be requested within 3 days of purchase. Approved refunds are issued back to your original payment method, minus any processing fees.",
+    refundReasonLabel: isArabic ? "سبب طلب الاسترداد" : "Reason for refund",
+    refundReasonPlaceholder: isArabic
+      ? "أخبرنا بسبب رغبتك في استرداد هذه الخطة..."
+      : "Tell us why you'd like a refund for this plan...",
+    refundReasonRequiredError: isArabic
+      ? "يرجى كتابة سبب لتقديم طلب الاسترداد."
+      : "Please provide a reason to submit your refund request.",
+    submitRefundRequest: isArabic ? "إرسال الطلب" : "Submit Request",
     cancellationCycle: isArabic ? "دورة الإلغاء" : "Cancellation Cycle",
     cancelAtPeriodEnd: isArabic ? "سيتم الإلغاء في نهاية الفترة الحالية" : "Will cancel at end of current period",
     willRenew: isArabic ? "سيتم التجديد تلقائياً" : "Will renew automatically",
@@ -388,20 +403,38 @@ export default function ProfilePage() {
     }
   };
 
-  const handleRequestRefund = async () => {
-    const confirmMessage = isArabic
-      ? "هل تريد إرسال طلب استرداد؟ سنتواصل معك خلال 24-48 ساعة."
-      : "Send a refund request? We'll get back to you within 24-48 hours.";
-    if (!window.confirm(confirmMessage)) return;
+  const openRefundModal = (record: PurchasedPlanRecord) => {
+    setRefundModalRecord(record);
+    setRefundReason("");
+    setRefundReasonError(false);
+  };
 
-    setIsRequestingRefund(true);
+  const closeRefundModal = () => {
+    if (isSubmittingRefund) return;
+    setRefundModalRecord(null);
+  };
+
+  const handleSubmitRefund = async () => {
+    if (!refundModalRecord) return;
+    const trimmedReason = refundReason.trim();
+    if (!trimmedReason) {
+      setRefundReasonError(true);
+      return;
+    }
+
+    setIsSubmittingRefund(true);
     setError(null);
     try {
-      const res = await fetch("/api/subscription/refund-request", { method: "POST" });
+      const res = await fetch("/api/subscription/refund-request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subscription_id: refundModalRecord.id, reason: trimmedReason }),
+      });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || t.error);
 
-      setRefundRequested(true);
+      setRefundedRecordIds((prev) => new Set(prev).add(refundModalRecord.id));
+      setRefundModalRecord(null);
       setSuccess(
         isArabic
           ? "تم إرسال طلب الاسترداد. سنتواصل معك قريباً."
@@ -412,7 +445,7 @@ export default function ProfilePage() {
       setError(err.message || t.error);
       setTimeout(() => setError(null), 5000);
     } finally {
-      setIsRequestingRefund(false);
+      setIsSubmittingRefund(false);
     }
   };
 
@@ -888,25 +921,49 @@ export default function ProfilePage() {
                                 : t.monthly
                               : "-";
 
+                          const showRefundButton = canRequestRefundFor(record);
+                          const alreadyRefunded = refundedRecordIds.has(record.id);
+
                           return (
                             <div
                               key={record.id}
-                              className="bg-white border border-slate-200 rounded-lg p-4 flex flex-wrap items-center justify-between gap-3"
+                              className="bg-white border border-slate-200 rounded-lg p-4 flex flex-col gap-3"
                             >
-                              <div>
-                                <p className="font-semibold text-slate-900">{purchasedPlanName || purchasedPlan.name}</p>
-                                <p className="text-sm text-slate-500">
-                                  {t.purchasedOn}: {formatDate(record.created_at)}
-                                </p>
+                              <div className="flex flex-wrap items-center justify-between gap-3">
+                                <div>
+                                  <p className="font-semibold text-slate-900">{purchasedPlanName || purchasedPlan.name}</p>
+                                  <p className="text-sm text-slate-500">
+                                    {t.purchasedOn}: {formatDate(record.created_at)}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-medium">
+                                    {billingType}
+                                  </span>
+                                  <span className="px-2.5 py-1 rounded-full bg-[#429874]/10 text-[#2f6a51] text-xs font-semibold">
+                                    {getStatusLabel(record.status)}
+                                  </span>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-medium">
-                                  {billingType}
-                                </span>
-                                <span className="px-2.5 py-1 rounded-full bg-[#429874]/10 text-[#2f6a51] text-xs font-semibold">
-                                  {getStatusLabel(record.status)}
-                                </span>
-                              </div>
+
+                              {/* Refund request — only within the 3-day window, per plan */}
+                              {showRefundButton && (
+                                <div className="pt-3 border-t border-slate-100">
+                                  <button
+                                    type="button"
+                                    onClick={() => openRefundModal(record)}
+                                    className="px-4 py-2 bg-red-50 border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors"
+                                  >
+                                    {t.requestRefund}
+                                  </button>
+                                  <p className="mt-1.5 text-xs text-slate-400">{t.refundPolicyNote}</p>
+                                </div>
+                              )}
+                              {alreadyRefunded && (
+                                <div className="pt-3 border-t border-slate-100">
+                                  <span className="text-xs font-medium text-amber-600">{t.refundRequested}</span>
+                                </div>
+                              )}
                             </div>
                           );
                         })}
@@ -932,17 +989,6 @@ export default function ProfilePage() {
                           {t.viewPricing}
                         </Link>
                       </>
-                    )}
-
-                    {/* Refund request — only within the 3-day window from the published Refund Policy */}
-                    {canRequestRefund && (
-                      <button
-                        onClick={handleRequestRefund}
-                        disabled={isRequestingRefund || refundRequested}
-                        className="px-6 py-3 bg-red-50 border-2 border-red-200 text-red-600 rounded-lg font-medium hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {refundRequested ? t.refundRequested : isRequestingRefund ? t.requestingRefund : t.requestRefund}
-                      </button>
                     )}
                   </div>
                 </>
@@ -1199,6 +1245,68 @@ export default function ProfilePage() {
           )}
         </div>
       </div>
+
+      {refundModalRecord && (
+        <div
+          className="fixed inset-0 z-100 flex items-center justify-center bg-slate-900/45 p-4"
+          dir={isArabic ? "rtl" : "ltr"}
+        >
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-5 shadow-2xl">
+            <h3 className="text-lg font-semibold text-slate-900">{t.refundModalTitle}</h3>
+            <p className="mt-1 text-sm text-slate-600">
+              {isArabic
+                ? refundModalRecord.subscription_plans?.display_name_ar
+                : refundModalRecord.subscription_plans?.display_name_en}
+            </p>
+
+            <p className="mt-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs leading-relaxed text-amber-800">
+              {t.refundPolicyNote}
+            </p>
+
+            <div className="mt-4">
+              <label htmlFor="refund-reason" className="mb-1 block text-sm font-medium text-slate-800">
+                {t.refundReasonLabel} <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                id="refund-reason"
+                value={refundReason}
+                onChange={(e) => {
+                  setRefundReason(e.target.value);
+                  if (refundReasonError) setRefundReasonError(false);
+                }}
+                rows={4}
+                disabled={isSubmittingRefund}
+                className={`w-full rounded-lg border px-3 py-2 text-sm leading-relaxed text-slate-900 placeholder:text-slate-400 focus:outline-none disabled:opacity-60 ${
+                  refundReasonError ? "border-red-400 focus:border-red-500" : "border-slate-300 focus:border-teal-500"
+                }`}
+                placeholder={t.refundReasonPlaceholder}
+              />
+              {refundReasonError && (
+                <p className="mt-1 text-xs text-red-600">{t.refundReasonRequiredError}</p>
+              )}
+            </div>
+
+            <div className={`mt-5 flex items-center gap-2 ${isArabic ? "flex-row-reverse" : "justify-end"}`}>
+              <button
+                type="button"
+                onClick={closeRefundModal}
+                disabled={isSubmittingRefund}
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+              >
+                {t.cancel}
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitRefund}
+                disabled={isSubmittingRefund}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60"
+              >
+                {isSubmittingRefund ? t.requestingRefund : t.submitRefundRequest}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
