@@ -7,6 +7,7 @@ export interface LearningPath {
     category: string;
     difficulty_level: string;
     target_audience: string;
+    career_focus?: string | null;
     level?: string;
     estimated_duration_hours: number | string | null;
     image_url: string;

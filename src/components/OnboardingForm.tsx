@@ -250,7 +250,7 @@ export function OnboardingForm({
       const { data, error: updateError } = await supabase
         .from("user_profiles")
         .update({
-          full_name: formData.full_name,
+          full_name: formData.full_name.trim(),
           avatar_url: formData.avatar_url || null,
           gender: formData.gender,
           job_title: formData.job_title,
@@ -447,6 +447,7 @@ export function OnboardingForm({
                 value={formData.full_name}
                 onChange={handleChange}
                 required
+                maxLength={60}
                 disabled={isNameFromGoogle}
                 className={`w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition text-sm ${
                   isNameFromGoogle ? "bg-slate-50 cursor-not-allowed" : ""

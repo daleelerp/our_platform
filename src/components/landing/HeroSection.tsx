@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import { useTranslation } from "@/hooks/useTranslation";
 import { LoginButton } from "../auth/LoginButton";
 
@@ -11,7 +10,7 @@ type Props = {
   pendingErpNames?: string[];
 };
 
-export function HeroSection({ liveErpNames, pendingErpNames }: Props) {
+export function HeroSection({ liveErpNames }: Props) {
   const { t, language } = useTranslation();
 
   const liveLabel =
@@ -19,15 +18,7 @@ export function HeroSection({ liveErpNames, pendingErpNames }: Props) {
       ? [...new Set(liveErpNames)].slice(0, 3).join(" · ")
       : null;
 
-  const pendingLine = useMemo(() => {
-    const pending = pendingErpNames?.filter(Boolean) ?? [];
-    if (pending.length === 0) {
-      return t("hero.noPendingPlatforms");
-    }
-    const head = pending.slice(0, 4).join(language === "ar" ? "، " : ", ");
-    const rest = pending.length > 4 ? ` (+${pending.length - 4})` : "";
-    return `${head}${rest} — ${t("hero.stillRollingOut")}`;
-  }, [pendingErpNames, language, t]);
+  const pendingLine = t("hero.nextExpansion");
 
   return (
     <section className="relative overflow-hidden bg-white">

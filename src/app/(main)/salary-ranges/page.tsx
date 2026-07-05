@@ -1,6 +1,11 @@
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { SalaryRangesPageContent } from "@/components/SalaryRangesPageContent";
+import { getUserPlanFeatures } from "@/utils/pathAccess";
+
+// Either key unlocks this page — "detailed_salaries" is the canonical key in
+// subscription_features, "salary_ranges" is a legacy/duplicate key some plans use.
+const SALARY_FEATURE_KEYS = ["detailed_salaries", "salary_ranges"];
 
 export default async function SalaryRangesPage() {
   const cookieStore = await cookies();
@@ -15,26 +20,8 @@ export default async function SalaryRangesPage() {
 
   // Only check subscription if user is authenticated
   if (user) {
-    const { data: subscriptionData } = await supabase
-      .from("user_subscriptions")
-      .select(`
-        *,
-        subscription_plans (
-          id,
-          name,
-          display_name_en,
-          display_name_ar,
-          price_monthly_egp,
-          price_yearly_egp,
-          price_one_time_egp,
-          price_per_user_egp
-        )
-      `)
-      .eq("user_id", user.id)
-      .in("status", ["active", "trial", "paused"])
-      .maybeSingle();
-
-    hasPremiumAccess = !!subscriptionData;
+    const features = await getUserPlanFeatures(supabase, user.id);
+    hasPremiumAccess = SALARY_FEATURE_KEYS.some((key) => features.includes(key));
   }
 
   // Fetch job roles with category
@@ -77,20 +64,12 @@ export default async function SalaryRangesPage() {
     }
   }
 
-  // Fetch premium plan for CTA
-  const { data: premiumPlan } = await supabase
-    .from("subscription_plans")
-    .select("id, name, display_name_en, display_name_ar, price_egp")
-    .eq("name", "premium")
-    .single();
-
   return (
-    <SalaryRangesPageContent 
-      jobRoles={jobRoles || []} 
+    <SalaryRangesPageContent
+      jobRoles={jobRoles || []}
       salaryRanges={salaryRanges}
       countries={countries || []}
       hasPremiumAccess={hasPremiumAccess}
-      premiumPlan={premiumPlan}
       isAuthenticated={!!user}  // New prop
     />
   );

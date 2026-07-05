@@ -30,6 +30,16 @@ type PurchasedPlanQueryRow = Omit<PurchasedPlanRecord, "subscription_plans"> & {
   subscription_plans: PurchasedPlanRecord["subscription_plans"] | PurchasedPlanRecord["subscription_plans"][];
 };
 
+type LearningAnalytics = {
+  tier: string;
+  finalScore: number;
+  checkpointsAttempted: number;
+  checkpointsPassed: number;
+  avgBestScore: number;
+  badges: string[];
+  pathsEnrolled: number;
+};
+
 export default function ProfilePage() {
   const router = useRouter();
   const language = useAppStore((state) => state.language);
@@ -61,6 +71,8 @@ export default function ProfilePage() {
 
   const [availablePlans, setAvailablePlans] = useState<SubscriptionPlan[]>([]);
   const [purchasedPlans, setPurchasedPlans] = useState<PurchasedPlanRecord[]>([]);
+  const [learningAnalytics, setLearningAnalytics] = useState<LearningAnalytics | null>(null);
+  const [analyticsLocked, setAnalyticsLocked] = useState(false);
   const [onboardingData, setOnboardingData] = useState<any>(null);
   const [preferences, setPreferences] = useState<any>(null);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
@@ -142,6 +154,17 @@ export default function ProfilePage() {
     noPurchasedPlans: isArabic ? "لا توجد خطط مدفوعة مشتراة بعد" : "No paid plans purchased yet",
     purchasedOn: isArabic ? "تاريخ الشراء" : "Purchased On",
     oneTime: isArabic ? "دفعة واحدة" : "One-Time",
+    learningAnalytics: isArabic ? "تحليلات التعلم المتقدمة" : "Advanced Learning Analytics",
+    analyticsLocked: isArabic
+      ? "متاحة في الخطط التي تشمل تحليلات متقدمة — قم بالترقية لرؤية أدائك بالتفصيل."
+      : "Available on plans with advanced analytics — upgrade to see your detailed performance.",
+    analyticsEmpty: isArabic
+      ? "أكمل أول نقطة تفتيش لرؤية تحليلاتك."
+      : "Complete your first checkpoint to see your analytics.",
+    compositeScore: isArabic ? "النتيجة المركبة" : "Composite Score",
+    checkpointsPassed: isArabic ? "نقاط التفتيش المجتازة" : "Checkpoints Passed",
+    avgBestScore: isArabic ? "متوسط أفضل الدرجات" : "Avg. Best Score",
+    badgesEarned: isArabic ? "الأوسمة المكتسبة" : "Badges Earned",
   };
 
   useEffect(() => {
@@ -168,7 +191,21 @@ export default function ProfilePage() {
     fetchPurchasedPlans();
     fetchOnboardingData();
     fetchPreferences();
+    fetchLearningAnalytics();
   }, [user, router]);
+
+  const fetchLearningAnalytics = async () => {
+    if (!user) return;
+    try {
+      const res = await fetch("/api/profile/learning-analytics");
+      const json = await res.json();
+      setAnalyticsLocked(!!json.data?.locked);
+      setLearningAnalytics(json.data?.analytics ?? null);
+    } catch {
+      setAnalyticsLocked(false);
+      setLearningAnalytics(null);
+    }
+  };
 
   const fetchPurchasedPlans = async () => {
     if (!user) return;
@@ -309,7 +346,6 @@ export default function ProfilePage() {
       const { data, error: updateError } = await supabase
         .from("user_profiles")
         .update({
-          full_name: formData.full_name || null,
           job_title: formData.job_title || null,
           company_name: formData.company_name || null,
           industry: formData.industry || null,
@@ -493,9 +529,13 @@ export default function ProfilePage() {
                     type="text"
                     name="full_name"
                     value={formData.full_name}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#429874] focus:border-[#429874]"
+                    disabled
+                    readOnly
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg bg-slate-50 text-slate-500 cursor-not-allowed"
                   />
+                  <p className="text-xs text-slate-400 mt-1">
+                    {isArabic ? "الاسم من حساب Google الخاص بك" : "Name from your Google account"}
+                  </p>
                 </div>
 
                 <div>
@@ -727,6 +767,53 @@ export default function ProfilePage() {
                       </div>
                     </div>
                   )}
+
+                  {/* Advanced Learning Analytics — gated behind the "advanced_progress" plan feature */}
+                  <div className="bg-slate-50 rounded-xl border border-slate-200 p-5">
+                    <h3 className="text-lg font-semibold text-slate-900 mb-4">{t.learningAnalytics}</h3>
+                    {analyticsLocked ? (
+                      <p className="text-sm text-slate-500">{t.analyticsLocked}</p>
+                    ) : !learningAnalytics ? (
+                      <p className="text-sm text-slate-500">{t.analyticsEmpty}</p>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+                          <div className="bg-white rounded-lg p-4 border border-slate-200">
+                            <p className="text-sm text-slate-600 mb-1">{t.compositeScore}</p>
+                            <p className="text-2xl font-bold text-slate-900">
+                              {learningAnalytics.finalScore} <span className="text-sm font-medium text-[#429874]">{learningAnalytics.tier}</span>
+                            </p>
+                          </div>
+                          <div className="bg-white rounded-lg p-4 border border-slate-200">
+                            <p className="text-sm text-slate-600 mb-1">{t.checkpointsPassed}</p>
+                            <p className="text-2xl font-bold text-slate-900">
+                              {learningAnalytics.checkpointsPassed} / {learningAnalytics.checkpointsAttempted}
+                            </p>
+                          </div>
+                          <div className="bg-white rounded-lg p-4 border border-slate-200">
+                            <p className="text-sm text-slate-600 mb-1">{t.avgBestScore}</p>
+                            <p className="text-2xl font-bold text-slate-900">{learningAnalytics.avgBestScore}%</p>
+                          </div>
+                          <div className="bg-white rounded-lg p-4 border border-slate-200">
+                            <p className="text-sm text-slate-600 mb-1">{t.badgesEarned}</p>
+                            <p className="text-2xl font-bold text-slate-900">{learningAnalytics.badges.length}</p>
+                          </div>
+                        </div>
+                        {learningAnalytics.badges.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {learningAnalytics.badges.map((badge) => (
+                              <span
+                                key={badge}
+                                className="px-3 py-1 bg-[#429874]/10 text-[#2f6a51] rounded-full text-xs font-semibold"
+                              >
+                                🏅 {badge}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
 
                   {/* Purchased Plans Summary */}
                   <div className="bg-slate-50 rounded-xl border border-slate-200 p-5">

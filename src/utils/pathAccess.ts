@@ -215,6 +215,32 @@ export async function filterPathsByPlan<T extends { id: string }>(
 }
 
 /**
+ * Get the union of feature keys across all of a user's active/trial/paused plans.
+ * Used to gate content (job roles, salary data, etc.) by real plan features instead
+ * of "does the user have any subscription at all".
+ */
+export async function getUserPlanFeatures(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<string[]> {
+  const { data: subscriptions } = await supabase
+    .from("user_subscriptions")
+    .select("subscription_plans(features)")
+    .eq("user_id", userId)
+    .in("status", ["active", "trial", "paused"]);
+
+  const features = new Set<string>();
+  (subscriptions || []).forEach((sub: any) => {
+    const planFeatures = sub.subscription_plans?.features;
+    if (Array.isArray(planFeatures)) {
+      planFeatures.forEach((f: string) => features.add(f));
+    }
+  });
+
+  return Array.from(features);
+}
+
+/**
  * Check if a plan is free (exported for use in other components)
  */
 export { isFreePlan };

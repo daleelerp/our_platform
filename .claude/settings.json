@@ -6,7 +6,13 @@
       "Bash(Select-Object FullName)",
       "Bash(node -e \"require\\('@anthropic-ai/sdk'\\); console.log\\('ok'\\)\")",
       "Bash(npm install *)",
-      "Bash(mkdir -p \"e:/Business/Daleel/our_platform/src/app/admin/certificate-settings\" \"e:/Business/Daleel/our_platform/src/app/certificate/[certificateNumber]\" \"e:/Business/Daleel/our_platform/src/app/api/user/certificate-name\")"
+      "Bash(mkdir -p \"e:/Business/Daleel/our_platform/src/app/admin/certificate-settings\" \"e:/Business/Daleel/our_platform/src/app/certificate/[certificateNumber]\" \"e:/Business/Daleel/our_platform/src/app/api/user/certificate-name\")",
+      "Bash(curl -s http://localhost:3000/job-roles --max-time 8 -o 'C:\\\\Users\\\\user\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\e--Business-Daleel-our-platform\\\\5890dbf4-255b-4c81-a127-91e9c81441ca\\\\scratchpad/jobroles.html')",
+      "Bash(node -e ' *)",
+      "Bash(npm ls *)",
+      "Bash(npx --no-install playwright --version)",
+      "Bash(npx --no-install playwright install chromium --with-deps)",
+      "Bash(NODE_PATH=\"C:/Users/user/AppData/Local/npm-cache/_npx/e41f203b7505f1fb/node_modules\" node \"C:/Users/user/AppData/Local/Temp/claude/e--Business-Daleel-our-platform/e42abd7b-38f6-4871-aaa2-b710348bb8ac/scratchpad/verify_path_advisor2.js\")"
     ],
     "additionalDirectories": [
       "e:\\Business\\Daleel\\our_platform\\src\\app\\certificate"

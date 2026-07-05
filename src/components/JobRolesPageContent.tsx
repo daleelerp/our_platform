@@ -41,25 +41,15 @@ function normalizeDailyList(role: JobRole, lang: "en" | "ar"): string[] {
   return coerce(pick);
 }
 
-type PremiumPlan = {
-  id: string;
-  name: string;
-  display_name_en: string;
-  display_name_ar: string | null;
-  price_egp: number | null;
-} | null;
-
 type Props = {
   jobRoles: JobRole[];
   hasPremiumAccess: boolean;
-  premiumPlan: PremiumPlan;
   isAuthenticated: boolean;
 };
 
 export function JobRolesPageContent({
   jobRoles,
   hasPremiumAccess,
-  premiumPlan,
   isAuthenticated,
 }: Props) {
   const language = useAppStore((state) => state.language);
@@ -131,17 +121,6 @@ export function JobRolesPageContent({
                 >
                   {language === "ar" ? "اشترك الآن" : "Subscribe Now"}
                 </a>
-                {premiumPlan && premiumPlan.price_egp && (
-                  <div className="text-white/90">
-                    <span className="text-2xl font-bold">
-                      {premiumPlan.price_egp.toLocaleString()}{" "}
-                      {language === "ar" ? "جنيه" : "EGP"}
-                      <span className="text-base font-normal ml-2">
-                        {language === "ar" ? "/شهر" : "/month"}
-                      </span>
-                    </span>
-                  </div>
-                )}
               </div>
             </div>
           </div>

@@ -1,0 +1,229 @@
+import { SubscriptionPlan } from "@/types/subscription";
+
+export type ErpSystem = {
+  id: string;
+  name: string;
+  description?: string | null;
+  description_ar?: string | null;
+  is_active: boolean;
+};
+
+export type ErpProvider = {
+  id: string;
+  name: string;
+  name_ar?: string | null;
+  slug?: string;
+};
+
+export type QuizAnswers = {
+  experience: string;
+  goal: string;
+  background: string;
+  erpChoice: string;
+};
+
+export type SavedPreferences = {
+  id: string;
+  experience_level: string | null;
+  primary_goal: string | null;
+  time_commitment: string | null;
+  learning_style: string | null;
+  target_role: string | null;
+  interested_erp_id: string | null;
+  recommended_path_ids: string[] | null;
+  recommended_plan_ids?: string[] | null;
+  ai_insight: string | null;
+  ai_reasoning?: string | null;
+  quiz_completed_at: string | null;
+};
+
+export type ScoredPlan = {
+  plan: SubscriptionPlan;
+  score: number;
+  confidence: number;
+};
+
+// The valid enum option values per quiz field — used to validate anything an
+// AI model claims to have extracted from free text, so a hallucinated value
+// never reaches scoring or the database.
+export const QUESTION_OPTION_VALUES: Record<keyof QuizAnswers, string[]> = {
+  experience: ["none", "basic", "intermediate", "advanced"],
+  goal: ["career_switch", "skill_upgrade", "certification", "consulting", "technical"],
+  background: ["student", "switching", "growing", "exploring"],
+  // erpChoice has no static list — it's a real erp_systems.id or "undecided",
+  // validated against the live ERP list passed in per-request (see route.ts).
+  erpChoice: [],
+};
+
+// Not every "primary goal" option makes sense at every experience level —
+// e.g. "upgrade my current skills" doesn't apply if the user has no ERP
+// experience yet, and "become a consultant" is premature for a total
+// beginner. Filters which goal values are offered/valid given the
+// experience answer already collected (called before "goal" is asked).
+export function getValidGoalValues(experience: string | undefined | null): string[] {
+  switch (experience) {
+    case "none":
+      return ["career_switch", "certification", "technical"];
+    case "basic":
+      return ["career_switch", "skill_upgrade", "certification", "technical"];
+    case "intermediate":
+      return ["skill_upgrade", "certification", "consulting", "technical"];
+    case "advanced":
+      return ["skill_upgrade", "consulting", "technical", "certification"];
+    default:
+      return QUESTION_OPTION_VALUES.goal;
+  }
+}
+
+// There's no standalone "career track" question anymore (it used job-title
+// jargon students often don't recognize) — career focus is instead derived
+// from the "goal" answer, which already implies a track for the two goals
+// that clearly do (technical / consulting). Everything else maps to null
+// (no hard filter; the guidance narrative adds nuance instead).
+export function deriveCareerFocusFromGoal(goal: string | undefined | null): string | null {
+  if (goal === "technical") return "technical";
+  if (goal === "consulting") return "business_consultant";
+  return null;
+}
+
+// Same substring-match fallback used across the feature: prefer the user's
+// stored erp_provider_id if known, otherwise infer from the selected ERP
+// system's name against the provider list.
+export function inferProviderIdFromErp(
+  erpSystems: ErpSystem[],
+  erpProviders: ErpProvider[],
+  erpId: string | null | undefined,
+  fallbackProviderId?: string | null
+): string | null {
+  if (fallbackProviderId) return fallbackProviderId;
+  if (!erpId) return null;
+  const erp = erpSystems.find((s) => s.id === erpId);
+  if (!erp) return null;
+  const lowered = erp.name.toLowerCase();
+  const provider = erpProviders.find(
+    (p) => lowered.includes(p.name.toLowerCase()) || p.name.toLowerCase().includes(lowered)
+  );
+  return provider?.id || null;
+}
+
+// Highest theoretically reachable score, used to normalize into a confidence
+// percentage: exact target_audience match(10).
+const MAX_PLAN_SCORE = 10;
+
+export function scorePlans(
+  plans: SubscriptionPlan[],
+  erpProviderId: string | null,
+  careerFocus: string | null,
+  ownedPlanIds: string[]
+): ScoredPlan[] {
+  const candidates = plans.filter((plan) => {
+    if (!plan.is_active) return false;
+    if (ownedPlanIds.includes(plan.id)) return false;
+    if (erpProviderId && Array.isArray(plan.erp_provider_ids) && !plan.erp_provider_ids.includes(erpProviderId)) {
+      return false;
+    }
+    return true;
+  });
+
+  const scored = candidates
+    .map((plan) => {
+      let score: number | null = null;
+
+      if (careerFocus) {
+        if (plan.target_audience === careerFocus) score = 10;
+        else if (plan.target_audience === "all") score = 5;
+        // else: mismatched track — excluded outright below, not just penalized.
+      } else {
+        score = plan.target_audience === "all" ? 5 : 4;
+      }
+
+      if (score === null) return null;
+
+      const confidence = Math.min(96, Math.max(50, Math.round((score / MAX_PLAN_SCORE) * 100)));
+      return { plan, score, confidence };
+    })
+    .filter((s): s is ScoredPlan => s !== null);
+
+  return scored
+    .sort((a, b) => b.score - a.score || a.plan.sort_order - b.plan.sort_order)
+    .slice(0, 3);
+}
+
+const TRACK_LABELS_EN: Record<string, string> = {
+  technical: "technical track (development, integration, programming)",
+  business_functional: "business functional track (process configuration, implementation)",
+  business_consultant: "business consultant track (strategy, advisory)",
+};
+const TRACK_LABELS_AR: Record<string, string> = {
+  technical: "المسار التقني (تطوير، تكامل، برمجة)",
+  business_functional: "مسار الاستشارات الوظيفية (تكوين العمليات، التنفيذ)",
+  business_consultant: "مسار استشارات الأعمال (الاستراتيجية والاستشارات)",
+};
+export const TRACK_NAMES_EN: Record<string, string> = {
+  technical: "Technical",
+  business_functional: "Business Functional",
+  business_consultant: "Business Consultant",
+};
+export const TRACK_NAMES_AR: Record<string, string> = {
+  technical: "تقني",
+  business_functional: "استشارات وظيفية",
+  business_consultant: "استشارات أعمال",
+};
+
+export function generateBasicPlanInsight(
+  answers: Partial<QuizAnswers>,
+  language: "en" | "ar",
+  careerFocus: string | null
+): string {
+  if (language === "ar") {
+    const expText = answers.experience === "none" ? "مبتدئ في عالم ERP" : "لديك خبرة في ERP";
+    return careerFocus && TRACK_LABELS_AR[careerFocus]
+      ? `بناءً على إجاباتك، يبدو أنك ${expText}. اخترنا لك الخطة الأنسب ضمن ${TRACK_LABELS_AR[careerFocus]} ونظام ERP الذي اخترته.`
+      : `بناءً على إجاباتك، يبدو أنك ${expText}. اخترنا لك أنسب خطة متاحة حالياً بناءً على نظام ERP الذي اخترته.`;
+  }
+
+  const expText = answers.experience === "none" ? "new to the ERP world" : "have some ERP experience";
+  return careerFocus && TRACK_LABELS_EN[careerFocus]
+    ? `Based on your answers, you appear to be ${expText}. We picked the plan that best matches the ${TRACK_LABELS_EN[careerFocus]} and the ERP system you selected.`
+    : `Based on your answers, you appear to be ${expText}. We picked the best available plan based on the ERP system you selected.`;
+}
+
+// Rule-based roadmap used when Groq is unavailable AND no bundled plan
+// matches this combination — still genuinely useful rather than a dead end.
+export function generateFallbackGuidance(
+  answers: Partial<QuizAnswers>,
+  language: "en" | "ar",
+  erpName: string | null
+): string {
+  const erpText = erpName
+    ? language === "ar" ? `مثل ${erpName}` : `like ${erpName}`
+    : language === "ar" ? "الأكثر طلباً في سوق العمل" : "with strong job demand";
+
+  if (language === "ar") {
+    const steps = [
+      answers.background === "student"
+        ? "ابدأ بفهم ما هو ERP ولماذا تستخدمه الشركات — لا حاجة لأي خبرة سابقة، فقط تعرّف على المفاهيم الأساسية (الوحدات، العمليات، البيانات)."
+        : "راجع أساسيات ERP التي قد تكون فاتتك حتى الآن لتبني عليها بثقة.",
+      `اختر نظام ERP واحد للتركيز عليه (${erpText}) بدلاً من محاولة تعلم كل شيء دفعة واحدة.`,
+      answers.goal === "technical"
+        ? "ابحث عن موارد مجانية حول التطوير والتكامل الخاص بهذا النظام (توثيق رسمي، قنوات يوتيوب، منتديات المطورين)."
+        : "ابحث عن موارد مجانية حول العمليات الوظيفية والتكوين الخاص بهذا النظام.",
+      "مارس عملياً عبر بيئة تجريبية مجانية إن وُجدت، أو دراسات حالة حقيقية.",
+      "بمجرد أن تشعر بالثقة في الأساسيات، فكر في شهادة معتمدة لتثبت مهاراتك.",
+    ];
+    return `لا تملك دليل حالياً خطة جاهزة لهذا المزيج بالتحديد، لكن إليك خطوات عملية للبدء:\n${steps.map((s, i) => `${i + 1}. ${s}`).join("\n")}`;
+  }
+
+  const steps = [
+    answers.background === "student"
+      ? "Start with what ERP actually is and why companies use it — no prior experience needed, just the core concepts (modules, processes, data flow)."
+      : "Revisit the ERP fundamentals you may have skipped, so the rest builds on solid ground.",
+    `Pick one ERP system to focus on (${erpText}) instead of trying to learn everything at once.`,
+    answers.goal === "technical"
+      ? "Look for free resources on that system's development/integration side (official docs, YouTube channels, developer forums)."
+      : "Look for free resources on that system's business processes and configuration side.",
+    "Get hands-on with a free trial/sandbox environment if one exists, or real-world case studies.",
+    "Once the fundamentals feel solid, consider a recognized certification to prove your skills.",
+  ];
+  return `Daleel doesn't have a bundled plan for this exact combination yet, but here's a concrete way to start:\n${steps.map((s, i) => `${i + 1}. ${s}`).join("\n")}`;
+}

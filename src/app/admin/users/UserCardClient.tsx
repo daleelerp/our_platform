@@ -86,7 +86,15 @@ export function UserCardClient({ userId, userProfile }: Props) {
     return <div className="p-6 text-red-500 text-sm">Failed to load user data.</div>;
   }
 
-  const { email, lastSignIn, createdAt, subscription, enrollments, activityLogs, sessions, videoProgress, quizAttempts, payments, learningAnalytics, certExam, certEligibility, certificate } = data;
+  const { email, lastSignIn, createdAt, subscription, enrollments, activityLogs, sessions, videoProgress, quizAttempts, payments, learningAnalytics, certExam, certEligibility, certificate, rankings } = data;
+
+  const tierBadgeClass = (tier: string) => {
+    if (tier === "Platinum") return "bg-slate-200 text-slate-800";
+    if (tier === "Gold") return "bg-amber-100 text-amber-800";
+    if (tier === "Silver") return "bg-slate-100 text-slate-700";
+    if (tier === "Bronze") return "bg-orange-100 text-orange-700";
+    return "bg-teal-50 text-teal-700";
+  };
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
@@ -182,6 +190,39 @@ export function UserCardClient({ userId, userProfile }: Props) {
                     <span className="text-xs font-semibold text-slate-700 w-9 text-right">
                       {(e.progress_percentage ?? 0).toFixed(0)}%
                     </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Section>
+        )}
+
+        {/* Ranking breakdown */}
+        {rankings && rankings.length > 0 && (
+          <Section title={`Ranking breakdown (${rankings.length} path${rankings.length !== 1 ? "s" : ""})`}>
+            <div className="space-y-3">
+              {rankings.map((r: any) => (
+                <div key={r.pathId} className="bg-slate-50 rounded-lg p-4">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <span className="text-sm font-medium text-slate-900 truncate">{r.pathTitle}</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${tierBadgeClass(r.tier)}`}>
+                        {r.tier}
+                      </span>
+                      <span className="text-sm font-bold text-slate-900">{r.finalScore}</span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs mb-3">
+                    <Field label="Checkpoints attempted" value={r.checkpointsAttempted} />
+                    <Field label="Checkpoints passed" value={r.checkpointsPassed} />
+                    <Field label="Abandoned (failed, no retry)" value={r.abandonedCount} />
+                    <Field label="Avg tries / checkpoint" value={r.avgTries} />
+                    <Field label="Avg best score" value={r.checkpointsAttempted ? `${r.avgBestScore}%` : "—"} />
+                    <Field label="Path progress" value={`${r.progressPercentage}%`} />
+                    <Field label="Badges" value={r.badges?.length ? r.badges.join(", ") : "—"} />
+                  </div>
+                  <div className="text-[11px] text-slate-400">
+                    Score = quality {r.quality} + progress {r.progress} + breadth {r.breadth} + efficiency {r.efficiency} − penalty {r.penalty} = <strong className="text-slate-600">{r.finalScore}</strong>
                   </div>
                 </div>
               ))}

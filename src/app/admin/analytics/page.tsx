@@ -148,7 +148,7 @@ export default function AdminAnalyticsPage() {
                         </div>
                       </div>
                       {(item.opinion?.trim() || item.suggestion?.trim()) ? (
-                        <div className="mt-3 rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-800 whitespace-pre-wrap">
+                        <div className="mt-3 rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-800 whitespace-pre-wrap wrap-break-word">
                           {item.opinion?.trim() ? (
                             <p>
                               <span className="font-medium text-slate-600">Note: </span>

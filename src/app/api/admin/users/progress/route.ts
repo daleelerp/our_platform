@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminSession } from "@/utils/admin-auth";
 import { getAdminSupabaseClient } from "@/utils/admin-supabase";
+import { aggregateCheckpointStats, computeRankingBreakdown, EXCLUDED_USER_IDS, type CheckpointAttemptRow } from "@/utils/studentRanking";
 
 type MilestoneRow = { id: string; learning_path_id: string };
 
@@ -82,13 +83,6 @@ function pathProgressFromMilestones(
   return count ? Math.round(sum / count) : 0;
 }
 
-function deriveEngagementScore(videos: number, quizzes: number, watchHours: number): number {
-  return Math.min(
-    100,
-    Math.round(videos * 3 + quizzes * 10 + Math.min(24, watchHours * 4))
-  );
-}
-
 export async function GET(request: NextRequest) {
   try {
     const adminSession = await getAdminSession();
@@ -98,10 +92,12 @@ export async function GET(request: NextRequest) {
 
     const supabase = getAdminSupabaseClient();
 
-    const { data: users } = await supabase
+    const { data: allProfiles } = await supabase
       .from("user_profiles")
       .select("id, full_name")
       .order("created_at", { ascending: false });
+
+    const users = (allProfiles ?? []).filter((u) => !EXCLUDED_USER_IDS.has(u.id));
 
     if (!users || users.length === 0) {
       return NextResponse.json({
@@ -137,13 +133,22 @@ export async function GET(request: NextRequest) {
         .in("user_id", userIds),
       supabase
         .from("user_quiz_attempts")
-        .select("user_id, quiz_id, is_passed, attempt_number")
+        .select("user_id, quiz_id, score, is_passed, attempt_number, quizzes(quiz_type)")
         .in("user_id", userIds)
         .eq("is_completed", true),
     ]);
 
     const videoRollup = aggregateVideoRollups(videoProgressRows ?? []);
     const quizPassed = aggregateQuizPasses(quizAttemptRows ?? []);
+
+    const checkpointAttemptsByUser = new Map<string, CheckpointAttemptRow[]>();
+    for (const r of (quizAttemptRows ?? []) as any[]) {
+      const quizType = Array.isArray(r.quizzes) ? r.quizzes[0]?.quiz_type : r.quizzes?.quiz_type;
+      if (quizType !== "checkpoint") continue;
+      const list = checkpointAttemptsByUser.get(r.user_id) ?? [];
+      list.push({ quiz_id: r.quiz_id, score: r.score, attempt_number: r.attempt_number, is_passed: r.is_passed });
+      checkpointAttemptsByUser.set(r.user_id, list);
+    }
 
     const pathIds = [
       ...new Set(
@@ -232,7 +237,11 @@ export async function GET(request: NextRequest) {
         totalWatchTime: number;
         videosCompleted: number;
         quizzesPassed: number;
-        engagementScore: number;
+        checkpointsAttempted: number;
+        checkpointsPassed: number;
+        abandonedCount: number;
+        avgTries: number;
+        finalScore: number;
         teamId?: string;
         teamName?: string;
       }
@@ -248,17 +257,20 @@ export async function GET(request: NextRequest) {
         totalWatchTime: 0,
         videosCompleted: 0,
         quizzesPassed: 0,
-        engagementScore: 0,
+        checkpointsAttempted: 0,
+        checkpointsPassed: 0,
+        abandonedCount: 0,
+        avgTries: 0,
+        finalScore: 0,
       });
     });
 
-    analytics?.forEach((analytic: { user_id: string; total_watch_time_hours?: number; total_videos_completed?: number; total_quizzes_passed?: number; engagement_score?: number }) => {
+    analytics?.forEach((analytic: { user_id: string; total_watch_time_hours?: number; total_videos_completed?: number; total_quizzes_passed?: number }) => {
       const userData = userProgressMap.get(analytic.user_id);
       if (userData) {
         userData.totalWatchTime = Number(analytic.total_watch_time_hours) || 0;
         userData.videosCompleted = Number(analytic.total_videos_completed) || 0;
         userData.quizzesPassed = Number(analytic.total_quizzes_passed) || 0;
-        userData.engagementScore = Number(analytic.engagement_score) || 0;
       }
     });
 
@@ -275,15 +287,6 @@ export async function GET(request: NextRequest) {
       if (!userData) continue;
       userData.quizzesPassed = Math.max(userData.quizzesPassed, n);
     }
-
-    userProgressMap.forEach((userData) => {
-      const derived = deriveEngagementScore(
-        userData.videosCompleted,
-        userData.quizzesPassed,
-        userData.totalWatchTime
-      );
-      userData.engagementScore = Math.max(userData.engagementScore, derived);
-    });
 
     enrollments?.forEach(
       (enrollment: {
@@ -316,6 +319,16 @@ export async function GET(request: NextRequest) {
       }
     });
 
+    userProgressMap.forEach((userData) => {
+      const checkpointStats = aggregateCheckpointStats(checkpointAttemptsByUser.get(userData.userId) ?? []);
+      const breakdown = computeRankingBreakdown(checkpointStats, userData.avgProgress);
+      userData.checkpointsAttempted = breakdown.checkpointsAttempted;
+      userData.checkpointsPassed = breakdown.checkpointsPassed;
+      userData.abandonedCount = breakdown.abandonedCount;
+      userData.avgTries = breakdown.avgTries;
+      userData.finalScore = breakdown.finalScore;
+    });
+
     teamMembers?.forEach((member: any) => {
       const userData = userProgressMap.get(member.user_id);
       const t = Array.isArray(member.teams) ? member.teams[0] : member.teams;
@@ -337,7 +350,7 @@ export async function GET(request: NextRequest) {
         totalWatchTime: number;
         totalVideosCompleted: number;
         totalQuizzesPassed: number;
-        totalEngagement: number;
+        totalFinalScore: number;
       }
     >();
 
@@ -352,7 +365,7 @@ export async function GET(request: NextRequest) {
             totalWatchTime: 0,
             totalVideosCompleted: 0,
             totalQuizzesPassed: 0,
-            totalEngagement: 0,
+            totalFinalScore: 0,
           });
         }
         const team = teamStatsMap.get(user.teamId)!;
@@ -361,25 +374,25 @@ export async function GET(request: NextRequest) {
         team.totalWatchTime += user.totalWatchTime;
         team.totalVideosCompleted += user.videosCompleted;
         team.totalQuizzesPassed += user.quizzesPassed;
-        team.totalEngagement += user.engagementScore;
+        team.totalFinalScore += user.finalScore;
       }
     });
 
     const teamStatsArray = Array.from(teamStatsMap.values()).map((team) => {
       const avgProgress = team.memberCount > 0 ? team.totalProgress / team.memberCount : 0;
-      const avgEngagement = team.memberCount > 0 ? team.totalEngagement / team.memberCount : 0;
+      const avgFinalScore = team.memberCount > 0 ? team.totalFinalScore / team.memberCount : 0;
 
       const score =
         avgProgress * 0.3 +
         (team.totalWatchTime / team.memberCount) * 0.2 +
         (team.totalVideosCompleted / team.memberCount) * 0.2 +
         (team.totalQuizzesPassed / team.memberCount) * 0.15 +
-        avgEngagement * 0.15;
+        avgFinalScore * 0.15;
 
       return {
         ...team,
         avgProgress,
-        avgEngagementScore: avgEngagement,
+        avgFinalScore,
         score,
       };
     });

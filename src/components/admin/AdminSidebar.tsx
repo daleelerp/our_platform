@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+const CHAT_UNREAD_POLL_MS = 20000;
 
 type Props = {
   adminRole: string;
@@ -136,11 +138,36 @@ const menuItems = [
     icon: "📝",
     permission: "view_analytics",
   },
+  {
+    name: "Subscriber Support",
+    href: "/admin/subscriber-support",
+    icon: "💬",
+    permission: "manage_users",
+  },
+  {
+    name: "Notifications",
+    href: "/admin/notifications",
+    icon: "🔔",
+    permission: "manage_users",
+  },
 ];
 
 export function AdminSidebar({ adminRole, permissions }: Props) {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+
+  useEffect(() => {
+    const fetchUnread = () => {
+      fetch("/api/admin/subscriber-messages/chats/unread-count")
+        .then((r) => r.json())
+        .then(({ unreadUserCount }) => setUnreadChatCount(unreadUserCount ?? 0))
+        .catch(() => {});
+    };
+    fetchUnread();
+    const timer = setInterval(fetchUnread, CHAT_UNREAD_POLL_MS);
+    return () => clearInterval(timer);
+  }, []);
 
   const hasPermission = (permission: string | null) => {
     if (!permission) return true;
@@ -218,7 +245,12 @@ export function AdminSidebar({ adminRole, permissions }: Props) {
                     `}
                   >
                     <span className="text-lg">{item.icon}</span>
-                    {item.name}
+                    <span className="flex-1">{item.name}</span>
+                    {item.href === "/admin/subscriber-support" && unreadChatCount > 0 && (
+                      <span className="flex-shrink-0 min-w-[1.25rem] h-5 px-1 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                        {unreadChatCount}
+                      </span>
+                    )}
                   </Link>
                 </li>
               );

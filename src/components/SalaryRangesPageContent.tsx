@@ -30,30 +30,20 @@ type Country = {
   name_ar: string | null;
 };
 
-type PremiumPlan = {
-  id: string;
-  name: string;
-  display_name_en: string;
-  display_name_ar: string | null;
-  price_egp: number | null;
-} | null;
-
 type Props = {
   jobRoles: JobRole[];
   salaryRanges: SalaryRange[];
   countries: Country[];
   hasPremiumAccess: boolean;
-  premiumPlan: PremiumPlan;
   isAuthenticated: boolean; // New prop
 };
 
-export function SalaryRangesPageContent({ 
-  jobRoles, 
-  salaryRanges, 
-  countries, 
-  hasPremiumAccess, 
-  premiumPlan,
-  isAuthenticated 
+export function SalaryRangesPageContent({
+  jobRoles,
+  salaryRanges,
+  countries,
+  hasPremiumAccess,
+  isAuthenticated
 }: Props) {
   const language = useAppStore((state) => state.language);
   const [selectedJobRole, setSelectedJobRole] = useState<string | null>(null);
@@ -262,16 +252,6 @@ export function SalaryRangesPageContent({
                 >
                   {language === "ar" ? "اشترك الآن" : "Subscribe Now"}
                 </a>
-                {premiumPlan && premiumPlan.price_egp && (
-                  <div className="text-white/90">
-                    <span className="text-2xl font-bold">
-                      {premiumPlan.price_egp.toLocaleString()} {language === "ar" ? "جنيه" : "EGP"}
-                      <span className="text-base font-normal ml-2">
-                        {language === "ar" ? "/شهر" : "/month"}
-                      </span>
-                    </span>
-                  </div>
-                )}
               </div>
               <p className="mt-6 text-sm opacity-90">
                 {language === "ar"

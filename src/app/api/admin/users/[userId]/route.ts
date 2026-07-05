@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminSession } from "@/utils/admin-auth";
 import { getAdminSupabaseClient } from "@/utils/admin-supabase";
 import { checkPathCompletion } from "@/utils/checkPathCompletion";
+import { computeUserPathRanking } from "@/utils/studentRanking";
 
 // Note: Next.js 16's route handler types expect `params` to be a Promise in dev type validation.
 // We model that here and await it, which is safe even if Next actually passes a plain object.
@@ -174,6 +175,17 @@ export async function GET(
       }
     }
 
+    const rankings = await Promise.all(
+      (enrollments || []).map(async (e: any) => {
+        const breakdown = await computeUserPathRanking(userId, e.learning_path_id, supabase);
+        return {
+          pathId: e.learning_path_id,
+          pathTitle: e.learning_paths?.title || "Unknown Path",
+          ...breakdown,
+        };
+      })
+    );
+
     return NextResponse.json({
       data: {
         email,
@@ -181,6 +193,7 @@ export async function GET(
         createdAt,
         subscription,
         enrollments: enrollments || [],
+        rankings,
         activityLogs: activityLogs || [],
         sessions: sessions || [],
         videoProgress: videoProgress || [],

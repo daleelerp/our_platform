@@ -29,7 +29,7 @@ function getSupabaseClient() {
 }
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
-  const { setUser, setUserProfile } = useAppStore();
+  const { setUser, setUserProfile, setAuthResolved } = useAppStore();
   const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
   const initialized = useRef(false);
 
@@ -59,6 +59,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       }).catch((error) => {
         // Silently fail during build or if Supabase is unavailable
         console.warn("Failed to get session:", error);
+      }).finally(() => {
+        setAuthResolved();
       });
 
       // Listen for auth changes
@@ -88,7 +90,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         }
       }
     };
-  }, [setUser, setUserProfile]);
+  }, [setUser, setUserProfile, setAuthResolved]);
 
   async function fetchUserProfile(userId: string) {
     if (!supabaseRef.current) return;

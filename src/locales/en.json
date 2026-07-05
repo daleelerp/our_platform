@@ -25,25 +25,24 @@
     "subtitle": "Your complete guide to ERP career paths. Whether you're a student or a professional looking to switch careers - we're with you every step of the way."
   },
   "hero": {
-    "badge": "Built for MENA learners",
-    "title": "A Career Learning Platform for",
-    "titleHighlight": "ERP and Software Fields",
+    "badge": "AI-Powered, Expert-Guided",
+    "title": "Your Career Path, Powered by",
+    "titleHighlight": "AI and Real People",
     "titleSuffix": "",
-    "subtitle": "We now cover the industry's leading ERP platforms, with learning paths expanding into more fields ahead.",
+    "subtitle": "No more guessing. Daleel builds your path with AI, and real industry experts make sure it's right.",
     "subtitlePoints": {
       "point1": "Student starting young",
       "point2": "Professional switching careers",
       "point3": "Developer or Technical",
       "point4": "Functional or Business"
     },
-    "subtitleFooter": "Clear paths, practical resources, and guided progress.",
+    "subtitleFooter": "AI-curated paths, reviewed by real practitioners, guiding your progress every step of the way.",
     "cta": "Get Early Access",
     "secondaryCta": "See how it works",
     "socialProof": "professionals on the waitlist",
     "startingWith": "Current focus",
     "comingSoonSystems": "More systems and software tracks coming soon",
-    "stillRollingOut": "in our near-term expansion",
-    "noPendingPlatforms": "We are expanding coverage step by step until we cover most in-demand fields.",
+    "nextExpansion": "Next up: every software track, and every business career path.",
     "roadmapAllCaughtUp": "This is our current launch set, and expansion is ongoing.",
     "mockPath": {
       "title": "Your Learning Path",
@@ -98,12 +97,12 @@
   "status": {
     "currentlyActive": "Now:",
     "comingSoon": "Next:",
-    "comingSoonSystems": "More ERP and software fields"
+    "comingSoonSystems": "All software tracks and every business career path"
   },
   "erpGrid": {
-    "title": "Enterprise Systems We're Mapping",
+    "title": "Professional Career Paths, Starting with ERP",
     "titleHighlight": "Starting with ERP",
-    "subtitle": "Comprehensive learning paths for developers, consultants, admins, and business analysts. From system configuration to financial operations and process management — we're starting with the most in-demand ERP systems in MENA, and expanding to more platforms soon.",
+    "subtitle": "AI-curated, expert-reviewed learning paths for developers, consultants, admins, and business analysts. From system configuration to financial operations and process management — we're starting with the most in-demand ERP systems in MENA, and expanding to more fields soon.",
     "activeNow": "Active Now",
     "comingSoon": "Coming Soon",
     "marketDemand": "Market Demand",
@@ -125,19 +124,19 @@
   "howItWorks": {
     "badge": "How It Works",
     "title": "How Daleel Works",
-    "titleHighlight": "in 3 clear steps",
-    "subtitle": "Tell us your target role, get a focused learning path, and move forward step by step.",
+    "titleHighlight": "AI + real people, in 3 steps",
+    "subtitle": "Tell us your goal. Our AI builds your path. Real industry experience makes sure it's accurate and job-ready.",
     "startingWith": "Starting with",
     "comingSoon": "Coming soon",
     "step1Title": "Tell us your goal",
     "step1Quote": "I want to become an Oracle Consultant, SAP Specialist, or Salesforce Admin",
     "step1Detail": "Share your current experience, target role (technical or Functional/Business), and timeline. We understand the MENA job market - whether you're targeting ERP systems like Oracle & SAP, or platforms like Salesforce & Dynamics - we're building paths for you.",
-    "step2Title": "Get AI-curated paths",
-    "step2Quote": "We analyze thousands of resources and organize the best ones for you",
-    "step2Detail": "No more endless YouTube tabs or scattered documentation. We filter the noise and create clear roadmaps - whether for technical configuration, functional processes, or business administration. All from deep, comprehensive data gathered from thousands of sources and carefully reviewed.",
+    "step2Title": "Get an AI-curated, expert-reviewed path",
+    "step2Quote": "Our AI analyzes thousands of resources — real practitioners review and refine every path",
+    "step2Detail": "No more endless YouTube tabs or scattered documentation. Our AI filters the noise and builds a clear roadmap, then people with real industry experience review it for accuracy - whether it's technical configuration, functional processes, or business administration.",
     "step3Title": "Follow guided learning",
     "step3Quote": "Learn with context, track progress, reach your career goal",
-    "step3Detail": "Week-by-week guidance with the right resources at the right time. Whether you're a developer, consultant, admin, or business analyst - we're with you every step of the way.",
+    "step3Detail": "Week-by-week guidance with the right resources at the right time, combining AI personalization with real human support. Whether you're a developer, consultant, admin, or business analyst - we're with you every step of the way.",
     "problemTitle": "The Problem",
     "problem1": "Lost and don't know where to start with enterprise systems",
     "problem2": "20 browser tabs of scattered tutorials and documentation",
@@ -166,22 +165,22 @@
   },
   "earlyAccess": {
     "title": "Be Part of Building the Future of",
-    "titleHighlight": "ERP Learning",
+    "titleHighlight": "AI + People Career Learning",
     "titleSuffix": "in MENA",
-    "subtitle": "Your complete guide to ERP career paths. Whether you're a student starting young, or a professional looking to switch careers - join early to shape the product and get exclusive benefits.",
+    "subtitle": "Daleel combines AI and real industry experience to guide your professional career path. Join early to help shape the product and get exclusive benefits.",
     "benefitsTitle": "Early Access Benefits",
     "benefit1Title": "Free Access During Beta",
     "benefit1Desc": "Use all features at no cost while we're in beta",
     "benefit2Title": "Influence Our Roadmap",
     "benefit2Desc": "Vote on which ERP systems we add next",
-    "benefit3Title": "Direct Feature Input",
-    "benefit3Desc": "Talk directly to our team about what you need",
+    "benefit3Title": "Real Human Support",
+    "benefit3Desc": "Talk directly to our team — real people, not just an AI chatbot — about what you need",
     "benefit4Title": "First Access to New Paths",
     "benefit4Desc": "Be the first to try new learning paths as we launch them"
   },
   "waitlist": {
     "title": "Get Early Access",
-    "subtitle": "Join 500+ people from MENA - students and professionals looking to switch careers - preparing for their ERP career breakthrough.",
+    "subtitle": "Join hundreds of people from MENA - students and professionals looking to switch careers - building their professional career path with AI and real industry guidance.",
     "nameLabel": "Name (optional)",
     "namePlaceholder": "Your name",
     "erpLabel": "Which ERP system are you interested in?",
@@ -218,8 +217,8 @@
   "landing": {
     "paths": {
       "badge": "Available Learning Paths",
-      "title": "Oracle Cloud Learning Paths",
-      "subtitle": "Structured learning journeys designed for the MENA market. Each path takes you from your current level to job-ready skills - suitable for students and professionals looking to switch careers.",
+      "title": "AI-Curated, Expert-Reviewed Learning Paths",
+      "subtitle": "Structured learning journeys built by AI and refined by real industry experience for the MENA market. Each path takes you from your current level to job-ready, professional-career skills.",
       "previewPath": "Preview Path",
       "viewAll": "View All Paths"
     }

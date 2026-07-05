@@ -11,7 +11,11 @@ type UserProgress = {
   totalWatchTime: number;
   videosCompleted: number;
   quizzesPassed: number;
-  engagementScore: number;
+  checkpointsAttempted: number;
+  checkpointsPassed: number;
+  abandonedCount: number;
+  avgTries: number;
+  finalScore: number;
   teamId?: string;
   teamName?: string;
 };
@@ -24,7 +28,7 @@ type TeamStats = {
   totalWatchTime: number;
   totalVideosCompleted: number;
   totalQuizzesPassed: number;
-  avgEngagementScore: number;
+  avgFinalScore: number;
   score: number; // Composite score for ranking
 };
 
@@ -51,7 +55,7 @@ export function UsersProgressDashboard({ users, teams }: Props) {
         totalWatchTime: 0,
         totalVideos: 0,
         totalQuizzes: 0,
-        avgEngagement: 0,
+        avgFinalScore: 0,
       };
     }
     const activeUsers = users.filter((u) => u.enrollments > 0).length;
@@ -59,7 +63,7 @@ export function UsersProgressDashboard({ users, teams }: Props) {
     const totalWatchTime = users.reduce((sum, u) => sum + u.totalWatchTime, 0);
     const totalVideos = users.reduce((sum, u) => sum + u.videosCompleted, 0);
     const totalQuizzes = users.reduce((sum, u) => sum + u.quizzesPassed, 0);
-    const avgEngagement = users.reduce((sum, u) => sum + u.engagementScore, 0) / totalUsers;
+    const avgFinalScore = users.reduce((sum, u) => sum + u.finalScore, 0) / totalUsers;
 
     return {
       totalUsers,
@@ -68,7 +72,7 @@ export function UsersProgressDashboard({ users, teams }: Props) {
       totalWatchTime,
       totalVideos,
       totalQuizzes,
-      avgEngagement,
+      avgFinalScore,
     };
   }, [users]);
 
@@ -108,9 +112,9 @@ export function UsersProgressDashboard({ users, teams }: Props) {
           </div>
         </div>
         <div className="bg-white rounded-xl p-6 shadow-sm">
-          <div className="text-sm text-slate-500 mb-1">Avg Engagement</div>
+          <div className="text-sm text-slate-500 mb-1">Avg Score</div>
           <div className="text-2xl font-bold text-purple-600">
-            {overallStats.avgEngagement.toFixed(1)}
+            {overallStats.avgFinalScore.toFixed(1)}
           </div>
           <div className="text-xs text-slate-400 mt-1">
             {overallStats.totalQuizzes} quizzes passed
@@ -158,9 +162,9 @@ export function UsersProgressDashboard({ users, teams }: Props) {
               </div>
             </div>
             <div>
-              <div className="text-xs text-slate-500">Engagement</div>
+              <div className="text-xs text-slate-500">Avg Score</div>
               <div className="text-lg font-semibold text-slate-900">
-                {bestTeam.avgEngagementScore.toFixed(1)}
+                {bestTeam.avgFinalScore.toFixed(1)}
               </div>
             </div>
           </div>
@@ -171,7 +175,9 @@ export function UsersProgressDashboard({ users, teams }: Props) {
       <div className="bg-white rounded-xl shadow-sm overflow-hidden">
         <div className="p-4 border-b border-slate-200">
           <h3 className="font-semibold text-slate-900">Top Performers</h3>
-          <p className="text-xs text-slate-500 mt-1">Users ranked by engagement and progress</p>
+          <p className="text-xs text-slate-500 mt-1">
+            Ranked by checkpoint quality, progress, breadth and try-efficiency (not raw activity volume)
+          </p>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
@@ -183,13 +189,14 @@ export function UsersProgressDashboard({ users, teams }: Props) {
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Progress</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Watch Time</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Videos</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Quizzes</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Engagement</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Checkpoints Passed</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Avg Tries</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Score</th>
               </tr>
             </thead>
             <tbody>
               {users
-                .sort((a, b) => b.engagementScore - a.engagementScore)
+                .sort((a, b) => b.finalScore - a.finalScore)
                 .slice(0, 20)
                 .map((user, index) => (
                   <tr
@@ -243,10 +250,20 @@ export function UsersProgressDashboard({ users, teams }: Props) {
                       {formatWatchHours(user.totalWatchTime)}
                     </td>
                     <td className="px-4 py-3 text-slate-700">{user.videosCompleted}</td>
-                    <td className="px-4 py-3 text-slate-700">{user.quizzesPassed}</td>
+                    <td className="px-4 py-3 text-slate-700">
+                      {user.checkpointsPassed}
+                      {user.abandonedCount > 0 && (
+                        <span className="text-xs text-red-500 ml-1" title="Checkpoints failed and never retried">
+                          ({user.abandonedCount} abandoned)
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-slate-700">
+                      {user.checkpointsAttempted > 0 ? user.avgTries.toFixed(1) : "—"}
+                    </td>
                     <td className="px-4 py-3">
                       <span className="font-semibold text-slate-900">
-                        {user.engagementScore.toFixed(1)}
+                        {user.finalScore.toFixed(1)}
                       </span>
                     </td>
                   </tr>
@@ -273,7 +290,7 @@ export function UsersProgressDashboard({ users, teams }: Props) {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Avg Progress</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Watch Time</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Videos</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Engagement</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Avg Student Score</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600">Score</th>
                 </tr>
               </thead>
@@ -322,7 +339,7 @@ export function UsersProgressDashboard({ users, teams }: Props) {
                     </td>
                     <td className="px-4 py-3 text-slate-700">{team.totalVideosCompleted}</td>
                     <td className="px-4 py-3 text-slate-700">
-                      {team.avgEngagementScore.toFixed(1)}
+                      {team.avgFinalScore.toFixed(1)}
                     </td>
                     <td className="px-4 py-3">
                       <span className="font-semibold text-teal-600">

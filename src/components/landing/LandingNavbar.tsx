@@ -9,6 +9,8 @@ import { LoginButton } from "../auth/LoginButton";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useAppStore } from "@/store/useAppStore";
 import { createClient } from "@/utils/supabase/client";
+import { DirectAccessNotification } from "@/components/DirectAccessNotification";
+import { NotificationsBell } from "@/components/NotificationsBell";
 import logo from "../../../public/Logos/2.svg";
 
 export function LandingNavbar() {
@@ -118,6 +120,11 @@ export function LandingNavbar() {
             label: language === "ar" ? "الأدوار الوظيفية" : "Job Roles",
             exact: true,
           },
+          {
+            href: "/rankings",
+            label: language === "ar" ? "لوحة المتصدرين" : "Rankings",
+            exact: true,
+          },
         ]
       : [{ href: "/about", label: t("nav.about"), exact: true }]),
     { href: "/path-finder", label: language === "ar" ? "اكتشف مسارك" : "Find Your Path", exact: true },
@@ -169,7 +176,9 @@ export function LandingNavbar() {
           {/* Desktop Right side */}
           <div className="hidden md:flex items-center gap-3">
             <LanguageSwitcher />
-            
+            {!isLoading && user && <NotificationsBell />}
+            {!isLoading && user && <DirectAccessNotification />}
+
             {isLoading ? (
               <div className="w-8 h-8 rounded-full bg-slate-200 animate-pulse pointer-events-none" />
             ) : user ? (
@@ -257,6 +266,8 @@ export function LandingNavbar() {
           {/* Mobile menu button */}
           <div className="flex md:hidden items-center gap-2">
             <LanguageSwitcher />
+            {!isLoading && user && <NotificationsBell />}
+            {!isLoading && user && <DirectAccessNotification />}
             <button
               onClick={(e) => {
                 e.stopPropagation();

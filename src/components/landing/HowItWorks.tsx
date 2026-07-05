@@ -69,7 +69,7 @@ export function HowItWorks() {
                   </div>
 
                   <h3 className="text-xl font-bold text-slate-900 mb-2">{step.title}</h3>
-                  <p className="text-[#429874] font-medium mb-4 italic">"{step.quote}"</p>
+                  <p className="text-[#357a5d] font-semibold mb-4">"{step.quote}"</p>
                   <p className="text-slate-600">{step.detail}</p>
                 </div>
 

@@ -3,6 +3,42 @@ import { useAppStore } from "@/store/useAppStore";
 import Link from "next/link";
 import Image from "next/image";
 import founderImage from "../../public/Founder/Magdy Image.jpg";
+import {
+  BookOpenIcon,
+  MapIcon,
+  GlobeAltIcon,
+  LanguageIcon,
+  CpuChipIcon,
+  LightBulbIcon,
+  HandRaisedIcon,
+  ArrowTrendingUpIcon,
+  UserGroupIcon,
+  EyeIcon,
+  RocketLaunchIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  ExclamationTriangleIcon,
+  SparklesIcon,
+} from "@heroicons/react/24/outline";
+
+const whatWeDoIcons = [
+  { Icon: MapIcon, color: "text-[#357a5d]", bg: "bg-[#f0f9f6]" },
+  { Icon: GlobeAltIcon, color: "text-blue-600", bg: "bg-blue-50" },
+  { Icon: LanguageIcon, color: "text-purple-600", bg: "bg-purple-50" },
+  { Icon: CpuChipIcon, color: "text-amber-600", bg: "bg-amber-50" },
+];
+
+const valuesIcons = [
+  { Icon: LightBulbIcon, color: "text-amber-600", bg: "bg-amber-50" },
+  { Icon: HandRaisedIcon, color: "text-[#357a5d]", bg: "bg-[#f0f9f6]" },
+  { Icon: ArrowTrendingUpIcon, color: "text-blue-600", bg: "bg-blue-50" },
+  { Icon: UserGroupIcon, color: "text-purple-600", bg: "bg-purple-50" },
+];
+
+function stripLeadingEmoji(text: string) {
+  const match = text.match(/^(\p{Extended_Pictographic})\s*([\s\S]*)$/u);
+  return match ? { emoji: match[1], text: match[2] } : { emoji: "💬", text };
+}
 
 export function AboutContent() {
   const language = useAppStore((state) => state.language);
@@ -19,13 +55,13 @@ export function AboutContent() {
           "Daleel (دليل) means 'guide' in Arabic. We chose this name because that's exactly what we aim to be — your trusted guide through the complex world of Enterprise Resource Planning systems.",
           "We built this platform because of people's many questions. Every now and then someone asks: \"Where do I start?\", \"What should I learn?\", \"Which system suits me?\". We found that there's a huge problem: people don't know what to do or how to start, and they have so many questions.",
           "We decided to build this platform to answer all their questions. Whether you're a student starting young, a professional looking to switch careers, or someone wanting to learn something new - we're with you every step of the way.",
-          "We're not another course platform — we're curators. We gather deep, comprehensive data from thousands of sources online and carefully review it. We organize the best resources into clear learning paths, and guide you from where you are to where you want to be."
+          "We're not another course platform — we're curators. We combine smart AI with real industry experience: our AI gathers and organizes deep, comprehensive data from thousands of sources, and real practitioners review every path before it reaches you."
         ]
       },
 
       mission: {
         title: "Our Mission",
-        text: "To democratize ERP education in MENA for everyone - students who want to start young, professionals looking to switch careers. We help developers and technical professionals, and we also help people who want to work in Functional or Business roles. We provide structured, bilingual learning paths with deep, comprehensive data gathered from thousands of sources and carefully reviewed."
+        text: "To democratize ERP education in MENA for everyone - students who want to start young, professionals looking to switch careers. We help developers and technical professionals, and we also help people who want to work in Functional or Business roles. We provide structured, bilingual learning paths built by AI and refined by real industry experts."
       },
       vision: {
         title: "Our Vision",
@@ -69,24 +105,20 @@ export function AboutContent() {
         title: "What We Do",
         items: [
           {
-            icon: "🗺️",
             title: "Curate Learning Paths",
             description: "We don't create courses. We gather deep, comprehensive data from thousands of sources online and carefully review it. We organize the best resources into clear, structured paths for each ERP module and career goal."
           },
           {
-            icon: "🌍",
             title: "Focus on MENA",
             description: "Our paths are designed for the MENA job market. We understand the certifications, skills, and experience employers in our region are looking for."
           },
           {
-            icon: "🔤",
             title: "Bilingual Support",
             description: "Learn in Arabic or English. We believe language shouldn't be a barrier to mastering enterprise software - perfect for students starting young."
           },
           {
-            icon: "🤖",
-            title: "AI-Powered Guidance",
-            description: "Our AI understands your background and goals to recommend the perfect learning path for your career journey - whether you're a student or a professional looking to switch careers. We help developers and technical professionals, and we also help people who want to work in Functional or Business roles."
+            title: "AI + Real People Guidance",
+            description: "Our AI understands your background and goals to recommend the perfect learning path for your career journey, and real industry practitioners review every path for accuracy - whether you're a student or a professional looking to switch careers. We help developers and technical professionals, and we also help people who want to work in Functional or Business roles."
           }
         ]
       },
@@ -109,6 +141,10 @@ export function AboutContent() {
           {
             others: "No career guidance",
             daleel: "Clear career outcomes and salary insights from deep, comprehensive data - we help with employment"
+          },
+          {
+            others: "Generic AI tools with no human judgment",
+            daleel: "AI-curated paths, reviewed and refined by real industry experts"
           }
         ]
       },
@@ -117,22 +153,18 @@ export function AboutContent() {
         title: "Our Values",
         items: [
           {
-            icon: "🎯",
             title: "Clarity Over Complexity",
             description: "We simplify the overwhelming into the achievable."
           },
           {
-            icon: "🤝",
             title: "Honesty First",
             description: "We're transparent about what we offer and what we're still building."
           },
           {
-            icon: "🌱",
             title: "Continuous Improvement",
             description: "We constantly update our paths based on market changes and user feedback."
           },
           {
-            icon: "💡",
             title: "Community Driven",
             description: "We build with our users, not just for them."
           }
@@ -161,13 +193,13 @@ export function AboutContent() {
           "دليل — اخترنا الاسم ده لأنه يعكس هدفنا بالضبط: نبقى مرشدك الموثوق في عالم أنظمة ERP المعقد.",
           "عملنا المنصة دي بسبب أسئلة الناس الكتيرة. كل شوية حد بيسأل: \"أبدأ منين؟\"، \"أتعلم إيه؟\"، \"أيه النظام اللي يناسبني؟\". لقينا إن في مشكلة كبيرة جداً: الناس مش عارفة تعمل إيه أو تبدأ إزاي، وعندهم أسئلة كتيرة أوي.",
           "قررنا نعمل المنصة دي علشان تجاوب على كل أسئلتهم. سواء كنت طالب عاوز تبدأ من سن صغير، أو محترف عاوز يغير مجاله، أو حد عاوز يتعلم حاجة جديدة - احنا هنكون معاك في كل خطوة.",
-          "احنا مش منصة دورات تانية — احنا منسقين. بنجمع داتا عميقة من آلاف المصادر على الإنترنت وبنراجعها بدقة. بننظم أحسن الموارد في مسارات تعلم واضحة، وبنرشدك من حيث أنت إلى حيث عاوز توصل."
+          "احنا مش منصة دورات تانية — احنا منسقين. بندمج الذكاء الاصطناعي مع خبرة بشرية حقيقية: الذكاء الاصطناعي بيجمع وينظم داتا عميقة من آلاف المصادر، وخبراء حقيقيين شغالين في السوق بيراجعوا كل مسار قبل ما يوصلك."
         ]
       },
 
       mission: {
         title: "مهمتنا",
-        text: "إتاحة تعليم ERP في الشرق الأوسط لكل الناس - الطلبة اللي عاوزين يبدأوا من سن صغير، والمحترفين اللي عاوزين يغيروا مجالاتهم. نساعد المبرمجين والتقنيين، ونساعد كمان الناس اللي هتشتغل Functional أو Business. بنوفر مسارات تعلم منظمة وثنائية اللغة بداتا عميقة متجمعة من آلاف المصادر ومتراجعة بدقة."
+        text: "إتاحة تعليم ERP في الشرق الأوسط لكل الناس - الطلبة اللي عاوزين يبدأوا من سن صغير، والمحترفين اللي عاوزين يغيروا مجالاتهم. نساعد المبرمجين والتقنيين، ونساعد كمان الناس اللي هتشتغل Functional أو Business. بنوفر مسارات تعلم منظمة وثنائية اللغة يبنيها الذكاء الاصطناعي وينقّحها خبراء حقيقيين في السوق."
       },
       vision: {
         title: "رؤيتنا",
@@ -211,24 +243,20 @@ export function AboutContent() {
         title: "احنا بنعمل إيه",
         items: [
           {
-            icon: "🗺️",
             title: "بننسق مسارات التعلم",
             description: "احنا مش بنعمل دورات. بنجمع داتا عميقة من آلاف المصادر على الإنترنت وبنراجعها بدقة. بننظم أحسن الموارد في مسارات واضحة ومنظمة لكل وحدة ERP وهدف مهني."
           },
           {
-            icon: "🌍",
             title: "بنركز على الشرق الأوسط",
             description: "مساراتنا مصممة لسوق الشغل في الشرق الأوسط. بنفهم الشهادات والمهارات والخبرات اللي أصحاب الشغل في منطقتنا بيدوروا عليها."
           },
           {
-            icon: "🔤",
             title: "دعم ثنائي اللغة",
             description: "اتعلم بالعربي أو الإنجليزي. احنا مؤمنين إن اللغة مش لازم تكون عائق قدام إتقان برامج المؤسسات."
           },
           {
-            icon: "🤖",
-            title: "إرشاد بالذكاء الاصطناعي",
-            description: "ذكاؤنا الاصطناعي بيفهم خلفيتك وأهدافك ويوصيك بمسار التعلم المثالي لرحلتك المهنية - سواء كنت طالب أو محترف عاوز يغير مجاله. نساعد المبرمجين والتقنيين، ونساعد كمان الناس اللي هتشتغل Functional أو Business."
+            title: "إرشاد بالذكاء الاصطناعي وناس حقيقيين",
+            description: "ذكاؤنا الاصطناعي بيفهم خلفيتك وأهدافك ويوصيك بمسار التعلم المثالي لرحلتك المهنية، وخبراء حقيقيين شغالين في السوق بيراجعوا كل مسار للدقة - سواء كنت طالب أو محترف عاوز يغير مجاله. نساعد المبرمجين والتقنيين، ونساعد كمان الناس اللي هتشتغل Functional أو Business."
           }
         ]
       },
@@ -251,6 +279,10 @@ export function AboutContent() {
           {
             others: "مفيش إرشاد مهني",
             daleel: "نتائج مهنية واضحة ورؤى عن الرواتب بداتا عميقة - بنساعدك في التوظيف"
+          },
+          {
+            others: "أدوات ذكاء اصطناعي عامة من غير حكم بشري",
+            daleel: "مسارات ينسّقها الذكاء الاصطناعي، وتراجعها وتنقّحها خبراء حقيقيين في السوق"
           }
         ]
       },
@@ -259,22 +291,18 @@ export function AboutContent() {
         title: "قيمنا",
         items: [
           {
-            icon: "🎯",
             title: "الوضوح فوق التعقيد",
             description: "نبسط المعقد إلى قابل للتحقيق."
           },
           {
-            icon: "🤝",
             title: "الصدق أولاً",
             description: "نحن شفافون بشأن ما نقدمه وما نزال نبنيه."
           },
           {
-            icon: "🌱",
             title: "التحسين المستمر",
             description: "نحدث مساراتنا باستمرار بناءً على تغيرات السوق وملاحظات المستخدمين."
           },
           {
-            icon: "💡",
             title: "مدفوعون بالمجتمع",
             description: "نبني مع مستخدمينا، وليس فقط من أجلهم."
           }
@@ -310,6 +338,18 @@ export function AboutContent() {
     );
   }
 
+  const eyebrow = {
+    visionMission: language === "ar" ? "وجهتنا" : "Where We're Headed",
+    problemSolution: language === "ar" ? "الفجوة اللي بنسدها" : "The Gap We Fill",
+    whatWeDo: language === "ar" ? "منهجنا" : "Our Approach",
+    whyDifferent: language === "ar" ? "الفرق" : "The Difference",
+    values: language === "ar" ? "مبادئنا" : "Our Principles",
+  };
+
+  const founderIntro = stripLeadingEmoji(t.founderMessage.paragraphs[0]);
+  const founderBody = t.founderMessage.paragraphs.slice(1, -2).map(stripLeadingEmoji);
+  const founderFooter = t.founderMessage.paragraphs.slice(-2).map(stripLeadingEmoji);
+
   return (
     <main className="min-h-screen bg-white">
       {/* Hero Section */}
@@ -330,6 +370,9 @@ export function AboutContent() {
 
               <div className="mt-8 flex flex-wrap gap-3">
                 <span className="px-3 py-1.5 rounded-full bg-white/15 border border-white/30 text-sm">
+                  {language === "ar" ? "الذكاء الاصطناعي + ناس حقيقيين" : "AI + Real People"}
+                </span>
+                <span className="px-3 py-1.5 rounded-full bg-white/15 border border-white/30 text-sm">
                   {language === "ar" ? "ERP + Software" : "ERP + Software"}
                 </span>
                 <span className="px-3 py-1.5 rounded-full bg-white/15 border border-white/30 text-sm">
@@ -346,24 +389,24 @@ export function AboutContent() {
                 {language === "ar" ? "لماذا دليل؟" : "Why Daleel?"}
               </h3>
               <div className="space-y-3 text-sm text-emerald-50">
-                <div className="flex items-start gap-2">
-                  <span>✅</span>
+                <div className="flex items-start gap-2.5">
+                  <CheckCircleIcon className="w-5 h-5 text-emerald-300 flex-shrink-0 mt-0.5" />
                   <span>
                     {language === "ar"
-                      ? "بدل التشتت بين مصادر كثيرة، تاخد مسار واضح خطوة بخطوة."
-                      : "Replace scattered learning with one clear step-by-step path."}
+                      ? "بدل التشتت بين مصادر كثيرة، تاخد مسار واضح خطوة بخطوة، يبنيه الذكاء الاصطناعي ويراجعه خبراء حقيقيين."
+                      : "Replace scattered learning with one clear path, built by AI and reviewed by real industry experts."}
                   </span>
                 </div>
-                <div className="flex items-start gap-2">
-                  <span>✅</span>
+                <div className="flex items-start gap-2.5">
+                  <CheckCircleIcon className="w-5 h-5 text-emerald-300 flex-shrink-0 mt-0.5" />
                   <span>
                     {language === "ar"
                       ? "محتوى مناسب لسوق العمل في الشرق الأوسط."
                       : "Content aligned with real MENA market needs."}
                   </span>
                 </div>
-                <div className="flex items-start gap-2">
-                  <span>✅</span>
+                <div className="flex items-start gap-2.5">
+                  <CheckCircleIcon className="w-5 h-5 text-emerald-300 flex-shrink-0 mt-0.5" />
                   <span>
                     {language === "ar"
                       ? "اختيارات مهنية أوضح للطلبة والمحترفين."
@@ -379,10 +422,22 @@ export function AboutContent() {
       {/* Story Section */}
       <section className="py-16 bg-gradient-to-b from-white to-slate-50">
         <div className="max-w-4xl mx-auto px-4">
-          <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm">
-            <h2 className="text-3xl font-bold text-slate-900 mb-6">{t.story.title}</h2>
-            <div className="space-y-4 text-lg text-slate-600 leading-relaxed">
-              {t.story.paragraphs.map((p, i) => (
+          <div className="bg-white border border-slate-200 rounded-3xl p-8 md:p-10 shadow-sm">
+            <div className="flex items-center gap-3 mb-6">
+              <span className="w-10 h-10 rounded-xl bg-[#f0f9f6] flex items-center justify-center text-[#357a5d] flex-shrink-0">
+                <BookOpenIcon className="w-5 h-5" />
+              </span>
+              <h2 className="text-2xl md:text-3xl font-bold text-slate-900">{t.story.title}</h2>
+            </div>
+
+            <blockquote className="relative mb-6 ps-5 border-s-4 border-[#a9dbc7]">
+              <p className="text-xl md:text-2xl font-semibold text-slate-800 leading-relaxed">
+                {t.story.paragraphs[0]}
+              </p>
+            </blockquote>
+
+            <div className="space-y-4 text-base md:text-lg text-slate-600 leading-relaxed">
+              {t.story.paragraphs.slice(1).map((p, i) => (
                 <p key={i}>{p}</p>
               ))}
             </div>
@@ -393,13 +448,24 @@ export function AboutContent() {
       {/* Vision & Mission Section */}
       <section className="py-16 bg-slate-50">
         <div className="max-w-5xl mx-auto px-4">
+          <div className="text-center mb-8">
+            <span className="inline-flex items-center px-4 py-2 rounded-full bg-[#f0f9f6] text-[#285c46] text-sm font-medium border border-[#a9dbc7]">
+              {eyebrow.visionMission}
+            </span>
+          </div>
           <div className="grid md:grid-cols-2 gap-6">
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-              <h2 className="text-2xl font-bold text-slate-900 mb-4">👁️ {t.vision.title}</h2>
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:shadow-md hover:border-[#a9dbc7] transition-all duration-300">
+              <div className="w-11 h-11 rounded-xl bg-[#f0f9f6] flex items-center justify-center text-[#357a5d] mb-4">
+                <EyeIcon className="w-6 h-6" />
+              </div>
+              <h2 className="text-2xl font-bold text-slate-900 mb-3">{t.vision.title}</h2>
               <p className="text-slate-600 leading-relaxed">{t.vision.text}</p>
             </div>
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-              <h2 className="text-2xl font-bold text-slate-900 mb-4">🎯 {t.mission.title}</h2>
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:shadow-md hover:border-[#a9dbc7] transition-all duration-300">
+              <div className="w-11 h-11 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 mb-4">
+                <RocketLaunchIcon className="w-6 h-6" />
+              </div>
+              <h2 className="text-2xl font-bold text-slate-900 mb-3">{t.mission.title}</h2>
               <p className="text-slate-600 leading-relaxed">{t.mission.text}</p>
             </div>
           </div>
@@ -409,25 +475,52 @@ export function AboutContent() {
       {/* Founder Message */}
       <section className="py-16 bg-gradient-to-br from-slate-50 via-white to-[#f0f9f6]/40">
         <div className="max-w-4xl mx-auto px-4">
-          <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-50 to-[#f0f9f6]/40 p-8 md:p-10">
-            <div className="flex items-start gap-4 mb-6">
-              <Image
-                src={founderImage}
-                alt="Founder"
-                width={64}
-                height={64}
-                className="rounded-full w-16 h-16 object-cover border-2 border-white shadow"
-              />
+          <div className="rounded-3xl border border-slate-200 bg-white p-8 md:p-10 shadow-sm">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="relative flex-shrink-0">
+                <Image
+                  src={founderImage}
+                  alt="Founder"
+                  width={96}
+                  height={96}
+                  className="rounded-full w-20 h-20 md:w-24 md:h-24 object-cover border-4 border-white shadow-lg ring-1 ring-slate-200"
+                />
+                <span className="absolute -bottom-1 -end-1 w-7 h-7 rounded-full bg-[#429874] border-2 border-white flex items-center justify-center text-sm">
+                  👋
+                </span>
+              </div>
               <div>
-                <h2 className="text-2xl font-bold text-slate-900">{t.founderMessage.title}</h2>
+                <h2 className="text-2xl md:text-3xl font-bold text-slate-900">{t.founderMessage.title}</h2>
                 <p className="text-slate-500">{t.founderMessage.subtitle}</p>
               </div>
             </div>
-            <div className="space-y-3 text-slate-700 leading-relaxed">
-              {t.founderMessage.paragraphs.map((paragraph, i) => (
-                <p key={i} className="bg-white/80 border border-slate-200 rounded-xl p-4 shadow-sm">
-                  {paragraph}
-                </p>
+
+            <blockquote className="relative mb-8 ps-5 border-s-4 border-[#429874]">
+              <p className="text-xl md:text-2xl font-semibold text-slate-800 leading-relaxed">
+                {founderIntro.text}
+              </p>
+            </blockquote>
+
+            <div className="space-y-5">
+              {founderBody.map((p, i) => (
+                <div key={i} className="flex items-start gap-3">
+                  <span className="flex-shrink-0 w-9 h-9 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center text-base">
+                    {p.emoji}
+                  </span>
+                  <p className="text-slate-600 leading-relaxed pt-1">{p.text}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-8 pt-6 border-t border-slate-100 flex flex-wrap gap-3">
+              {founderFooter.map((p, i) => (
+                <span
+                  key={i}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-50 border border-slate-200 text-sm text-slate-700"
+                >
+                  <span>{p.emoji}</span>
+                  {p.text}
+                </span>
               ))}
             </div>
           </div>
@@ -437,24 +530,39 @@ export function AboutContent() {
       {/* Problem / Solution */}
       <section className="py-16 bg-slate-50">
         <div className="max-w-4xl mx-auto px-4">
+          <div className="text-center mb-8">
+            <span className="inline-flex items-center px-4 py-2 rounded-full bg-[#f0f9f6] text-[#285c46] text-sm font-medium border border-[#a9dbc7]">
+              {eyebrow.problemSolution}
+            </span>
+          </div>
           <div className="grid md:grid-cols-2 gap-6">
             <div className="bg-red-50 rounded-2xl border border-red-100 p-6">
-              <h3 className="text-xl font-bold text-red-900 mb-4">😫 {t.problemSolution.problemTitle}</h3>
+              <div className="flex items-center gap-3 mb-4">
+                <span className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center text-red-600 flex-shrink-0">
+                  <ExclamationTriangleIcon className="w-5 h-5" />
+                </span>
+                <h3 className="text-xl font-bold text-red-900">{t.problemSolution.problemTitle}</h3>
+              </div>
               <div className="space-y-3">
                 {t.problemSolution.problems.map((item, i) => (
                   <div key={i} className="flex items-start gap-2 text-red-800 text-sm">
-                    <span className="text-red-400 mt-0.5">✗</span>
+                    <XCircleIcon className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
                     <span>{item}</span>
                   </div>
                 ))}
               </div>
             </div>
             <div className="bg-[#f0f9f6] rounded-2xl border border-[#d4ede3] p-6">
-              <h3 className="text-xl font-bold text-[#285c46] mb-4">✨ {t.problemSolution.solutionTitle}</h3>
+              <div className="flex items-center gap-3 mb-4">
+                <span className="w-10 h-10 rounded-lg bg-[#d4ede3] flex items-center justify-center text-[#285c46] flex-shrink-0">
+                  <SparklesIcon className="w-5 h-5" />
+                </span>
+                <h3 className="text-xl font-bold text-[#285c46]">{t.problemSolution.solutionTitle}</h3>
+              </div>
               <div className="space-y-3">
                 {t.problemSolution.solutions.map((item, i) => (
                   <div key={i} className="flex items-start gap-2 text-[#285c46] text-sm">
-                    <span className="text-[#429874] mt-0.5">✓</span>
+                    <CheckCircleIcon className="w-4 h-4 text-[#429874] mt-0.5 flex-shrink-0" />
                     <span>{item}</span>
                   </div>
                 ))}
@@ -467,15 +575,28 @@ export function AboutContent() {
       {/* What We Do Section */}
       <section className="py-16 bg-white">
         <div className="max-w-5xl mx-auto px-4">
+          <div className="text-center mb-4">
+            <span className="inline-flex items-center px-4 py-2 rounded-full bg-[#f0f9f6] text-[#285c46] text-sm font-medium border border-[#a9dbc7]">
+              {eyebrow.whatWeDo}
+            </span>
+          </div>
           <h2 className="text-3xl font-bold text-slate-900 mb-10 text-center">{t.whatWeDo.title}</h2>
-          <div className="grid md:grid-cols-2 gap-8">
-            {t.whatWeDo.items.map((item, i) => (
-              <div key={i} className="bg-slate-50 rounded-2xl p-6">
-                <span className="text-4xl mb-4 block">{item.icon}</span>
-                <h3 className="text-xl font-semibold text-slate-900 mb-2">{item.title}</h3>
-                <p className="text-slate-600">{item.description}</p>
-              </div>
-            ))}
+          <div className="grid md:grid-cols-2 gap-6">
+            {t.whatWeDo.items.map((item, i) => {
+              const { Icon, color, bg } = whatWeDoIcons[i];
+              return (
+                <div
+                  key={i}
+                  className="bg-slate-50 border border-slate-200 rounded-2xl p-6 hover:shadow-md hover:border-[#a9dbc7] transition-all duration-300"
+                >
+                  <div className={`w-12 h-12 rounded-xl ${bg} ${color} flex items-center justify-center mb-4`}>
+                    <Icon className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-slate-900 mb-2">{item.title}</h3>
+                  <p className="text-slate-600">{item.description}</p>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -483,20 +604,36 @@ export function AboutContent() {
       {/* Why Different Section */}
       <section className="py-16 bg-white">
         <div className="max-w-4xl mx-auto px-4">
+          <div className="text-center mb-4">
+            <span className="inline-flex items-center px-4 py-2 rounded-full bg-[#f0f9f6] text-[#285c46] text-sm font-medium border border-[#a9dbc7]">
+              {eyebrow.whyDifferent}
+            </span>
+          </div>
           <h2 className="text-3xl font-bold text-slate-900 mb-10 text-center">{t.whyDifferent.title}</h2>
-          <div className="space-y-4">
-            {t.whyDifferent.comparison.map((item, i) => (
-              <div key={i} className="grid md:grid-cols-2 gap-4">
-                <div className="bg-red-50 border border-red-100 rounded-xl p-4 flex items-center gap-3">
-                  <span className="text-red-400 text-xl">✗</span>
-                  <span className="text-red-900">{item.others}</span>
-                </div>
-                <div className="bg-[#f0f9f6] rounded-xl p-4 flex items-center gap-3 border border-[#d4ede3]">
-                  <span className="text-[#429874] text-xl">✓</span>
-                  <span className="text-[#285c46]">{item.daleel}</span>
-                </div>
+
+          <div className="rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+            <div className="grid grid-cols-2 text-sm font-semibold">
+              <div className="px-5 md:px-6 py-4 bg-slate-800 text-slate-200">
+                {language === "ar" ? "من غير دليل" : "Without Daleel"}
               </div>
-            ))}
+              <div className="px-5 md:px-6 py-4 bg-[#285c46] text-white">
+                {language === "ar" ? "مع دليل" : "With Daleel"}
+              </div>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {t.whyDifferent.comparison.map((item, i) => (
+                <div key={i} className={`grid grid-cols-2 ${i % 2 === 1 ? "bg-slate-50" : "bg-white"}`}>
+                  <div className="px-5 md:px-6 py-5 flex items-start gap-2.5 text-slate-500 text-sm md:text-base">
+                    <XCircleIcon className="w-5 h-5 text-red-300 flex-shrink-0 mt-0.5" />
+                    <span>{item.others}</span>
+                  </div>
+                  <div className="px-5 md:px-6 py-5 flex items-start gap-2.5 text-slate-800 text-sm md:text-base bg-[#f0f9f6]/50">
+                    <CheckCircleIcon className="w-5 h-5 text-[#429874] flex-shrink-0 mt-0.5" />
+                    <span>{item.daleel}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -504,15 +641,28 @@ export function AboutContent() {
       {/* Values Section */}
       <section className="py-16 bg-gradient-to-b from-white to-slate-50">
         <div className="max-w-5xl mx-auto px-4">
+          <div className="text-center mb-4">
+            <span className="inline-flex items-center px-4 py-2 rounded-full bg-[#f0f9f6] text-[#285c46] text-sm font-medium border border-[#a9dbc7]">
+              {eyebrow.values}
+            </span>
+          </div>
           <h2 className="text-3xl font-bold text-slate-900 mb-10 text-center">{t.values.title}</h2>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {t.values.items.map((item, i) => (
-              <div key={i} className="text-center p-6 rounded-2xl bg-white border border-slate-200 shadow-sm">
-                <span className="text-4xl mb-4 block">{item.icon}</span>
-                <h3 className="text-lg font-semibold text-slate-900 mb-2">{item.title}</h3>
-                <p className="text-sm text-slate-600">{item.description}</p>
-              </div>
-            ))}
+            {t.values.items.map((item, i) => {
+              const { Icon, color, bg } = valuesIcons[i];
+              return (
+                <div
+                  key={i}
+                  className="text-center p-6 rounded-2xl bg-white border border-slate-200 shadow-sm hover:shadow-md hover:border-[#a9dbc7] transition-all duration-300"
+                >
+                  <div className={`w-12 h-12 rounded-xl ${bg} ${color} flex items-center justify-center mx-auto mb-4`}>
+                    <Icon className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-slate-900 mb-2">{item.title}</h3>
+                  <p className="text-sm text-slate-600">{item.description}</p>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -550,4 +700,3 @@ export function AboutContent() {
     </main>
   );
 }
-

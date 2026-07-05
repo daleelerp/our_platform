@@ -16,14 +16,11 @@ function joinNames(names: string[], max: number) {
   return `${u.slice(0, max).join(", ")} +${u.length - max}`;
 }
 
-export function CurrentStatusBanner({ liveSystemNames, pendingSystemNames }: Props) {
+export function CurrentStatusBanner({ liveSystemNames }: Props) {
   const { t } = useTranslation();
 
   const live = liveSystemNames?.length
     ? joinNames(liveSystemNames, 4)
-    : null;
-  const pending = pendingSystemNames?.length
-    ? joinNames(pendingSystemNames, 5)
     : null;
 
   return (
@@ -40,7 +37,7 @@ export function CurrentStatusBanner({ liveSystemNames, pendingSystemNames }: Pro
           <div className="flex flex-wrap items-center justify-center gap-2 text-sm text-slate-500">
             <span className="font-medium">{t("status.comingSoon")}</span>
             <span className="text-slate-700 max-w-[min(100vw-2rem,460px)]">
-              {pending ?? t("status.comingSoonSystems")}
+              {t("status.comingSoonSystems")}
             </span>
           </div>
         </div>

@@ -1,7 +1,6 @@
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { PathFinderQuiz } from "@/components/PathFinderQuiz";
-import { filterPathsByPlan } from "@/utils/pathAccess";
 import { SubscriptionFeature, SubscriptionPlan } from "@/types/subscription";
 
 export default async function PathFinderPage() {
@@ -47,48 +46,14 @@ export default async function PathFinderPage() {
     ownedPlanIds = (subscriptions || []).map((s) => s.plan_id);
   }
 
-  // Build paths query — filter by career_focus if the user has one set
-  let pathsQuery = supabase
-    .from("learning_paths")
-    .select(`
-      id,
-      title,
-      title_ar,
-      slug,
-      description,
-      description_ar,
-      target_audience,
-      estimated_duration_hours,
-      difficulty_level,
-      prerequisites,
-      career_outcomes,
-      career_focus,
-      erp_module:erp_modules(erp_system_id)
-    `)
-    .eq("is_published", true);
-
-  const VALID_CAREER_FOCUSES = ["technical", "business_functional"] as const;
-  type CareerFocus = typeof VALID_CAREER_FOCUSES[number];
-
-  if (
-    userProfile?.career_focus &&
-    VALID_CAREER_FOCUSES.includes(userProfile.career_focus as CareerFocus)
-  ) {
-    // Show paths matching the user's career focus OR paths available for all (null)
-    pathsQuery = pathsQuery.or(
-      `career_focus.eq.${userProfile.career_focus},career_focus.is.null`
-    );
-  }
-
-  // Fetch paths + static reference data in parallel
+  // The advisor recommends subscription plans directly (not learning paths),
+  // so this page only needs plan-level + reference data.
   const [
-    { data: paths },
     { data: erpSystems },
     { data: erpProviders },
     { data: subscriptionPlans },
     { data: subscriptionFeatures },
   ] = await Promise.all([
-    pathsQuery.order("difficulty_level"),
     supabase
       .from("erp_systems")
       .select("id, name, description, description_ar, is_active")
@@ -109,18 +74,8 @@ export default async function PathFinderPage() {
       .order("sort_order"),
   ]);
 
-  const allCandidatePaths = paths || [];
-  const accessiblePaths = await filterPathsByPlan(
-    allCandidatePaths,
-    supabase,
-    user?.id,
-    undefined
-  );
-
   return (
     <PathFinderQuiz
-      paths={allCandidatePaths}
-      accessiblePaths={accessiblePaths}
       erpSystems={erpSystems || []}
       erpProviders={erpProviders || []}
       plans={(subscriptionPlans || []) as SubscriptionPlan[]}

@@ -32,10 +32,13 @@ type AppState = {
   selectedPath: SelectedPath | null;
   language: Language;
   isHydrated: boolean;
+  /** True once the initial Supabase session check (UserProvider's getSession()) has resolved, whether or not a user was found. Pages should wait for this before redirecting on a missing user — otherwise a hard refresh sees the store's initial `user: null` and bounces a logged-in visitor before the session has had a chance to load. */
+  isAuthResolved: boolean;
   setUser: (user: User | null) => void;
   setUserProfile: (profile: UserProfile | null) => void;
   setSelectedPath: (path: SelectedPath | null) => void;
   setLanguage: (language: Language) => void;
+  setAuthResolved: () => void;
   hydrate: () => void;
 };
 
@@ -45,6 +48,7 @@ export const useAppStore = create<AppState>((set) => ({
   selectedPath: null,
   language: "en", // Default to "en" on server
   isHydrated: false,
+  isAuthResolved: false,
   setUser: (user) => set({ user }),
   setUserProfile: (profile) => set({ userProfile: profile }),
   setSelectedPath: (path) => set({ selectedPath: path }),
@@ -54,6 +58,7 @@ export const useAppStore = create<AppState>((set) => ({
     }
     set({ language });
   },
+  setAuthResolved: () => set({ isAuthResolved: true }),
   hydrate: () => {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("language");

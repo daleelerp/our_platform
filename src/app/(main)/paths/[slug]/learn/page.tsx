@@ -324,6 +324,47 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
         .maybeSingle()
     : { data: null };
 
+  // Enforce resources_per_milestone: cap the resource list to the limit of whichever
+  // plan actually grants this path (the user's owned plan, or the free plan if the
+  // path is reachable without payment) — "basic_resources" (first N) vs "all_resources".
+  let resourceLimit: number | null = null;
+  {
+    const { data: pathPlanRows } = await supabase
+      .from("plan_paths")
+      .select("plan_id")
+      .eq("learning_path_id", path.id);
+    const pathPlanIds = (pathPlanRows || []).map((p: any) => p.plan_id).filter(Boolean);
+
+    if (pathPlanIds.length > 0) {
+      const { data: candidatePlans } = await supabaseAdmin
+        .from("subscription_plans")
+        .select("id, limitations, price_monthly_egp, price_yearly_egp, price_one_time_egp, price_per_user_egp")
+        .in("id", pathPlanIds);
+
+      const { data: ownedSubs } = await supabase
+        .from("user_subscriptions")
+        .select("plan_id")
+        .eq("user_id", user.id)
+        .in("plan_id", pathPlanIds)
+        .in("status", ["active", "trial", "paused"]);
+
+      const ownedPlanIds = new Set((ownedSubs || []).map((s: any) => s.plan_id));
+      const ownedPlan = (candidatePlans || []).find((p: any) => ownedPlanIds.has(p.id));
+      const freePlan = (candidatePlans || []).find((p: any) => isFreePlan(p));
+      const effectivePlan = ownedPlan || freePlan;
+
+      const limit = effectivePlan?.limitations?.resources_per_milestone;
+      if (typeof limit === "number") {
+        resourceLimit = limit;
+      }
+    }
+  }
+
+  const visibleResources =
+    resourceLimit !== null && resourceLimit !== -1
+      ? resources.slice(0, Math.max(0, resourceLimit))
+      : resources;
+
   return (
     <LearningInterface
       path={path}
@@ -332,7 +373,7 @@ export default async function PathLearnPage({ params, searchParams }: Props) {
       videos={videos}
       quizzes={quizzes || []}
       finalQuiz={finalQuizData || null}
-      resources={resources}
+      resources={visibleResources}
       enrollment={enrollment}
       videoProgress={videoProgress || []}
       milestoneProgress={milestoneProgress}

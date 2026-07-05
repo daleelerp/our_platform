@@ -1,6 +1,11 @@
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { JobRolesPageContent } from "@/components/JobRolesPageContent";
+import { getUserPlanFeatures } from "@/utils/pathAccess";
+
+// Either key unlocks this page — "job_overview" is the canonical key in
+// subscription_features, "job_roles" is a legacy/duplicate key some plans use.
+const JOB_ROLES_FEATURE_KEYS = ["job_overview", "job_roles"];
 
 export default async function JobRolesPage() {
   const cookieStore = await cookies();
@@ -15,26 +20,8 @@ export default async function JobRolesPage() {
 
   // Only check subscription if user is authenticated
   if (user) {
-    const { data: subscriptionData } = await supabase
-      .from("user_subscriptions")
-      .select(`
-        *,
-        subscription_plans (
-          id,
-          name,
-          display_name_en,
-          display_name_ar,
-          price_monthly_egp,
-          price_yearly_egp,
-          price_one_time_egp,
-          price_per_user_egp
-        )
-      `)
-      .eq("user_id", user.id)
-      .in("status", ["active", "trial", "paused"])
-      .maybeSingle();
-
-    hasPremiumAccess = !!subscriptionData;
+    const features = await getUserPlanFeatures(supabase, user.id);
+    hasPremiumAccess = JOB_ROLES_FEATURE_KEYS.some((key) => features.includes(key));
   }
 
   // Fetch all job roles
@@ -50,18 +37,10 @@ export default async function JobRolesPage() {
     jobRoles = jobRoles.slice(0, 2);
   }
 
-  // Fetch premium plan for CTA
-  const { data: premiumPlan } = await supabase
-    .from("subscription_plans")
-    .select("id, name, display_name_en, display_name_ar, price_egp")
-    .eq("name", "premium")
-    .single();
-
   return (
-    <JobRolesPageContent 
+    <JobRolesPageContent
       jobRoles={jobRoles}
       hasPremiumAccess={hasPremiumAccess}
-      premiumPlan={premiumPlan}
       isAuthenticated={!!user}  // Pass this to show login CTA if needed
     />
   );

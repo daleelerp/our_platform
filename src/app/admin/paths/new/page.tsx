@@ -16,6 +16,7 @@ export default function NewPathPage() {
     description_ar: "",
     difficulty_level: "beginner",
     estimated_duration_hours: "",
+    career_focus: "",
     is_published: false,
   });
 
@@ -31,6 +32,7 @@ export default function NewPathPage() {
         body: JSON.stringify({
           ...formData,
           estimated_duration_hours: parseInt(formData.estimated_duration_hours) || 0,
+          career_focus: formData.career_focus || null,
           target_audience: "beginners",
           prerequisites: "[]",
           learning_outcomes: "[]",
@@ -122,6 +124,23 @@ export default function NewPathPage() {
               <option value="beginner">Beginner</option>
               <option value="intermediate">Intermediate</option>
               <option value="advanced">Advanced</option>
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="career_focus" className="block text-sm font-medium text-slate-700 mb-2">
+              Career Focus
+            </label>
+            <select
+              id="career_focus"
+              value={formData.career_focus}
+              onChange={(e) => setFormData({ ...formData, career_focus: e.target.value })}
+              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+            >
+              <option value="">Available for All Tracks</option>
+              <option value="technical">Technical</option>
+              <option value="business_functional">Business Functional</option>
+              <option value="business_consultant">Business Consultant</option>
             </select>
           </div>
 

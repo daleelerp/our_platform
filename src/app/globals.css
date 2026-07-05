@@ -15,7 +15,7 @@
 }
 
 :root {
-  --font-sans: var(--font-inter);
+  --font-sans: var(--font-jakarta);
 }
 
 [dir="rtl"] {
