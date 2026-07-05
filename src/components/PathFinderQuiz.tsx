@@ -62,6 +62,43 @@ const questions = {
         { value: "exploring", label: "Just exploring - not sure yet", icon: "🤔" },
       ],
     },
+    {
+      id: "fieldOfStudy",
+      question: "What's your field of study or professional background?",
+      options: [
+        { value: "business", label: "Business (management, finance, commerce...)", icon: "💼" },
+        { value: "tech", label: "Computer Science / Engineering", icon: "💻" },
+        { value: "other", label: "Something else / not sure", icon: "🤔" },
+      ],
+    },
+    {
+      // Combines both branches (business areas + programming languages) purely
+      // for label lookup — the actual conditional question flow happens in chat.
+      id: "domainDetail",
+      question: "",
+      options: [
+        { value: "finance_accounting", label: "Finance & Accounting", icon: "💰" },
+        { value: "supply_chain", label: "Supply Chain & Operations", icon: "📦" },
+        { value: "marketing_sales", label: "Marketing & Sales", icon: "📣" },
+        { value: "hr", label: "Human Resources", icon: "🧑‍🤝‍🧑" },
+        { value: "not_sure", label: "Not sure — general business", icon: "🤔" },
+        { value: "python", label: "Python", icon: "🐍" },
+        { value: "java", label: "Java", icon: "☕" },
+        { value: "javascript", label: "JavaScript", icon: "🟨" },
+        { value: "sql_abap", label: "SQL / ABAP", icon: "🗄️" },
+        { value: "none_yet", label: "None yet — just starting", icon: "🌱" },
+      ],
+    },
+    {
+      id: "workPreference",
+      question: "How do you prefer to work?",
+      options: [
+        { value: "remote", label: "Remote", icon: "🏠" },
+        { value: "freelance", label: "Freelance / project-based", icon: "🧳" },
+        { value: "onsite", label: "On-site / full-time employment", icon: "🏢" },
+        { value: "flexible", label: "Flexible — open to anything", icon: "🔀" },
+      ],
+    },
   ],
   ar: [
     {
@@ -93,6 +130,41 @@ const questions = {
         { value: "switching", label: "أعمل في مجال مختلف - أريد التحول إلى ERP", icon: "🔀" },
         { value: "growing", label: "أعمل بالفعل مع ERP - أريد تطوير مهاراتي", icon: "📈" },
         { value: "exploring", label: "أستكشف فقط - لست متأكداً بعد", icon: "🤔" },
+      ],
+    },
+    {
+      id: "fieldOfStudy",
+      question: "ما هو مجال دراستك أو خلفيتك المهنية؟",
+      options: [
+        { value: "business", label: "أعمال (إدارة، مالية، تجارة...)", icon: "💼" },
+        { value: "tech", label: "علوم حاسب / هندسة", icon: "💻" },
+        { value: "other", label: "شيء آخر / لست متأكداً", icon: "🤔" },
+      ],
+    },
+    {
+      id: "domainDetail",
+      question: "",
+      options: [
+        { value: "finance_accounting", label: "المالية والمحاسبة", icon: "💰" },
+        { value: "supply_chain", label: "سلسلة الإمداد والعمليات", icon: "📦" },
+        { value: "marketing_sales", label: "التسويق والمبيعات", icon: "📣" },
+        { value: "hr", label: "الموارد البشرية", icon: "🧑‍🤝‍🧑" },
+        { value: "not_sure", label: "لست متأكداً - عام", icon: "🤔" },
+        { value: "python", label: "Python", icon: "🐍" },
+        { value: "java", label: "Java", icon: "☕" },
+        { value: "javascript", label: "JavaScript", icon: "🟨" },
+        { value: "sql_abap", label: "SQL / ABAP", icon: "🗄️" },
+        { value: "none_yet", label: "لا شيء بعد - أبدأ للتو", icon: "🌱" },
+      ],
+    },
+    {
+      id: "workPreference",
+      question: "كيف تفضل العمل؟",
+      options: [
+        { value: "remote", label: "عن بُعد", icon: "🏠" },
+        { value: "freelance", label: "عمل حر / على المشاريع", icon: "🧳" },
+        { value: "onsite", label: "حضورياً بدوام كامل", icon: "🏢" },
+        { value: "flexible", label: "مرن - منفتح على أي شيء", icon: "🔀" },
       ],
     },
   ],
@@ -140,13 +212,19 @@ export function PathFinderQuiz({ erpSystems, erpProviders, plans, planFeatures, 
       setAiInsight(savedPreferences.ai_insight);
       setAiReasoning(savedPreferences.ai_reasoning || null);
 
-      // Load saved answers. `target_role` is repurposed to store `background`
-      // now that the old careerTrack question (which used to live there) is
-      // gone — derived from `goal` instead.
+      // Load saved answers. A few columns are repurposed now that their
+      // original questions are gone: `target_role` stores `background`
+      // (derived from `goal` these days), `learning_style` stores
+      // "fieldOfStudy|domainDetail" combined, and `time_commitment` stores
+      // `workPreference` directly.
+      const [savedFieldOfStudy, savedDomainDetail] = (savedPreferences.learning_style || "").split("|");
       setAnswers({
         experience: savedPreferences.experience_level || "",
         goal: savedPreferences.primary_goal || "",
         background: savedPreferences.target_role || "",
+        fieldOfStudy: savedFieldOfStudy || "",
+        domainDetail: savedDomainDetail || "",
+        workPreference: savedPreferences.time_commitment || "",
         erpChoice: savedPreferences.interested_erp_id || "",
       });
 
@@ -210,6 +288,8 @@ export function PathFinderQuiz({ erpSystems, erpProviders, plans, planFeatures, 
           experience_level: finalAnswers.experience,
           primary_goal: finalAnswers.goal,
           target_role: finalAnswers.background,
+          learning_style: `${finalAnswers.fieldOfStudy || ""}|${finalAnswers.domainDetail || ""}`,
+          time_commitment: finalAnswers.workPreference,
           interested_erp_id: erpId || null,
           recommended_plan_ids: recs.map(p => p.id),
           ai_insight: insight,
@@ -506,6 +586,28 @@ export function PathFinderQuiz({ erpSystems, erpProviders, plans, planFeatures, 
                   <div className="flex items-center gap-2">
                     <span className="text-slate-500">{language === "ar" ? "وضعك:" : "Background:"}</span>
                     <span className="text-slate-700">{getAnswerLabel("background", answers.background)}</span>
+                  </div>
+                )}
+                {answers.fieldOfStudy && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-500">{language === "ar" ? "مجال الدراسة:" : "Field of Study:"}</span>
+                    <span className="text-slate-700">{getAnswerLabel("fieldOfStudy", answers.fieldOfStudy)}</span>
+                  </div>
+                )}
+                {answers.domainDetail && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-500">
+                      {language === "ar"
+                        ? answers.fieldOfStudy === "tech" ? "لغة البرمجة:" : "مجال العمل:"
+                        : answers.fieldOfStudy === "tech" ? "Language:" : "Business Area:"}
+                    </span>
+                    <span className="text-slate-700">{getAnswerLabel("domainDetail", answers.domainDetail)}</span>
+                  </div>
+                )}
+                {answers.workPreference && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-500">{language === "ar" ? "أسلوب العمل:" : "Work Style:"}</span>
+                    <span className="text-slate-700">{getAnswerLabel("workPreference", answers.workPreference)}</span>
                   </div>
                 )}
                 {getErpLabel(answers.erpChoice) && (

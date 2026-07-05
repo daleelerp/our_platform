@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminSession } from "@/utils/admin-auth";
 import { getAdminSupabaseClient } from "@/utils/admin-supabase";
 
+const VALID_AUDIENCES = ["all", "subscribers", "non_subscribers"];
+
 export async function GET() {
   const adminSession = await getAdminSession();
   if (!adminSession) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -27,6 +29,11 @@ export async function POST(req: NextRequest) {
   const descriptionAr = (body.description_ar ?? "").trim() || null;
   const icon = (body.icon ?? "").trim() || "🎁";
   const isPublished = body.is_published !== false;
+  const audience = VALID_AUDIENCES.includes(body.audience) ? body.audience : "all";
+  const targetPlanNames =
+    audience === "subscribers" && Array.isArray(body.target_plan_names) && body.target_plan_names.length > 0
+      ? body.target_plan_names.filter((n: unknown) => typeof n === "string")
+      : null;
 
   if (!title || !description) {
     return NextResponse.json({ error: "Title and description are required" }, { status: 400 });
@@ -42,6 +49,8 @@ export async function POST(req: NextRequest) {
       description_ar: descriptionAr,
       icon,
       is_published: isPublished,
+      audience,
+      target_plan_names: targetPlanNames,
     })
     .select()
     .single();

@@ -3,6 +3,8 @@ import {
   QuizAnswers,
   QUESTION_OPTION_VALUES,
   getValidGoalValues,
+  getValidDomainDetailValues,
+  domainDetailIsApplicable,
   scorePlans,
   generateBasicPlanInsight,
   generateFallbackGuidance,
@@ -17,9 +19,28 @@ const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 type ErpSystemLite = { id: string; name: string; is_active: boolean };
 type Option = { value: string; label: string };
 
-const FIELD_ORDER: (keyof QuizAnswers)[] = ["experience", "goal", "background", "erpChoice"];
+// "domainDetail" is conditional — it's only ever relevant right after
+// "fieldOfStudy", and only when that answer is "business" or "tech" (see
+// getApplicableFields). It has no static entry below since its question
+// text/options branch dynamically (see getQuestionAndOptions), same as
+// "erpChoice" which depends on the live ERP list rather than a fixed set.
+const FIELD_ORDER: (keyof QuizAnswers)[] = [
+  "experience",
+  "goal",
+  "background",
+  "fieldOfStudy",
+  "domainDetail",
+  "workPreference",
+  "erpChoice",
+];
 
-const FIELD_QUESTIONS_EN: Record<"experience" | "goal" | "background", { question: string; options: Option[] }> = {
+function getApplicableFields(knownAnswers: Partial<QuizAnswers>): (keyof QuizAnswers)[] {
+  return FIELD_ORDER.filter((f) => f !== "domainDetail" || domainDetailIsApplicable(knownAnswers.fieldOfStudy));
+}
+
+type StaticField = "experience" | "goal" | "background" | "fieldOfStudy" | "workPreference";
+
+const FIELD_QUESTIONS_EN: Record<StaticField, { question: string; options: Option[] }> = {
   experience: {
     question: "What's your current experience with ERP systems?",
     options: [
@@ -48,9 +69,26 @@ const FIELD_QUESTIONS_EN: Record<"experience" | "goal" | "background", { questio
       { value: "exploring", label: "Just exploring - not sure yet" },
     ],
   },
+  fieldOfStudy: {
+    question: "What's your field of study or professional background?",
+    options: [
+      { value: "business", label: "Business (management, finance, commerce...)" },
+      { value: "tech", label: "Computer Science / Engineering" },
+      { value: "other", label: "Something else / not sure" },
+    ],
+  },
+  workPreference: {
+    question: "How do you prefer to work?",
+    options: [
+      { value: "remote", label: "Remote" },
+      { value: "freelance", label: "Freelance / project-based" },
+      { value: "onsite", label: "On-site / full-time employment" },
+      { value: "flexible", label: "Flexible — open to anything" },
+    ],
+  },
 };
 
-const FIELD_QUESTIONS_AR: Record<"experience" | "goal" | "background", { question: string; options: Option[] }> = {
+const FIELD_QUESTIONS_AR: Record<StaticField, { question: string; options: Option[] }> = {
   experience: {
     question: "ما هي خبرتك الحالية مع أنظمة ERP؟",
     options: [
@@ -79,11 +117,74 @@ const FIELD_QUESTIONS_AR: Record<"experience" | "goal" | "background", { questio
       { value: "exploring", label: "أستكشف فقط - لست متأكداً بعد" },
     ],
   },
+  fieldOfStudy: {
+    question: "ما هو مجال دراستك أو خلفيتك المهنية؟",
+    options: [
+      { value: "business", label: "أعمال (إدارة، مالية، تجارة...)" },
+      { value: "tech", label: "علوم حاسب / هندسة" },
+      { value: "other", label: "شيء آخر / لست متأكداً" },
+    ],
+  },
+  workPreference: {
+    question: "كيف تفضل العمل؟",
+    options: [
+      { value: "remote", label: "عن بُعد" },
+      { value: "freelance", label: "عمل حر / على المشاريع" },
+      { value: "onsite", label: "حضورياً بدوام كامل" },
+      { value: "flexible", label: "مرن - منفتح على أي شيء" },
+    ],
+  },
+};
+
+const DOMAIN_DETAIL_QUESTIONS_EN = {
+  business: {
+    question: "Which area of business interests you most?",
+    options: [
+      { value: "finance_accounting", label: "Finance & Accounting" },
+      { value: "supply_chain", label: "Supply Chain & Operations" },
+      { value: "marketing_sales", label: "Marketing & Sales" },
+      { value: "hr", label: "Human Resources" },
+      { value: "not_sure", label: "Not sure — general business" },
+    ],
+  },
+  tech: {
+    question: "Which programming languages do you know or prefer?",
+    options: [
+      { value: "python", label: "Python" },
+      { value: "java", label: "Java" },
+      { value: "javascript", label: "JavaScript" },
+      { value: "sql_abap", label: "SQL / ABAP" },
+      { value: "none_yet", label: "None yet — just starting" },
+    ],
+  },
+};
+
+const DOMAIN_DETAIL_QUESTIONS_AR = {
+  business: {
+    question: "ما مجال الأعمال الذي يثير اهتمامك أكثر؟",
+    options: [
+      { value: "finance_accounting", label: "المالية والمحاسبة" },
+      { value: "supply_chain", label: "سلسلة الإمداد والعمليات" },
+      { value: "marketing_sales", label: "التسويق والمبيعات" },
+      { value: "hr", label: "الموارد البشرية" },
+      { value: "not_sure", label: "لست متأكداً - عام" },
+    ],
+  },
+  tech: {
+    question: "ما لغات البرمجة التي تعرفها أو تفضلها؟",
+    options: [
+      { value: "python", label: "Python" },
+      { value: "java", label: "Java" },
+      { value: "javascript", label: "JavaScript" },
+      { value: "sql_abap", label: "SQL / ABAP" },
+      { value: "none_yet", label: "لا شيء بعد - أبدأ للتو" },
+    ],
+  },
 };
 
 type Message = { role: "user" | "assistant"; content: string };
 
-const MAX_USER_TURNS = 6;
+const MAX_USER_TURNS = 10;
 
 function getQuestionAndOptions(
   field: keyof QuizAnswers,
@@ -107,8 +208,14 @@ function getQuestionAndOptions(
     };
   }
 
+  if (field === "domainDetail") {
+    const set = language === "ar" ? DOMAIN_DETAIL_QUESTIONS_AR : DOMAIN_DETAIL_QUESTIONS_EN;
+    const branch = knownAnswers.fieldOfStudy === "tech" ? set.tech : set.business;
+    return { question: branch.question, options: branch.options };
+  }
+
   const set = language === "ar" ? FIELD_QUESTIONS_AR : FIELD_QUESTIONS_EN;
-  const q = set[field as "experience" | "goal" | "background"];
+  const q = set[field as StaticField];
   const options =
     field === "goal" ? q.options.filter((o) => getValidGoalValues(knownAnswers.experience).includes(o.value)) : q.options;
   return { question: q.question, options };
@@ -124,7 +231,7 @@ export async function POST(request: NextRequest) {
 }
 
 function nextMissingField(knownAnswers: Partial<QuizAnswers>): keyof QuizAnswers | null {
-  return FIELD_ORDER.find((f) => !knownAnswers[f]) || null;
+  return getApplicableFields(knownAnswers).find((f) => !knownAnswers[f]) || null;
 }
 
 function deterministicQuestion(
@@ -168,7 +275,7 @@ async function handleConverse(body: {
     return NextResponse.json(deterministicQuestion(missing, language, knownAnswers, erpSystems));
   }
 
-  const remainingFields = FIELD_ORDER.filter((f) => !knownAnswers[f]);
+  const remainingFields = getApplicableFields(knownAnswers).filter((f) => !knownAnswers[f]);
   const fieldOptionsText = remainingFields
     .map((f) => {
       const { question, options } = getQuestionAndOptions(f, language, knownAnswers, erpSystems);
@@ -237,6 +344,8 @@ Instructions:
       const validValues =
         field === "goal"
           ? getValidGoalValues(knownAnswers.experience)
+          : field === "domainDetail"
+          ? getValidDomainDetailValues(knownAnswers.fieldOfStudy)
           : field === "erpChoice"
           ? [...erpSystems.filter((e) => e.is_active).map((e) => e.id), "undecided"]
           : QUESTION_OPTION_VALUES[field];
@@ -248,10 +357,14 @@ Instructions:
     const merged = { ...knownAnswers, ...(extractedAnswers || {}) };
     const stillMissing = nextMissingField(merged);
     // Quick replies always come from our own known option list — never
-    // trust the model to format valid option chips itself.
-    const nextField = (parsed.field_being_asked as keyof QuizAnswers) && FIELD_ORDER.includes(parsed.field_being_asked as keyof QuizAnswers)
-      ? (parsed.field_being_asked as keyof QuizAnswers)
-      : stillMissing || missing;
+    // trust the model to format valid option chips itself. Also make sure
+    // the model's claimed field is actually applicable right now (e.g. it
+    // can't claim "domainDetail" if fieldOfStudy is "other").
+    const claimedField = parsed.field_being_asked as keyof QuizAnswers | undefined;
+    const nextField =
+      claimedField && getApplicableFields(merged).includes(claimedField)
+        ? claimedField
+        : stillMissing || missing;
 
     return NextResponse.json({
       reply: parsed.reply || deterministicQuestion(missing, language, knownAnswers, erpSystems).reply,
@@ -331,6 +444,8 @@ async function handleFinalize(body: {
 - الخبرة: ${answers.experience}
 - الهدف: ${answers.goal}
 - الوضع الحالي: ${answers.background}
+- مجال الدراسة: ${answers.fieldOfStudy || "غير محدد"}${answers.domainDetail ? ` (${answers.domainDetail})` : ""}
+- تفضيل العمل: ${answers.workPreference || "غير محدد"}
 ${erpName ? `- نظام ERP المختار: ${erpName}` : ""}
 ${careerFocus ? `- التركيز المهني: ${TRACK_NAMES_AR[careerFocus] || careerFocus}` : ""}
 ${extraContextNote}
@@ -347,6 +462,8 @@ User Analysis:
 - Experience: ${answers.experience}
 - Goal: ${answers.goal}
 - Background: ${answers.background}
+- Field of study: ${answers.fieldOfStudy || "not specified"}${answers.domainDetail ? ` (${answers.domainDetail})` : ""}
+- Work preference: ${answers.workPreference || "not specified"}
 ${erpName ? `- Selected ERP System: ${erpName}` : ""}
 ${careerFocus ? `- Career Focus: ${TRACK_NAMES_EN[careerFocus] || careerFocus}` : ""}
 ${extraContextNote}
@@ -456,10 +573,12 @@ async function handleNoPlanGuidance(
 - الخبرة: ${answers.experience}
 - الهدف: ${answers.goal}
 - الوضع الحالي: ${answers.background}
+- مجال الدراسة: ${answers.fieldOfStudy || "غير محدد"}${answers.domainDetail ? ` — تحديداً: ${answers.domainDetail}` : ""}
+- تفضيل أسلوب العمل: ${answers.workPreference || "غير محدد"}
 - اهتمام ERP: ${erpName || `غير محدد بعد — رشح الأنسب من هذه القائمة: ${erpNamesList}`}
 ${extraContextNote}${studentNote}
 
-لا يملك دليل حالياً خطة اشتراك جاهزة لهذا المزيج بالتحديد. بدلاً من اقتراح خطة، اكتب دليلاً إرشادياً حقيقياً ومفيداً لهذا الشخص.
+لا يملك دليل حالياً خطة اشتراك جاهزة لهذا المزيج بالتحديد. بدلاً من اقتراح خطة، اكتب دليلاً إرشادياً حقيقياً ومفيداً لهذا الشخص. استخدم مجال دراسته (وتحديداً لغة البرمجة أو مجال العمل الذي يعرفه، إن وُجد) وتفضيله لأسلوب العمل لجعل الإرشاد ملموساً وشخصياً.
 
 المطلوب: أعد JSON يحتوي على:
 1. "insight": ملخص قصير (1-2 جملة)
@@ -470,10 +589,12 @@ User Analysis:
 - Experience: ${answers.experience}
 - Goal: ${answers.goal}
 - Background: ${answers.background}
+- Field of study: ${answers.fieldOfStudy || "not specified"}${answers.domainDetail ? ` — specifically: ${answers.domainDetail}` : ""}
+- Work style preference: ${answers.workPreference || "not specified"}
 - ERP interest: ${erpName || `Not sure yet — recommend the best fit from this list: ${erpNamesList}`}
 ${extraContextNote}${studentNote}
 
-Daleel doesn't currently have a bundled subscription plan that matches this specific combination. Instead of suggesting a plan, write a genuinely useful, honest learning roadmap for this person.
+Daleel doesn't currently have a bundled subscription plan that matches this specific combination. Instead of suggesting a plan, write a genuinely useful, honest learning roadmap for this person. Use their field of study (especially any known programming language or business area) and work-style preference to make the guidance concrete and personal, not generic.
 
 Required: Return JSON with:
 1. "insight": short 1-2 sentence summary

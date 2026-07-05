@@ -54,7 +54,6 @@ type Props = {
   featureRows: FeatureRow[];
   aiLimit: number | null;
   hasJobRolesAccess: boolean;
-  hasSalaryAccess: boolean;
   certExam: CertExam | null;
   certPassed: boolean;
   finalQuizUrl?: string;
@@ -74,7 +73,6 @@ export default function PlanDetailsContent({
   featureRows,
   aiLimit,
   hasJobRolesAccess,
-  hasSalaryAccess,
   certExam,
   certPassed,
   finalQuizUrl,
@@ -109,10 +107,6 @@ export default function PlanDetailsContent({
     {
       title: t("Job Roles Library", "مكتبة الأدوار الوظيفية"),
       value: hasJobRolesAccess ? t("Included", "متضمن") : t("Not included", "غير متضمن"),
-    },
-    {
-      title: t("Salary Insights", "بيانات الرواتب"),
-      value: hasSalaryAccess ? t("Included", "متضمن") : t("Not included", "غير متضمن"),
     },
   ];
 

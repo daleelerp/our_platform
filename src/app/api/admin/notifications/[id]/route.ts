@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminSession } from "@/utils/admin-auth";
 import { getAdminSupabaseClient } from "@/utils/admin-supabase";
 
+const VALID_AUDIENCES = ["all", "subscribers", "non_subscribers"];
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -19,6 +21,13 @@ export async function PATCH(
   if (typeof body.description_ar === "string") update.description_ar = body.description_ar.trim() || null;
   if (typeof body.icon === "string") update.icon = body.icon.trim() || "🎁";
   if (typeof body.is_published === "boolean") update.is_published = body.is_published;
+  if (VALID_AUDIENCES.includes(body.audience)) {
+    update.audience = body.audience;
+    update.target_plan_names =
+      body.audience === "subscribers" && Array.isArray(body.target_plan_names) && body.target_plan_names.length > 0
+        ? body.target_plan_names.filter((n: unknown) => typeof n === "string")
+        : null;
+  }
 
   if (Object.keys(update).length === 0) {
     return NextResponse.json({ error: "No fields to update" }, { status: 400 });

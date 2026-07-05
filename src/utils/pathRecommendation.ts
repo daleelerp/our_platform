@@ -19,6 +19,9 @@ export type QuizAnswers = {
   experience: string;
   goal: string;
   background: string;
+  fieldOfStudy: string;
+  domainDetail: string;
+  workPreference: string;
   erpChoice: string;
 };
 
@@ -50,10 +53,30 @@ export const QUESTION_OPTION_VALUES: Record<keyof QuizAnswers, string[]> = {
   experience: ["none", "basic", "intermediate", "advanced"],
   goal: ["career_switch", "skill_upgrade", "certification", "consulting", "technical"],
   background: ["student", "switching", "growing", "exploring"],
+  fieldOfStudy: ["business", "tech", "other"],
+  // domainDetail's valid set depends on fieldOfStudy — see getValidDomainDetailValues.
+  domainDetail: [],
+  workPreference: ["remote", "freelance", "onsite", "flexible"],
   // erpChoice has no static list — it's a real erp_systems.id or "undecided",
   // validated against the live ERP list passed in per-request (see route.ts).
   erpChoice: [],
 };
+
+export const BUSINESS_DOMAIN_DETAIL_VALUES = ["finance_accounting", "supply_chain", "marketing_sales", "hr", "not_sure"];
+export const TECH_DOMAIN_DETAIL_VALUES = ["python", "java", "javascript", "sql_abap", "none_yet"];
+
+// domainDetail is a conditional follow-up: which sub-options are valid (and
+// whether the question is even relevant) depends on the fieldOfStudy answer
+// collected just before it.
+export function getValidDomainDetailValues(fieldOfStudy: string | undefined | null): string[] {
+  if (fieldOfStudy === "business") return BUSINESS_DOMAIN_DETAIL_VALUES;
+  if (fieldOfStudy === "tech") return TECH_DOMAIN_DETAIL_VALUES;
+  return [];
+}
+
+export function domainDetailIsApplicable(fieldOfStudy: string | undefined | null): boolean {
+  return fieldOfStudy === "business" || fieldOfStudy === "tech";
+}
 
 // Not every "primary goal" option makes sense at every experience level —
 // e.g. "upgrade my current skills" doesn't apply if the user has no ERP
@@ -170,6 +193,39 @@ export const TRACK_NAMES_AR: Record<string, string> = {
   business_consultant: "استشارات أعمال",
 };
 
+const DOMAIN_DETAIL_LABELS_EN: Record<string, string> = {
+  finance_accounting: "finance & accounting",
+  supply_chain: "supply chain & operations",
+  marketing_sales: "marketing & sales",
+  hr: "human resources",
+  python: "Python",
+  java: "Java",
+  javascript: "JavaScript",
+  sql_abap: "SQL/ABAP",
+};
+const DOMAIN_DETAIL_LABELS_AR: Record<string, string> = {
+  finance_accounting: "المالية والمحاسبة",
+  supply_chain: "سلسلة الإمداد والعمليات",
+  marketing_sales: "التسويق والمبيعات",
+  hr: "الموارد البشرية",
+  python: "Python",
+  java: "Java",
+  javascript: "JavaScript",
+  sql_abap: "SQL/ABAP",
+};
+const WORK_PREFERENCE_LABELS_EN: Record<string, string> = {
+  remote: "remote work",
+  freelance: "freelance/project-based work",
+  onsite: "on-site full-time work",
+  flexible: "flexible work arrangements",
+};
+const WORK_PREFERENCE_LABELS_AR: Record<string, string> = {
+  remote: "العمل عن بُعد",
+  freelance: "العمل الحر/على المشاريع",
+  onsite: "العمل الحضوري بدوام كامل",
+  flexible: "ترتيبات عمل مرنة",
+};
+
 export function generateBasicPlanInsight(
   answers: Partial<QuizAnswers>,
   language: "en" | "ar",
@@ -199,17 +255,28 @@ export function generateFallbackGuidance(
     ? language === "ar" ? `مثل ${erpName}` : `like ${erpName}`
     : language === "ar" ? "الأكثر طلباً في سوق العمل" : "with strong job demand";
 
+  const domainDetailLabelAr = answers.domainDetail ? DOMAIN_DETAIL_LABELS_AR[answers.domainDetail] : null;
+  const domainDetailLabelEn = answers.domainDetail ? DOMAIN_DETAIL_LABELS_EN[answers.domainDetail] : null;
+  const workPrefLabelAr = answers.workPreference ? WORK_PREFERENCE_LABELS_AR[answers.workPreference] : null;
+  const workPrefLabelEn = answers.workPreference ? WORK_PREFERENCE_LABELS_EN[answers.workPreference] : null;
+
   if (language === "ar") {
     const steps = [
       answers.background === "student"
         ? "ابدأ بفهم ما هو ERP ولماذا تستخدمه الشركات — لا حاجة لأي خبرة سابقة، فقط تعرّف على المفاهيم الأساسية (الوحدات، العمليات، البيانات)."
         : "راجع أساسيات ERP التي قد تكون فاتتك حتى الآن لتبني عليها بثقة.",
       `اختر نظام ERP واحد للتركيز عليه (${erpText}) بدلاً من محاولة تعلم كل شيء دفعة واحدة.`,
-      answers.goal === "technical"
+      answers.fieldOfStudy === "tech" && domainDetailLabelAr
+        ? `بما أنك تعرف ${domainDetailLabelAr}، ابحث تحديداً عن أدلة تكامل/API الخاصة بهذا النظام باستخدام هذه اللغة.`
+        : answers.fieldOfStudy === "business" && domainDetailLabelAr
+        ? `ركّز بحثك على وحدة ${domainDetailLabelAr} داخل هذا النظام بدلاً من كل الوحدات دفعة واحدة.`
+        : answers.goal === "technical"
         ? "ابحث عن موارد مجانية حول التطوير والتكامل الخاص بهذا النظام (توثيق رسمي، قنوات يوتيوب، منتديات المطورين)."
         : "ابحث عن موارد مجانية حول العمليات الوظيفية والتكوين الخاص بهذا النظام.",
       "مارس عملياً عبر بيئة تجريبية مجانية إن وُجدت، أو دراسات حالة حقيقية.",
-      "بمجرد أن تشعر بالثقة في الأساسيات، فكر في شهادة معتمدة لتثبت مهاراتك.",
+      workPrefLabelAr
+        ? `اجعل تعلمك موجهاً نحو ${workPrefLabelAr}، وابحث عن فرص تدريب/عمل تطابق هذا الأسلوب مبكراً.`
+        : "بمجرد أن تشعر بالثقة في الأساسيات، فكر في شهادة معتمدة لتثبت مهاراتك.",
     ];
     return `لا تملك دليل حالياً خطة جاهزة لهذا المزيج بالتحديد، لكن إليك خطوات عملية للبدء:\n${steps.map((s, i) => `${i + 1}. ${s}`).join("\n")}`;
   }
@@ -219,11 +286,17 @@ export function generateFallbackGuidance(
       ? "Start with what ERP actually is and why companies use it — no prior experience needed, just the core concepts (modules, processes, data flow)."
       : "Revisit the ERP fundamentals you may have skipped, so the rest builds on solid ground.",
     `Pick one ERP system to focus on (${erpText}) instead of trying to learn everything at once.`,
-    answers.goal === "technical"
+    answers.fieldOfStudy === "tech" && domainDetailLabelEn
+      ? `Since you already know ${domainDetailLabelEn}, look specifically for that system's API/integration guides using this language.`
+      : answers.fieldOfStudy === "business" && domainDetailLabelEn
+      ? `Focus your research on the ${domainDetailLabelEn} module within that system rather than every module at once.`
+      : answers.goal === "technical"
       ? "Look for free resources on that system's development/integration side (official docs, YouTube channels, developer forums)."
       : "Look for free resources on that system's business processes and configuration side.",
     "Get hands-on with a free trial/sandbox environment if one exists, or real-world case studies.",
-    "Once the fundamentals feel solid, consider a recognized certification to prove your skills.",
+    workPrefLabelEn
+      ? `Aim your learning toward ${workPrefLabelEn}, and start looking early for internships/roles that match that style.`
+      : "Once the fundamentals feel solid, consider a recognized certification to prove your skills.",
   ];
   return `Daleel doesn't have a bundled plan for this exact combination yet, but here's a concrete way to start:\n${steps.map((s, i) => `${i + 1}. ${s}`).join("\n")}`;
 }

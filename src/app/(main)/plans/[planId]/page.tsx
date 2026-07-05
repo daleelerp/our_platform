@@ -155,7 +155,6 @@ export default async function PlanDetailsPage({ params }: Props) {
   const hasJobRolesAccess =
     normalizedFeatureKeys.some((key) => key.includes("job")) ||
     normalizedFeatureKeys.some((key) => key.includes("career"));
-  const hasSalaryAccess = normalizedFeatureKeys.some((key) => key.includes("salary"));
 
   return (
     <PlanDetailsContent
@@ -172,7 +171,6 @@ export default async function PlanDetailsPage({ params }: Props) {
       featureRows={(featureRows || []) as any}
       aiLimit={aiLimit}
       hasJobRolesAccess={hasJobRolesAccess}
-      hasSalaryAccess={hasSalaryAccess}
       certExam={certExam as any}
       certPassed={certPassed}
       finalQuizUrl={

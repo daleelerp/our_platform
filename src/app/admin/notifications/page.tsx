@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 
+type Audience = "all" | "subscribers" | "non_subscribers";
+
 type Announcement = {
   id: string;
   title: string;
@@ -12,9 +14,41 @@ type Announcement = {
   icon: string;
   is_published: boolean;
   created_at: string;
+  audience: Audience;
+  target_plan_names: string[] | null;
 };
 
-const emptyForm = { title: "", title_ar: "", description: "", description_ar: "", icon: "🎁" };
+type Plan = {
+  id: string;
+  name: string;
+  display_name_en: string;
+  price_monthly_egp: number;
+  price_yearly_egp: number;
+  price_one_time_egp: number | null;
+  price_per_user_egp: number | null;
+};
+
+const emptyForm = {
+  title: "",
+  title_ar: "",
+  description: "",
+  description_ar: "",
+  icon: "🎁",
+  audience: "all" as Audience,
+  target_plan_names: [] as string[],
+};
+
+const AUDIENCE_OPTIONS: { value: Audience; label: string }[] = [
+  { value: "all", label: "Everyone" },
+  { value: "subscribers", label: "Subscribers" },
+  { value: "non_subscribers", label: "Non-subscribers" },
+];
+
+const isPaidPlan = (p: Plan) =>
+  (p.price_monthly_egp ?? 0) > 0 ||
+  (p.price_yearly_egp ?? 0) > 0 ||
+  (p.price_one_time_egp ?? 0) > 0 ||
+  (p.price_per_user_egp ?? 0) > 0;
 
 export default function AdminNotificationsPage() {
   const [items, setItems] = useState<Announcement[]>([]);
@@ -24,6 +58,7 @@ export default function AdminNotificationsPage() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [plans, setPlans] = useState<Plan[]>([]);
 
   const load = () => {
     fetch("/api/admin/notifications")
@@ -37,6 +72,35 @@ export default function AdminNotificationsPage() {
   };
 
   useEffect(() => { load(); }, []);
+  useEffect(() => {
+    fetch("/api/admin/data?table=subscription_plans")
+      .then(async (r) => {
+        const body = await r.json().catch(() => ({}));
+        if (r.ok) setPlans((body.data ?? []).filter(isPaidPlan));
+      })
+      .catch(() => {});
+  }, []);
+
+  const togglePlan = (name: string) => {
+    setForm((f) => ({
+      ...f,
+      target_plan_names: f.target_plan_names.includes(name)
+        ? f.target_plan_names.filter((n) => n !== name)
+        : [...f.target_plan_names, name],
+    }));
+  };
+
+  const audienceLabel = (item: Announcement) => {
+    if (item.audience === "non_subscribers") return "Non-subscribers";
+    if (item.audience === "subscribers") {
+      if (!item.target_plan_names?.length) return "Subscribers (all plans)";
+      const names = item.target_plan_names
+        .map((n) => plans.find((p) => p.name === n)?.display_name_en || n)
+        .join(", ");
+      return `Subscribers (${names})`;
+    }
+    return "Everyone";
+  };
 
   const handleCreate = async () => {
     if (!form.title.trim() || !form.description.trim() || saving) return;
@@ -144,6 +208,61 @@ export default function AdminNotificationsPage() {
             dir="rtl"
             className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-teal-500 resize-none"
           />
+
+          <div>
+            <label className="text-xs font-medium text-slate-500 mb-1.5 block">Audience</label>
+            <div className="flex gap-2">
+              {AUDIENCE_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() =>
+                    setForm((f) => ({
+                      ...f,
+                      audience: opt.value,
+                      target_plan_names: opt.value === "subscribers" ? f.target_plan_names : [],
+                    }))
+                  }
+                  className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition ${
+                    form.audience === opt.value
+                      ? "bg-teal-600 border-teal-600 text-white"
+                      : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {form.audience === "subscribers" && (
+            <div>
+              <label className="text-xs font-medium text-slate-500 mb-1.5 block">
+                Plans (none selected = all paid plans)
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {plans.length === 0 ? (
+                  <p className="text-xs text-slate-400">No paid plans found.</p>
+                ) : (
+                  plans.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => togglePlan(p.name)}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition ${
+                        form.target_plan_names.includes(p.name)
+                          ? "bg-teal-50 border-teal-500 text-teal-700"
+                          : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
+                      {p.display_name_en}
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
           <button
             type="button"
             onClick={handleCreate}
@@ -182,6 +301,9 @@ export default function AdminNotificationsPage() {
                     }`}
                   >
                     {item.is_published ? "Published" : "Hidden"}
+                  </span>
+                  <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-slate-100 text-slate-500">
+                    {audienceLabel(item)}
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 mt-1">{item.description}</p>

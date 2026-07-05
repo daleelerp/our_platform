@@ -107,7 +107,6 @@ export default function ProfilePage() {
     billingCycle: isArabic ? "دورة الفوترة" : "Billing Cycle",
     nextBilling: isArabic ? "الدفعة القادمة" : "Next Billing",
     daysRemaining: isArabic ? "أيام متبقية" : "Days Remaining",
-    upgrade: isArabic ? "ترقية" : "Upgrade",
     manage: isArabic ? "إدارة" : "Manage",
     viewPlans: isArabic ? "عرض الخطط" : "View Plans",
     noSubscription: isArabic ? "لا يوجد اشتراك نشط" : "No active subscription",
@@ -146,7 +145,6 @@ export default function ProfilePage() {
     privacy: isArabic ? "الخصوصية" : "Privacy",
     profileVisibility: isArabic ? "ظهور الملف الشخصي" : "Profile Visibility",
     subscribeNow: isArabic ? "اشترك الآن" : "Subscribe Now",
-    upgradePlan: isArabic ? "ترقية الخطة" : "Upgrade Plan",
     viewPricing: isArabic ? "عرض الأسعار" : "View Pricing",
     goToCheckout: isArabic ? "الذهاب إلى الدفع" : "Go to Checkout",
     purchasedPlans: isArabic ? "الخطط المشتراة" : "Purchased Plans",
@@ -156,8 +154,8 @@ export default function ProfilePage() {
     oneTime: isArabic ? "دفعة واحدة" : "One-Time",
     learningAnalytics: isArabic ? "تحليلات التعلم المتقدمة" : "Advanced Learning Analytics",
     analyticsLocked: isArabic
-      ? "متاحة في الخطط التي تشمل تحليلات متقدمة — قم بالترقية لرؤية أدائك بالتفصيل."
-      : "Available on plans with advanced analytics — upgrade to see your detailed performance.",
+      ? "متاحة فقط في الخطط التي تشمل تحليلات متقدمة."
+      : "Only available on plans that include advanced analytics.",
     analyticsEmpty: isArabic
       ? "أكمل أول نقطة تفتيش لرؤية تحليلاتك."
       : "Complete your first checkpoint to see your analytics.",

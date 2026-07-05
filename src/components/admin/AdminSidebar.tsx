@@ -79,12 +79,6 @@ const menuItems = [
     permission: "manage_jobs",
   },
   {
-    name: "Salary Ranges",
-    href: "/admin/salary-ranges",
-    icon: "💰",
-    permission: "manage_jobs",
-  },
-  {
     name: "Scraper",
     href: "/admin/scraper",
     icon: "🔍",

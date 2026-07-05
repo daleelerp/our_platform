@@ -61,10 +61,6 @@ export function CareerResourcesSection() {
               </div>
             </div>
           </Link>
-
-          {/* Salary Ranges Card — hidden per product request; re-enable by uncommenting.
-          <Link href="/salary-ranges" ...>...</Link>
-          */}
         </div>
       </div>
     </section>
