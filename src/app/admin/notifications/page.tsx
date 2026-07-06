@@ -59,6 +59,7 @@ export default function AdminNotificationsPage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const load = () => {
     fetch("/api/admin/notifications")
@@ -102,23 +103,47 @@ export default function AdminNotificationsPage() {
     return "Everyone";
   };
 
-  const handleCreate = async () => {
+  const closeForm = () => {
+    setShowForm(false);
+    setEditingId(null);
+    setForm(emptyForm);
+    setSaveError(null);
+  };
+
+  const handleEditClick = (item: Announcement) => {
+    setEditingId(item.id);
+    setForm({
+      title: item.title,
+      title_ar: item.title_ar ?? "",
+      description: item.description,
+      description_ar: item.description_ar ?? "",
+      icon: item.icon,
+      audience: item.audience ?? "all",
+      target_plan_names: item.target_plan_names ?? [],
+    });
+    setSaveError(null);
+    setShowForm(true);
+  };
+
+  const handleSave = async () => {
     if (!form.title.trim() || !form.description.trim() || saving) return;
     setSaving(true);
     setSaveError(null);
     try {
-      const res = await fetch("/api/admin/notifications", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
+      const res = await fetch(
+        editingId ? `/api/admin/notifications/${editingId}` : "/api/admin/notifications",
+        {
+          method: editingId ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(form),
+        }
+      );
       if (res.ok) {
-        setForm(emptyForm);
-        setShowForm(false);
+        closeForm();
         load();
       } else {
         const body = await res.json().catch(() => ({}));
-        setSaveError(body.error || "Failed to create");
+        setSaveError(body.error || (editingId ? "Failed to save" : "Failed to create"));
       }
     } finally {
       setSaving(false);
@@ -160,7 +185,7 @@ export default function AdminNotificationsPage() {
         </div>
         <button
           type="button"
-          onClick={() => setShowForm((v) => !v)}
+          onClick={() => (showForm ? closeForm() : setShowForm(true))}
           className="px-4 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 transition"
         >
           {showForm ? "Cancel" : "+ New Announcement"}
@@ -169,6 +194,7 @@ export default function AdminNotificationsPage() {
 
       {showForm && (
         <div className="bg-white border border-slate-200 rounded-xl p-5 mb-6 space-y-3 shadow-sm">
+          {editingId && <p className="text-xs font-medium text-teal-600">Editing announcement</p>}
           <div className="flex gap-3">
             <input
               type="text"
@@ -265,11 +291,11 @@ export default function AdminNotificationsPage() {
 
           <button
             type="button"
-            onClick={handleCreate}
+            onClick={handleSave}
             disabled={saving || !form.title.trim() || !form.description.trim()}
             className="px-5 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 disabled:opacity-50 transition"
           >
-            {saving ? "Publishing..." : "Publish"}
+            {editingId ? (saving ? "Saving..." : "Save Changes") : saving ? "Publishing..." : "Publish"}
           </button>
           {saveError && <p className="text-xs text-red-500">{saveError}</p>}
         </div>
@@ -310,6 +336,13 @@ export default function AdminNotificationsPage() {
                 <p className="text-xs text-slate-400 mt-1">{fmt(item.created_at)}</p>
               </div>
               <div className="flex flex-col gap-1.5 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleEditClick(item)}
+                  className="px-3 py-1 text-xs rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition"
+                >
+                  Edit
+                </button>
                 <button
                   type="button"
                   onClick={() => togglePublished(item)}
