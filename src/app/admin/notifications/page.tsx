@@ -16,6 +16,9 @@ type Announcement = {
   created_at: string;
   audience: Audience;
   target_plan_names: string[] | null;
+  cta_label: string | null;
+  cta_label_ar: string | null;
+  cta_url: string | null;
 };
 
 type Plan = {
@@ -36,6 +39,9 @@ const emptyForm = {
   icon: "🎁",
   audience: "all" as Audience,
   target_plan_names: [] as string[],
+  cta_label: "",
+  cta_label_ar: "",
+  cta_url: "",
 };
 
 const AUDIENCE_OPTIONS: { value: Audience; label: string }[] = [
@@ -43,6 +49,20 @@ const AUDIENCE_OPTIONS: { value: Audience; label: string }[] = [
   { value: "subscribers", label: "Subscribers" },
   { value: "non_subscribers", label: "Non-subscribers" },
 ];
+
+const PAGE_OPTIONS: { path: string; label: string }[] = [
+  { path: "/dashboard", label: "Dashboard" },
+  { path: "/paths", label: "Learning Paths" },
+  { path: "/path-finder", label: "Path Finder" },
+  { path: "/rankings", label: "Rankings (Honor Board)" },
+  { path: "/plans", label: "Plans & Pricing" },
+  { path: "/job-roles", label: "Job Roles" },
+  { path: "/roadmap", label: "Roadmap" },
+  { path: "/profile", label: "Profile" },
+  { path: "/about", label: "About" },
+  { path: "/contact", label: "Contact" },
+];
+const CUSTOM_URL = "__custom__";
 
 const isPaidPlan = (p: Plan) =>
   (p.price_monthly_egp ?? 0) > 0 ||
@@ -60,6 +80,7 @@ export default function AdminNotificationsPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [ctaCustom, setCtaCustom] = useState(false);
 
   const load = () => {
     fetch("/api/admin/notifications")
@@ -108,6 +129,7 @@ export default function AdminNotificationsPage() {
     setEditingId(null);
     setForm(emptyForm);
     setSaveError(null);
+    setCtaCustom(false);
   };
 
   const handleEditClick = (item: Announcement) => {
@@ -120,7 +142,11 @@ export default function AdminNotificationsPage() {
       icon: item.icon,
       audience: item.audience ?? "all",
       target_plan_names: item.target_plan_names ?? [],
+      cta_label: item.cta_label ?? "",
+      cta_label_ar: item.cta_label_ar ?? "",
+      cta_url: item.cta_url ?? "",
     });
+    setCtaCustom(!!item.cta_url && !PAGE_OPTIONS.some((p) => p.path === item.cta_url));
     setSaveError(null);
     setShowForm(true);
   };
@@ -289,6 +315,58 @@ export default function AdminNotificationsPage() {
             </div>
           )}
 
+          <div className="pt-2 border-t border-slate-100">
+            <label className="text-xs font-medium text-slate-500 mb-1.5 block">
+              Call to action (optional) — adds a button that sends students to a page on the site
+            </label>
+            <div className="flex gap-3 mb-2">
+              <input
+                type="text"
+                placeholder="Button text (English)"
+                value={form.cta_label}
+                onChange={(e) => setForm((f) => ({ ...f, cta_label: e.target.value }))}
+                className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-teal-500"
+              />
+              <input
+                type="text"
+                placeholder="Button text (Arabic)"
+                value={form.cta_label_ar}
+                onChange={(e) => setForm((f) => ({ ...f, cta_label_ar: e.target.value }))}
+                dir="rtl"
+                className="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-teal-500"
+              />
+            </div>
+            <select
+              aria-label="CTA destination page"
+              value={ctaCustom ? CUSTOM_URL : form.cta_url}
+              onChange={(e) => {
+                if (e.target.value === CUSTOM_URL) {
+                  setCtaCustom(true);
+                  setForm((f) => ({ ...f, cta_url: "" }));
+                } else {
+                  setCtaCustom(false);
+                  setForm((f) => ({ ...f, cta_url: e.target.value }));
+                }
+              }}
+              className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-teal-500 bg-white"
+            >
+              <option value="">No page selected</option>
+              {PAGE_OPTIONS.map((p) => (
+                <option key={p.path} value={p.path}>{p.label}</option>
+              ))}
+              <option value={CUSTOM_URL}>Custom URL...</option>
+            </select>
+            {ctaCustom && (
+              <input
+                type="text"
+                placeholder="/paths/some-slug"
+                value={form.cta_url}
+                onChange={(e) => setForm((f) => ({ ...f, cta_url: e.target.value }))}
+                className="w-full mt-2 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-teal-500"
+              />
+            )}
+          </div>
+
           <button
             type="button"
             onClick={handleSave}
@@ -331,6 +409,11 @@ export default function AdminNotificationsPage() {
                   <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-slate-100 text-slate-500">
                     {audienceLabel(item)}
                   </span>
+                  {item.cta_label && item.cta_url && (
+                    <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-teal-50 text-teal-700">
+                      CTA → {item.cta_url}
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-slate-500 mt-1">{item.description}</p>
                 <p className="text-xs text-slate-400 mt-1">{fmt(item.created_at)}</p>

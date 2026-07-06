@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import { useAppStore } from "@/store/useAppStore";
 
 const POLL_MS = 30000;
@@ -15,9 +16,13 @@ type Announcement = {
   icon: string;
   created_at: string;
   is_read: boolean;
+  cta_label: string | null;
+  cta_label_ar: string | null;
+  cta_url: string | null;
 };
 
 export function NotificationsBell() {
+  const router = useRouter();
   const user = useAppStore((state) => state.user);
   const language = useAppStore((state) => state.language);
   const isAr = language === "ar";
@@ -161,13 +166,49 @@ export function NotificationsBell() {
                   <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
                     {isAr && selected.description_ar ? selected.description_ar : selected.description}
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => setSelected(null)}
-                    className="mt-5 w-full py-2.5 bg-[#429874] text-white rounded-lg text-sm font-medium hover:bg-[#285c46] transition"
-                  >
-                    {isAr ? "إغلاق" : "Close"}
-                  </button>
+                  {(() => {
+                    const ctaLabel = isAr && selected.cta_label_ar ? selected.cta_label_ar : selected.cta_label;
+                    const hasCta = !!ctaLabel && !!selected.cta_url;
+                    if (!hasCta) {
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => setSelected(null)}
+                          className="mt-5 w-full py-2.5 bg-[#429874] text-white rounded-lg text-sm font-medium hover:bg-[#285c46] transition"
+                        >
+                          {isAr ? "إغلاق" : "Close"}
+                        </button>
+                      );
+                    }
+                    return (
+                      <div className="mt-5 flex flex-col gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const url = selected.cta_url as string;
+                            setSelected(null);
+                            router.push(url);
+                          }}
+                          className="w-full py-3 bg-[#429874] text-white rounded-lg text-sm font-semibold hover:bg-[#285c46] shadow-md hover:shadow-lg transition flex items-center justify-center gap-2"
+                        >
+                          {ctaLabel}
+                          <svg
+                            className={`w-4 h-4 ${isAr ? "rotate-180" : ""}`}
+                            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSelected(null)}
+                          className="w-full py-2 text-slate-400 hover:text-slate-600 text-sm font-medium transition"
+                        >
+                          {isAr ? "ربما لاحقاً" : "Maybe later"}
+                        </button>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             </div>

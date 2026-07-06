@@ -35,6 +35,13 @@ export async function POST(req: NextRequest) {
       ? body.target_plan_names.filter((n: unknown) => typeof n === "string")
       : null;
 
+  const ctaLabelRaw = (body.cta_label ?? "").trim();
+  const ctaUrlRaw = (body.cta_url ?? "").trim();
+  const hasCta = !!ctaLabelRaw && !!ctaUrlRaw;
+  const ctaLabel = hasCta ? ctaLabelRaw : null;
+  const ctaLabelAr = hasCta ? (body.cta_label_ar ?? "").trim() || null : null;
+  const ctaUrl = hasCta ? ctaUrlRaw : null;
+
   if (!title || !description) {
     return NextResponse.json({ error: "Title and description are required" }, { status: 400 });
   }
@@ -51,6 +58,9 @@ export async function POST(req: NextRequest) {
       is_published: isPublished,
       audience,
       target_plan_names: targetPlanNames,
+      cta_label: ctaLabel,
+      cta_label_ar: ctaLabelAr,
+      cta_url: ctaUrl,
     })
     .select()
     .single();

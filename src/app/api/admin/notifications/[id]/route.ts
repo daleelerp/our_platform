@@ -28,6 +28,14 @@ export async function PATCH(
         ? body.target_plan_names.filter((n: unknown) => typeof n === "string")
         : null;
   }
+  if (typeof body.cta_label === "string" || typeof body.cta_url === "string") {
+    const ctaLabelRaw = (body.cta_label ?? "").trim();
+    const ctaUrlRaw = (body.cta_url ?? "").trim();
+    const hasCta = !!ctaLabelRaw && !!ctaUrlRaw;
+    update.cta_label = hasCta ? ctaLabelRaw : null;
+    update.cta_label_ar = hasCta ? (body.cta_label_ar ?? "").trim() || null : null;
+    update.cta_url = hasCta ? ctaUrlRaw : null;
+  }
 
   if (Object.keys(update).length === 0) {
     return NextResponse.json({ error: "No fields to update" }, { status: 400 });
