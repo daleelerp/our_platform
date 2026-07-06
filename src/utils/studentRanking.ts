@@ -143,6 +143,7 @@ export type LeaderboardEntry = RankingBreakdown & {
   fullName: string;
   avatarUrl: string | null;
   badges: string[];
+  isPrivate: boolean;
 };
 
 /** Known non-student accounts (internal test/demo logins) excluded from all rankings. */
@@ -217,7 +218,7 @@ export async function computeLeaderboardForPaths(
 
   const { data: profiles } = await supabaseAdmin
     .from("user_profiles")
-    .select("id, full_name, avatar_url")
+    .select("id, full_name, avatar_url, profile_visibility")
     .in("id", relevantUserIds);
 
   const profileById = new Map((profiles ?? []).map((p) => [p.id as string, p]));
@@ -239,6 +240,7 @@ export async function computeLeaderboardForPaths(
       fullName: (profile?.full_name as string) || "Learner",
       avatarUrl: (profile?.avatar_url as string) || null,
       badges: getBadges(breakdown, checkpointStats),
+      isPrivate: profile?.profile_visibility === "private",
     });
   }
 

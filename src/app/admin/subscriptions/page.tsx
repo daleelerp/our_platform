@@ -6,12 +6,18 @@ import { AdminCrudTable } from "@/components/admin/AdminCrudTable";
 export default function AdminSubscriptionsPage() {
   return (
     <div>
-      <div className="mb-4">
+      <div className="mb-4 flex items-center justify-between">
         <Link
           href="/admin"
           className="text-teal-600 hover:text-teal-700 text-sm"
         >
           ← Back to Admin Home
+        </Link>
+        <Link
+          href="/admin/subscriptions/analytics"
+          className="text-teal-600 hover:text-teal-700 text-sm font-medium"
+        >
+          View Revenue Analytics →
         </Link>
       </div>
       <AdminCrudTable

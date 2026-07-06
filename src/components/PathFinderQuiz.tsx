@@ -495,7 +495,7 @@ export function PathFinderQuiz({ erpSystems, erpProviders, plans, planFeatures, 
 
   // Show saved results or recommendations
   if (showSavedResults || recommendations) {
-    const providerId = userProfile?.erp_provider_id || inferProviderIdFromErp(erpSystems, erpProviders, answers.erpChoice);
+    const providerId = inferProviderIdFromErp(erpSystems, erpProviders, answers.erpChoice, userProfile?.erp_provider_id);
     const isGuidanceOnly = recommendations && recommendations.length === 0;
     return (
       <main className="min-h-screen bg-gradient-to-br from-teal-50 to-slate-50 py-12">

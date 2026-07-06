@@ -36,7 +36,10 @@ export async function GET(
   }
 
   const entries = await computePlanLeaderboard(plan.id, admin, { minCheckpointsAttempted: 0 });
-  const publicEntries = entries.map((entry, i) => toPublicEntry(entry, i + 1));
+
+  // Private profiles keep their true rank for "own", but are hidden from the shared board.
+  const visibleEntries = entries.filter((e) => !e.isPrivate);
+  const publicEntries = visibleEntries.map((entry, i) => toPublicEntry(entry, i + 1));
 
   const ownIndex = entries.findIndex((e) => e.userId === user.id);
   const own = ownIndex >= 0 ? toPublicEntry(entries[ownIndex], ownIndex + 1) : null;

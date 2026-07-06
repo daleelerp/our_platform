@@ -46,8 +46,7 @@ export default function ProfilePage() {
   const user = useAppStore((state) => state.user);
   const userProfile = useAppStore((state) => state.userProfile);
   const setUserProfile = useAppStore((state) => state.setUserProfile);
-  const setLanguage = useAppStore((state) => state.setLanguage);
-  
+
   const { subscription, plan, usage, isLoading: subLoading, daysRemaining, refresh: refreshSubscription } = useSubscription();
 
   // Per the published Refund Policy: refunds may be requested within 3 calendar
@@ -80,6 +79,16 @@ export default function ProfilePage() {
     phone_number: (userProfile as any)?.phone_number || "",
     linkedin_url: (userProfile as any)?.linkedin_url || "",
   });
+
+  const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState<boolean>(
+    (userProfile as any)?.email_notifications_enabled ?? true
+  );
+  const [pushNotificationsEnabled, setPushNotificationsEnabled] = useState<boolean>(
+    (userProfile as any)?.push_notifications_enabled ?? true
+  );
+  const [profileVisibility, setProfileVisibility] = useState<"public" | "private">(
+    (userProfile as any)?.profile_visibility ?? "public"
+  );
 
   const [availablePlans, setAvailablePlans] = useState<SubscriptionPlan[]>([]);
   const [purchasedPlans, setPurchasedPlans] = useState<PurchasedPlanRecord[]>([]);
@@ -128,9 +137,6 @@ export default function ProfilePage() {
     viewPlans: isArabic ? "عرض الخطط" : "View Plans",
     noSubscription: isArabic ? "لا يوجد اشتراك نشط" : "No active subscription",
     freePlan: isArabic ? "الخطة المجانية" : "Free Plan",
-    language: isArabic ? "اللغة" : "Language",
-    arabic: isArabic ? "العربية" : "Arabic",
-    english: isArabic ? "الإنجليزية" : "English",
     usage: isArabic ? "الاستخدام" : "Usage",
     thisMonth: isArabic ? "هذا الشهر" : "This Month",
     pathsAccessed: isArabic ? "المسارات المستخدمة" : "Paths Accessed",
@@ -175,6 +181,12 @@ export default function ProfilePage() {
     pushNotifications: isArabic ? "الإشعارات الفورية" : "Push Notifications",
     privacy: isArabic ? "الخصوصية" : "Privacy",
     profileVisibility: isArabic ? "ظهور الملف الشخصي" : "Profile Visibility",
+    profileVisibilityHint: isArabic
+      ? "الملفات الخاصة لا تظهر في لوحة الترتيب، ولن تظهر في اقتراحات الشركات مستقبلاً."
+      : "Private profiles are hidden from public rankings and, in the future, from company suggestions.",
+    notificationWarning: isArabic
+      ? "الإشعارات تُبقيك على اطلاع بالدروس الجديدة والشهادات ونشاط حسابك. ننصح بإبقائها مفعّلة حتى لا يفوتك شيء مهم."
+      : "Notifications keep you informed about new lessons, certificates, and account activity. We recommend keeping them on so you don't miss anything important.",
     subscribeNow: isArabic ? "اشترك الآن" : "Subscribe Now",
     viewPricing: isArabic ? "عرض الأسعار" : "View Pricing",
     goToCheckout: isArabic ? "الذهاب إلى الدفع" : "Go to Checkout",
@@ -333,6 +345,28 @@ export default function ProfilePage() {
     }
   };
 
+  const handleNotificationToggle = async (
+    field: "email_notifications_enabled" | "push_notifications_enabled",
+    value: boolean
+  ) => {
+    if (!user) return;
+    if (field === "email_notifications_enabled") setEmailNotificationsEnabled(value);
+    else setPushNotificationsEnabled(value);
+    const supabase = createClient();
+    await supabase.from("user_profiles").update({ [field]: value }).eq("id", user.id);
+    setSuccess(t.saved);
+    setTimeout(() => setSuccess(null), 3000);
+  };
+
+  const handleVisibilityChange = async (value: "public" | "private") => {
+    if (!user) return;
+    setProfileVisibility(value);
+    const supabase = createClient();
+    await supabase.from("user_profiles").update({ profile_visibility: value }).eq("id", user.id);
+    setSuccess(t.saved);
+    setTimeout(() => setSuccess(null), 3000);
+  };
+
   const handleAvatarChange = async (avatarUrl: string) => {
     if (!user || !userProfile) return;
     setIsUploadingAvatar(true);
@@ -447,12 +481,6 @@ export default function ProfilePage() {
     } finally {
       setIsSubmittingRefund(false);
     }
-  };
-
-  const handleLanguageChange = (newLanguage: "en" | "ar") => {
-    setLanguage(newLanguage);
-    setSuccess(isArabic ? "تم تغيير اللغة" : "Language changed");
-    setTimeout(() => setSuccess(null), 3000);
   };
 
   const formatDate = (dateString: string | undefined) => {
@@ -1002,37 +1030,8 @@ export default function ProfilePage() {
               <h2 className="text-2xl font-bold text-slate-900 mb-6">{t.settings}</h2>
               
               <div className="space-y-8">
-                {/* Language Settings */}
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-3">
-                    {t.language}
-                  </label>
-                  <div className="flex gap-4">
-                    <button
-                      onClick={() => handleLanguageChange("ar")}
-                      className={`px-6 py-3 rounded-lg font-medium transition-colors ${
-                        language === "ar"
-                          ? "bg-[#429874] text-white"
-                          : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                      }`}
-                    >
-                      {t.arabic}
-                    </button>
-                    <button
-                      onClick={() => handleLanguageChange("en")}
-                      className={`px-6 py-3 rounded-lg font-medium transition-colors ${
-                        language === "en"
-                          ? "bg-[#429874] text-white"
-                          : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                      }`}
-                    >
-                      {t.english}
-                    </button>
-                  </div>
-                </div>
-
                 {/* Onboarding Preferences */}
-                <div className="border-t border-slate-200 pt-6">
+                <div>
                   <h3 className="text-lg font-semibold text-slate-900 mb-4">{t.onboarding}</h3>
                   {(!onboardingData || Object.keys(onboardingData).length === 0) ? (
                     <div className="text-slate-500 text-sm mb-4">
@@ -1211,7 +1210,8 @@ export default function ProfilePage() {
                     <label className="flex items-center gap-3 cursor-pointer">
                       <input
                         type="checkbox"
-                        defaultChecked
+                        checked={emailNotificationsEnabled}
+                        onChange={(e) => handleNotificationToggle("email_notifications_enabled", e.target.checked)}
                         className="w-5 h-5 text-[#429874] border-slate-300 rounded focus:ring-[#429874]"
                       />
                       <span className="text-slate-700">{t.emailNotifications}</span>
@@ -1219,25 +1219,40 @@ export default function ProfilePage() {
                     <label className="flex items-center gap-3 cursor-pointer">
                       <input
                         type="checkbox"
-                        defaultChecked
+                        checked={pushNotificationsEnabled}
+                        onChange={(e) => handleNotificationToggle("push_notifications_enabled", e.target.checked)}
                         className="w-5 h-5 text-[#429874] border-slate-300 rounded focus:ring-[#429874]"
                       />
                       <span className="text-slate-700">{t.pushNotifications}</span>
                     </label>
                   </div>
+                  {(!emailNotificationsEnabled || !pushNotificationsEnabled) && (
+                    <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-800">
+                      <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                      </svg>
+                      <span>{t.notificationWarning}</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Privacy Settings */}
                 <div className="border-t border-slate-200 pt-6">
                   <h3 className="text-lg font-semibold text-slate-900 mb-4">{t.privacy}</h3>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                    <label htmlFor="profile-visibility" className="block text-sm font-medium text-slate-700 mb-2">
                       {t.profileVisibility}
                     </label>
-                    <select className="w-full md:max-w-xs px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#429874] focus:border-[#429874]">
-                      <option>{isArabic ? "خاص" : "Private"}</option>
-                      <option>{isArabic ? "عام" : "Public"}</option>
+                    <select
+                      id="profile-visibility"
+                      value={profileVisibility}
+                      onChange={(e) => handleVisibilityChange(e.target.value as "public" | "private")}
+                      className="w-full md:max-w-xs px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#429874] focus:border-[#429874]"
+                    >
+                      <option value="public">{isArabic ? "عام" : "Public"}</option>
+                      <option value="private">{isArabic ? "خاص" : "Private"}</option>
                     </select>
+                    <p className="mt-2 text-xs text-slate-500">{t.profileVisibilityHint}</p>
                   </div>
                 </div>
               </div>

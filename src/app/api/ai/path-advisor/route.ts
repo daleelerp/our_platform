@@ -7,6 +7,7 @@ import {
   domainDetailIsApplicable,
   scorePlans,
   generateBasicPlanInsight,
+  generateBasicPlanReasoning,
   generateFallbackGuidance,
   TRACK_NAMES_EN,
   TRACK_NAMES_AR,
@@ -415,7 +416,7 @@ async function handleFinalize(body: {
     NextResponse.json({
       recommendations,
       insight: generateBasicPlanInsight(answers, language, careerFocus),
-      reasoning: null,
+      reasoning: generateBasicPlanReasoning(recommendations, language, careerFocus, erpName),
       method: "rule-based",
     });
 
@@ -517,7 +518,7 @@ Required: Return JSON with:
     return NextResponse.json({
       recommendations,
       insight: aiResponse.insight || generateBasicPlanInsight(answers, language, careerFocus),
-      reasoning: aiResponse.reasoning || null,
+      reasoning: aiResponse.reasoning || generateBasicPlanReasoning(recommendations, language, careerFocus, erpName),
       method: "ai",
     });
   } catch (error) {

@@ -99,34 +99,43 @@ export function getValidGoalValues(experience: string | undefined | null): strin
 }
 
 // There's no standalone "career track" question anymore (it used job-title
-// jargon students often don't recognize) — career focus is instead derived
-// from the "goal" answer, which already implies a track for the two goals
-// that clearly do (technical / consulting). Everything else maps to null
-// (no hard filter; the guidance narrative adds nuance instead).
-export function deriveCareerFocusFromGoal(goal: string | undefined | null): string | null {
+// jargon students often don't recognize) — career focus is derived from the
+// "goal" answer first (technical / consulting clearly imply a track), and
+// falls back to "fieldOfStudy" as a secondary signal when the goal alone is
+// ambiguous (career_switch / skill_upgrade / certification apply to anyone).
+// Without this fallback, a business-background user picking "Switch to an
+// ERP career" got career_focus=null, which let purely-technical plans win
+// scoring just as easily as business ones — this is what fixes that.
+export function deriveCareerFocus(goal: string | undefined | null, fieldOfStudy?: string | undefined | null): string | null {
   if (goal === "technical") return "technical";
   if (goal === "consulting") return "business_consultant";
+  if (fieldOfStudy === "tech") return "technical";
+  if (fieldOfStudy === "business") return "business_functional";
   return null;
 }
 
-// Same substring-match fallback used across the feature: prefer the user's
-// stored erp_provider_id if known, otherwise infer from the selected ERP
-// system's name against the provider list.
+// Same substring-match fallback used across the feature: prefer the ERP the
+// user actually picked in this conversation, and only fall back to a stored
+// profile-level provider when no ERP was picked (or it didn't resolve) —
+// getting this order backwards previously let a stale profile value silently
+// override whatever ERP the user just chose in chat.
 export function inferProviderIdFromErp(
   erpSystems: ErpSystem[],
   erpProviders: ErpProvider[],
   erpId: string | null | undefined,
   fallbackProviderId?: string | null
 ): string | null {
-  if (fallbackProviderId) return fallbackProviderId;
-  if (!erpId) return null;
-  const erp = erpSystems.find((s) => s.id === erpId);
-  if (!erp) return null;
-  const lowered = erp.name.toLowerCase();
-  const provider = erpProviders.find(
-    (p) => lowered.includes(p.name.toLowerCase()) || p.name.toLowerCase().includes(lowered)
-  );
-  return provider?.id || null;
+  if (erpId) {
+    const erp = erpSystems.find((s) => s.id === erpId);
+    if (erp) {
+      const lowered = erp.name.toLowerCase();
+      const provider = erpProviders.find(
+        (p) => lowered.includes(p.name.toLowerCase()) || p.name.toLowerCase().includes(lowered)
+      );
+      if (provider) return provider.id;
+    }
+  }
+  return fallbackProviderId || null;
 }
 
 // Highest theoretically reachable score, used to normalize into a confidence
@@ -238,10 +247,42 @@ export function generateBasicPlanInsight(
       : `بناءً على إجاباتك، يبدو أنك ${expText}. اخترنا لك أنسب خطة متاحة حالياً بناءً على نظام ERP الذي اخترته.`;
   }
 
-  const expText = answers.experience === "none" ? "new to the ERP world" : "have some ERP experience";
+  const expText = answers.experience === "none" ? "new to the ERP world" : "someone with some ERP experience";
   return careerFocus && TRACK_LABELS_EN[careerFocus]
     ? `Based on your answers, you appear to be ${expText}. We picked the plan that best matches the ${TRACK_LABELS_EN[careerFocus]} and the ERP system you selected.`
     : `Based on your answers, you appear to be ${expText}. We picked the best available plan based on the ERP system you selected.`;
+}
+
+// Concrete "why these plans" explanation for the rule-based path — always
+// populated (never null) so the results screen's "Why this plan?" panel has
+// real content even when Groq is unavailable, instead of showing nothing.
+export function generateBasicPlanReasoning(
+  recommendations: { id: string; name_en?: string | null; name_ar?: string | null; display_name_en?: string | null; display_name_ar?: string | null; target_audience?: string | null; confidence: number }[],
+  language: "en" | "ar",
+  careerFocus: string | null,
+  erpName: string | null
+): string {
+  const planNames = recommendations.map((p) =>
+    language === "ar" ? p.display_name_ar || p.name_ar || "" : p.display_name_en || p.name_en || ""
+  ).filter(Boolean);
+
+  if (language === "ar") {
+    const trackText = careerFocus && TRACK_NAMES_AR[careerFocus] ? TRACK_NAMES_AR[careerFocus] : null;
+    const reasons = [
+      erpName ? `تدعم نظام ERP الذي اخترته (${erpName}).` : null,
+      trackText ? `تستهدف فئة "${trackText}" التي تطابق إجاباتك.` : "متاحة لجميع المسارات المهنية، وهي خيار آمن حتى تحدد مسارك بدقة.",
+      "مرتبة حسب نسبة التطابق مع إجاباتك.",
+    ].filter(Boolean);
+    return `${planNames.length ? `الخطط المقترحة (${planNames.join("، ")}) اختيرت للأسباب التالية:\n` : ""}${reasons.map((r, i) => `${i + 1}. ${r}`).join("\n")}`;
+  }
+
+  const trackText = careerFocus && TRACK_NAMES_EN[careerFocus] ? TRACK_NAMES_EN[careerFocus] : null;
+  const reasons = [
+    erpName ? `They support the ERP system you selected (${erpName}).` : null,
+    trackText ? `Their audience is tagged "${trackText}", matching your answers.` : "They're open to every career track, a safe pick until your track becomes clearer.",
+    "They're ranked by how closely they match your answers.",
+  ].filter(Boolean);
+  return `${planNames.length ? `The suggested plan(s) — ${planNames.join(", ")} — were chosen because:\n` : ""}${reasons.map((r, i) => `${i + 1}. ${r}`).join("\n")}`;
 }
 
 // Rule-based roadmap used when Groq is unavailable AND no bundled plan

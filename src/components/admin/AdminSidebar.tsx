@@ -109,6 +109,12 @@ const menuItems = [
     permission: "manage_users",
   },
   {
+    name: "Expenses",
+    href: "/admin/expenses",
+    icon: "💰",
+    permission: "manage_users",
+  },
+  {
     name: "Certificate Design",
     href: "/admin/certificate-settings",
     icon: "🏆",

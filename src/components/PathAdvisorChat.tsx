@@ -5,7 +5,7 @@ import {
   ErpSystem,
   ErpProvider,
   QuizAnswers,
-  deriveCareerFocusFromGoal,
+  deriveCareerFocus,
   inferProviderIdFromErp,
   scorePlans,
   generateBasicPlanInsight,
@@ -151,7 +151,7 @@ export function PathAdvisorChat({
 
   const finalize = async (finalAnswers: Partial<QuizAnswers>) => {
     setIsAnalyzing(true);
-    const careerFocus = deriveCareerFocusFromGoal(finalAnswers.goal);
+    const careerFocus = deriveCareerFocus(finalAnswers.goal, finalAnswers.fieldOfStudy);
     const erpChoice = finalAnswers.erpChoice && finalAnswers.erpChoice !== "undecided" ? finalAnswers.erpChoice : null;
     const erp = erpChoice ? erpSystems.find((s) => s.id === erpChoice) : undefined;
     const erpProviderId = erpChoice ? inferProviderIdFromErp(erpSystems, erpProviders, erpChoice, fallbackProviderId) : null;
