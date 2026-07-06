@@ -60,6 +60,7 @@ export async function GET(request: NextRequest) {
             .eq("user_id", lookupUserId!)
             .eq("status", "active")
             .order("updated_at", { ascending: false })
+            .limit(1)
             .maybeSingle();
 
           if (activeSubscription) {

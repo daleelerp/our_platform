@@ -19,6 +19,8 @@ export async function GET() {
       .select("id")
       .eq("user_id", user.id)
       .eq("status", "active")
+      .order("created_at", { ascending: false })
+      .limit(1)
       .maybeSingle(),
     admin
       .from("user_activity_logs")

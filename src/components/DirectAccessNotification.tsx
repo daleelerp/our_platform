@@ -376,6 +376,7 @@ export function DirectAccessNotification() {
                             className={`flex ${m.sender === "user" ? "justify-end" : "justify-start"}`}
                           >
                             <div
+                              dir="auto"
                               className={`max-w-[75%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed whitespace-pre-wrap ${
                                 m.sender === "user"
                                   ? "bg-[#429874] text-white rounded-br-sm"
@@ -391,6 +392,7 @@ export function DirectAccessNotification() {
 
                     <div className="flex items-end gap-2 px-4 py-3 border-t border-slate-100 flex-shrink-0">
                       <textarea
+                        dir="auto"
                         value={chatInput}
                         onChange={(e) => setChatInput(e.target.value)}
                         onKeyDown={(e) => {

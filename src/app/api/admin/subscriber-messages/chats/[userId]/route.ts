@@ -52,3 +52,33 @@ export async function POST(
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ data });
 }
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ userId: string }> }
+) {
+  const adminSession = await getAdminSession();
+  if (!adminSession) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { userId } = await params;
+  const body = await req.json();
+  const messageId = (body.messageId ?? "").trim();
+  const newBody = (body.body ?? "").trim();
+  if (!messageId || !newBody) {
+    return NextResponse.json({ error: "messageId and body are required" }, { status: 400 });
+  }
+
+  const admin = getAdminSupabaseClient();
+  // Only ever edit the admin's own messages in this thread — never a student's message.
+  const { data, error } = await admin
+    .from("subscriber_chat_messages")
+    .update({ body: newBody })
+    .eq("id", messageId)
+    .eq("user_id", userId)
+    .eq("sender", "admin")
+    .select()
+    .single();
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ data });
+}
