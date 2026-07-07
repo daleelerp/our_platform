@@ -42,6 +42,7 @@ const emptyForm = {
   cta_label: "",
   cta_label_ar: "",
   cta_url: "",
+  is_published: true,
 };
 
 const AUDIENCE_OPTIONS: { value: Audience; label: string }[] = [
@@ -145,6 +146,7 @@ export default function AdminNotificationsPage() {
       cta_label: item.cta_label ?? "",
       cta_label_ar: item.cta_label_ar ?? "",
       cta_url: item.cta_url ?? "",
+      is_published: item.is_published,
     });
     setCtaCustom(!!item.cta_url && !PAGE_OPTIONS.some((p) => p.path === item.cta_url));
     setSaveError(null);
@@ -367,13 +369,25 @@ export default function AdminNotificationsPage() {
             )}
           </div>
 
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.is_published}
+              onChange={(e) => setForm((f) => ({ ...f, is_published: e.target.checked }))}
+              className="w-4 h-4 text-teal-600 border-slate-300 rounded focus:ring-teal-500"
+            />
+            <span className="text-sm text-slate-700">
+              Published (visible to matching users now — leave unchecked to save as a hidden draft)
+            </span>
+          </label>
+
           <button
             type="button"
             onClick={handleSave}
             disabled={saving || !form.title.trim() || !form.description.trim()}
             className="px-5 py-2 bg-teal-600 text-white text-sm font-medium rounded-lg hover:bg-teal-700 disabled:opacity-50 transition"
           >
-            {editingId ? (saving ? "Saving..." : "Save Changes") : saving ? "Publishing..." : "Publish"}
+            {saving ? "Saving..." : editingId ? "Save Changes" : form.is_published ? "Publish" : "Save Draft"}
           </button>
           {saveError && <p className="text-xs text-red-500">{saveError}</p>}
         </div>
