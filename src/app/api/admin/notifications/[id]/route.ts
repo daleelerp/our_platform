@@ -36,6 +36,7 @@ export async function PATCH(
     update.cta_label_ar = hasCta ? (body.cta_label_ar ?? "").trim() || null : null;
     update.cta_url = hasCta ? ctaUrlRaw : null;
   }
+  if (typeof body.send_email === "boolean") update.send_email = body.send_email;
 
   if (Object.keys(update).length === 0) {
     return NextResponse.json({ error: "No fields to update" }, { status: 400 });

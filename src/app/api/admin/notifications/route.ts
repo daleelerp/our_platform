@@ -41,6 +41,7 @@ export async function POST(req: NextRequest) {
   const ctaLabel = hasCta ? ctaLabelRaw : null;
   const ctaLabelAr = hasCta ? (body.cta_label_ar ?? "").trim() || null : null;
   const ctaUrl = hasCta ? ctaUrlRaw : null;
+  const sendEmail = body.send_email === true;
 
   if (!title || !description) {
     return NextResponse.json({ error: "Title and description are required" }, { status: 400 });
@@ -61,6 +62,7 @@ export async function POST(req: NextRequest) {
       cta_label: ctaLabel,
       cta_label_ar: ctaLabelAr,
       cta_url: ctaUrl,
+      send_email: sendEmail,
     })
     .select()
     .single();

@@ -19,6 +19,7 @@ type Announcement = {
   cta_label: string | null;
   cta_label_ar: string | null;
   cta_url: string | null;
+  send_email: boolean;
 };
 
 type Plan = {
@@ -43,6 +44,7 @@ const emptyForm = {
   cta_label_ar: "",
   cta_url: "",
   is_published: true,
+  send_email: false,
 };
 
 const AUDIENCE_OPTIONS: { value: Audience; label: string }[] = [
@@ -147,6 +149,7 @@ export default function AdminNotificationsPage() {
       cta_label_ar: item.cta_label_ar ?? "",
       cta_url: item.cta_url ?? "",
       is_published: item.is_published,
+      send_email: item.send_email,
     });
     setCtaCustom(!!item.cta_url && !PAGE_OPTIONS.some((p) => p.path === item.cta_url));
     setSaveError(null);
@@ -381,6 +384,18 @@ export default function AdminNotificationsPage() {
             </span>
           </label>
 
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.send_email}
+              onChange={(e) => setForm((f) => ({ ...f, send_email: e.target.checked }))}
+              className="w-4 h-4 text-teal-600 border-slate-300 rounded focus:ring-teal-500"
+            />
+            <span className="text-sm text-slate-700">
+              Also send by email — each matching user (who hasn&apos;t opted out of email notifications) gets emailed once, including new users who sign up later
+            </span>
+          </label>
+
           <button
             type="button"
             onClick={handleSave}
@@ -426,6 +441,11 @@ export default function AdminNotificationsPage() {
                   {item.cta_label && item.cta_url && (
                     <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-teal-50 text-teal-700">
                       CTA → {item.cta_url}
+                    </span>
+                  )}
+                  {item.send_email && (
+                    <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-blue-50 text-blue-700">
+                      ✉ Email enabled
                     </span>
                   )}
                 </div>
