@@ -157,7 +157,11 @@ export function LearningInterface({
   );
 
   // Filter resources by language preference
-  const filteredResources = resources.filter((resource) => {
+  // Memoized so the reference stays stable across re-renders — otherwise every render
+  // produces a "new" array, which trips the effect below (it depends on filteredResources)
+  // into re-running on every render and forcing activeTab back to "resources", even after
+  // the user explicitly navigates elsewhere (e.g. clicking "Start Quiz").
+  const filteredResources = useMemo(() => resources.filter((resource) => {
     // Check if resource has content in the selected language
     const hasContentInLanguage = (resource.language === "both") ||
       (language === "ar" && (resource.language === "ar" || !resource.language)) ||
@@ -183,7 +187,7 @@ export function LearningInterface({
     }
     // Legacy resources without language field - show if they have at least a title or URL (for articles)
     return !!(resource.title || resource.title_ar || resource.description || resource.description_ar || (resource.resource_type === "article" && resource.url));
-  });
+  }), [resources, language]);
 
   const [selectedVideo, setSelectedVideo] = useState<Video | null>(
     filteredVideos.length > 0 ? filteredVideos[0] : null
