@@ -189,8 +189,8 @@ export function CertExamLanding({
             <span className="text-xl shrink-0">ℹ️</span>
             <p className="text-sm text-amber-800">
               {language === "ar"
-                ? "إذا لم تنجح، ستحصل على محاولتين في كل دورة مع فترة انتظار قصيرة بين الدورات. لا تنتهي صلاحية الاختبار أبداً."
-                : "If you don't pass, you get 2 attempts per cycle with short cooldowns between cycles. Your exam access never expires."}
+                ? "إذا لم تنجح، ستحصل على 3 محاولات في كل دورة مع فترة انتظار قصيرة بين الدورات. لا تنتهي صلاحية الاختبار أبداً."
+                : "If you don't pass, you get 3 attempts per cycle with short cooldowns between cycles. Your exam access never expires."}
             </p>
           </div>
 

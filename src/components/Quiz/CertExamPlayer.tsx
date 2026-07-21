@@ -3,20 +3,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { CheckCircleIcon, XCircleIcon } from "@heroicons/react/24/outline";
+import { getAttemptCycleState, getWaitHoursAfterBatch } from "@/utils/attemptCooldown";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const ATTEMPTS_PER_BATCH = 2;
-const COOLDOWN_HOURS = 24;                        // between attempts in same batch
-
-// Hours to wait before the next batch of 2 opens, indexed by the EXHAUSTED batch index:
-//   batch 0 → 1 :  48h (2 days)
-//   batch 1 → 2 : 192h (8 days)
-//   batch 2 → 3 : 384h (16 days)   … doubles each time
-function getWaitHoursAfterBatch(batchIndex: number): number {
-  if (batchIndex === 0) return 48;
-  return 8 * 24 * Math.pow(2, batchIndex - 1);
-}
+const ATTEMPTS_PER_BATCH = 3;
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -49,7 +40,6 @@ type GradedAnswer = { questionId: string; answer: string | string[]; isCorrect: 
 type CertState =
   | { status: "passed"; certificate: CertData }
   | { status: "ready"; batchIndex: number; attemptsLeft: number }
-  | { status: "cooldown"; endsAt: Date; attemptsLeft: number; batchIndex: number }
   | { status: "waiting"; resetAt: Date; showHelpOffer: boolean };
 
 // ── State algorithm ──────────────────────────────────────────────────────────
@@ -62,63 +52,21 @@ function getCertState(
     return { status: "passed", certificate: certificate! };
   }
 
-  const failed = allAttempts
+  const failedTimestamps = allAttempts
     .filter((a) => !a.passed && a.completed_at)
-    .sort((a, b) => new Date(a.completed_at).getTime() - new Date(b.completed_at).getTime());
+    .map((a) => a.completed_at);
 
-  if (failed.length === 0) {
-    return { status: "ready", batchIndex: 0, attemptsLeft: ATTEMPTS_PER_BATCH };
+  const cycle = getAttemptCycleState(failedTimestamps, ATTEMPTS_PER_BATCH);
+
+  if (cycle.status === "waiting") {
+    return {
+      status: "waiting",
+      resetAt: cycle.resetAt,
+      showHelpOffer: cycle.batchIndex >= 1, // help offer shown from batch 1 onward
+    };
   }
 
-  // Assign attempts to batches chronologically
-  let batchIndex = 0;
-  let batchFails: Date[] = [];
-  let lastBatchExhaustedAt: Date | null = null;
-
-  for (const attempt of failed) {
-    const t = new Date(attempt.completed_at);
-
-    if (lastBatchExhaustedAt) {
-      const waitMs = getWaitHoursAfterBatch(batchIndex) * 3_600_000;
-      if (t.getTime() >= lastBatchExhaustedAt.getTime() + waitMs) {
-        batchIndex++;
-        batchFails = [];
-        lastBatchExhaustedAt = null;
-      }
-    }
-
-    batchFails.push(t);
-    if (batchFails.length >= ATTEMPTS_PER_BATCH) {
-      lastBatchExhaustedAt = t;
-    }
-  }
-
-  // Determine current state
-  if (lastBatchExhaustedAt) {
-    const waitMs = getWaitHoursAfterBatch(batchIndex) * 3_600_000;
-    const resetAt = new Date(lastBatchExhaustedAt.getTime() + waitMs);
-
-    if (Date.now() < resetAt.getTime()) {
-      return {
-        status: "waiting",
-        resetAt,
-        showHelpOffer: batchIndex >= 1,  // help offer shown from batch 1 onward
-      };
-    }
-    // Reset period passed — open next batch
-    return { status: "ready", batchIndex: batchIndex + 1, attemptsLeft: ATTEMPTS_PER_BATCH };
-  }
-
-  // Current batch not exhausted
-  const attemptsLeft = ATTEMPTS_PER_BATCH - batchFails.length;
-  const lastFail = batchFails[batchFails.length - 1];
-  const cooldownEnd = new Date(lastFail.getTime() + COOLDOWN_HOURS * 3_600_000);
-
-  if (Date.now() < cooldownEnd.getTime()) {
-    return { status: "cooldown", endsAt: cooldownEnd, attemptsLeft, batchIndex };
-  }
-
-  return { status: "ready", batchIndex, attemptsLeft };
+  return { status: "ready", batchIndex: cycle.batchIndex, attemptsLeft: cycle.attemptsLeft };
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -401,42 +349,6 @@ export function CertExamPlayer({ examId, userId, onContinue }: Props) {
     );
   }
 
-  // ── COOLDOWN ──────────────────────────────────────────────────────────────
-  if (certState?.status === "cooldown") {
-    const { endsAt, attemptsLeft, batchIndex } = certState;
-    return (
-      <div className="bg-white rounded-xl border-2 border-amber-200 p-8 text-center" dir={language === "ar" ? "rtl" : "ltr"}>
-        <div className="text-4xl mb-3">⏰</div>
-        <h2 className="text-xl font-bold text-slate-900 mb-2">
-          {language === "ar" ? "الاختبار مقفل مؤقتاً" : "Quiz Temporarily Locked"}
-        </h2>
-        <p className="text-sm text-slate-600 mb-5 max-w-sm mx-auto">
-          {language === "ar"
-            ? `يجب الانتظار 24 ساعة بين المحاولات — تبقى لك ${attemptsLeft} محاولة من الدفعة الحالية`
-            : `Wait 24 hours between attempts — ${attemptsLeft} attempt${attemptsLeft !== 1 ? "s" : ""} remaining in this batch`}
-        </p>
-        <div className="inline-block px-6 py-4 bg-amber-50 border-2 border-amber-300 rounded-xl mb-5">
-          <p className="text-xs text-amber-700 font-medium mb-1">
-            {language === "ar" ? "المحاولة التالية بعد" : "Next attempt in"}
-          </p>
-          <p className="text-3xl font-black text-amber-700">{formatTimeLeft(endsAt)}</p>
-          <p className="text-xs text-amber-600 mt-1">{endsAt.toLocaleString()}</p>
-        </div>
-        {onContinue && (
-          <div className="mt-2">
-            <button
-              type="button"
-              onClick={onContinue}
-              className="px-6 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-700 hover:bg-slate-50"
-            >
-              {language === "ar" ? "العودة للمحتوى" : "Back to Course"}
-            </button>
-          </div>
-        )}
-      </div>
-    );
-  }
-
   // ── PRE-START (ready, not yet started) ────────────────────────────────────
   if (certState?.status === "ready" && !examStarted && questions.length && exam) {
     const { attemptsLeft: readyAttemptsLeft } = certState;
@@ -572,12 +484,8 @@ export function CertExamPlayer({ examId, userId, onContinue }: Props) {
           <span>⚠️</span>
           <span className="font-semibold">
             {language === "ar"
-              ? batchIndex === 0
-                ? "هذه آخر محاولتك الأولى. إذا رسبت، ستنتظر يومين قبل الحصول على 2 محاولات أخرى."
-                : `هذه آخر محاولتك في هذه الدفعة. إذا رسبت، ستنتظر ${formatWaitDays(batchIndex)} أياماً للدفعة التالية.`
-              : batchIndex === 0
-              ? "Last attempt in this batch — if you fail, you'll wait 2 days for 2 more attempts."
-              : `Last attempt in this batch — if you fail, you'll wait ${formatWaitDays(batchIndex)} days for the next batch.`}
+              ? `هذه آخر محاولتك في هذه الدفعة. إذا رسبت، ستنتظر ${getWaitHoursAfterBatch(batchIndex)} ساعة قبل فتح دفعة جديدة من ${ATTEMPTS_PER_BATCH} محاولات.`
+              : `Last attempt in this batch — if you fail, you'll wait ${getWaitHoursAfterBatch(batchIndex)}h before ${ATTEMPTS_PER_BATCH} more attempts unlock.`}
           </span>
         </div>
       )}
@@ -723,10 +631,6 @@ export function CertExamPlayer({ examId, userId, onContinue }: Props) {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function formatWaitDays(exhaustedBatchIndex: number): number {
-  return getWaitHoursAfterBatch(exhaustedBatchIndex + 1) / 24;
-}
-
 function CertificateCard({
   cert,
   studentName,
@@ -828,7 +732,6 @@ function WaitingScreen({
   planMonthlyPriceEgp: number | null;
   onContinue?: () => void;
 }) {
-  const waitDays = Math.ceil((resetAt.getTime() - Date.now()) / 86_400_000);
   const helpPrice = planMonthlyPriceEgp ? Math.floor(planMonthlyPriceEgp / 2) : null;
 
   return (
@@ -842,11 +745,11 @@ function WaitingScreen({
       <p className="text-sm text-slate-600 mb-6 max-w-sm mx-auto">
         {showHelpOffer
           ? language === "ar"
-            ? "لقد استنفدت محاولات هذه الدفعة. يمكنك طلب دعم شخصي أو الانتظار حتى فتح دفعة جديدة."
-            : "You've used both attempts in this batch. Request personalised support or wait for the next batch to open."
+            ? "لقد استنفدت جميع محاولات هذه الدفعة. يمكنك طلب دعم شخصي أو الانتظار حتى فتح دفعة جديدة."
+            : "You've used all attempts in this batch. Request personalised support or wait for the next batch to open."
           : language === "ar"
-            ? "لقد استنفدت محاولتك الأوليتين. سيُفتح لك محاولتان جديدتان قريباً."
-            : "You've used your first 2 attempts. 2 more will unlock soon — use this time to review."}
+            ? `لقد استنفدت محاولاتك الـ ${ATTEMPTS_PER_BATCH} الأولى. ستُفتح لك ${ATTEMPTS_PER_BATCH} محاولات جديدة قريباً.`
+            : `You've used your first ${ATTEMPTS_PER_BATCH} attempts. ${ATTEMPTS_PER_BATCH} more will unlock soon — use this time to review.`}
       </p>
 
       {/* Countdown */}
@@ -987,7 +890,6 @@ function SubmitResults({
   const correctCount = gradedAnswers.filter((a) => a.isCorrect).length;
   const incorrectCount = gradedAnswers.filter((a) => !a.isCorrect).length;
   const isWaiting = certState?.status === "waiting";
-  const isCooldown = certState?.status === "cooldown";
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-6" dir={language === "ar" ? "rtl" : "ltr"}>
@@ -1075,10 +977,6 @@ function SubmitResults({
             planMonthlyPriceEgp={planMonthlyPriceEgp}
             onContinue={onContinue}
           />
-        ) : isCooldown ? (
-          <div className="flex-1 px-6 py-3 bg-slate-100 border border-slate-200 rounded-lg text-center text-sm text-slate-500">
-            🔒 {language === "ar" ? "مقفل 24 ساعة" : "Locked for 24h"} — {formatTimeLeft((certState as { status: "cooldown"; endsAt: Date }).endsAt)} {language === "ar" ? "متبقية" : "remaining"}
-          </div>
         ) : (
           <button
             type="button"

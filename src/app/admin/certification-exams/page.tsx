@@ -327,9 +327,9 @@ export default function CertificationExamsPage() {
                       </div>
                       <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-1">
                         <span className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded font-medium text-slate-600">
-                          2 attempts per cycle
+                          3 attempts per cycle
                         </span>
-                        <span>— automatic, not editable. 2-day gap after cycle 1, then 8/16/32… day gaps with help offer.</span>
+                        <span>— automatic, not editable. 3h gap after cycle 1, +3h each cycle after, capped at 24h, with help offer.</span>
                       </div>
                       <div className="flex items-center gap-1.5 text-xs text-slate-500">
                         <span className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded font-medium text-slate-600">

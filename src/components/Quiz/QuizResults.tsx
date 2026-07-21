@@ -40,9 +40,11 @@ type QuizResultsProps = {
   isFinalQuiz?: boolean;
   learningObjectives?: string[];
   learningObjectivesAr?: string[];
-  cooldownEndsAt?: Date | null;
-  exhaustedResetAt?: Date | null;
-  attemptsRemainingInCycle?: number | null;
+  /** Set once the current attempt batch is exhausted — null while a batch is still open. */
+  waitingResetAt?: Date | null;
+  /** Attempts left in the current batch (checkpoint + final quiz only). */
+  attemptsLeft?: number | null;
+  attemptsPerBatch?: number;
 };
 
 function formatCooldown(endsAt: Date): string {
@@ -65,15 +67,14 @@ export function QuizResults({
   isFinalQuiz,
   learningObjectives,
   learningObjectivesAr,
-  cooldownEndsAt,
-  exhaustedResetAt,
-  attemptsRemainingInCycle,
+  waitingResetAt,
+  attemptsLeft,
+  attemptsPerBatch,
 }: QuizResultsProps) {
   const correctCount = results.userAnswers.filter((a) => a.isCorrect).length;
   const incorrectCount = results.userAnswers.filter((a) => !a.isCorrect).length;
 
-  const cooldownActive = !!cooldownEndsAt && new Date() < cooldownEndsAt;
-  const exhausted = !!exhaustedResetAt && Date.now() < exhaustedResetAt.getTime();
+  const isWaiting = !!waitingResetAt && Date.now() < waitingResetAt.getTime();
 
   // Resolve option label from an answer id (or raw value for fill_blank / true_false)
   function resolveAnswerText(
@@ -214,22 +215,22 @@ export function QuizResults({
         </div>
       )}
 
-      {/* Final quiz attempt count badge */}
-      {isFinalQuiz && !results.isPassed && attemptsRemainingInCycle !== null && (
+      {/* Attempt count / batch-waiting badge */}
+      {(isCheckpoint || isFinalQuiz) && !results.isPassed && (isWaiting || typeof attemptsLeft === "number") && (
         <div className={`mb-4 text-center text-sm font-medium px-4 py-2 rounded-lg ${
-          attemptsRemainingInCycle === 0
+          isWaiting
             ? "bg-red-100 text-red-700"
-            : attemptsRemainingInCycle === 1
+            : attemptsLeft === 1
             ? "bg-orange-100 text-orange-700"
             : "bg-slate-100 text-slate-700"
         }`}>
-          {attemptsRemainingInCycle === 0
+          {isWaiting
             ? language === "ar"
-              ? `لقد استنفدت جميع محاولاتك الـ ${quiz.max_attempts ?? 3}. ستُفتح لك محاولات جديدة بعد 3 أيام.`
-              : `You've used all ${quiz.max_attempts ?? 3} attempts. New attempts open in 3 days.`
+              ? `لقد استنفدت جميع محاولاتك الـ ${attemptsPerBatch ?? quiz.max_attempts ?? 3} في هذه الدفعة. ستُفتح لك محاولات جديدة قريباً.`
+              : `You've used all ${attemptsPerBatch ?? quiz.max_attempts ?? 3} attempts in this batch. New attempts open soon.`
             : language === "ar"
-            ? `تبقى لك ${attemptsRemainingInCycle} محاولة من أصل ${quiz.max_attempts ?? 3}`
-            : `${attemptsRemainingInCycle} of ${quiz.max_attempts ?? 3} attempts remaining`}
+            ? `تبقى لك ${attemptsLeft} محاولة من أصل ${attemptsPerBatch ?? quiz.max_attempts ?? 3}`
+            : `${attemptsLeft} of ${attemptsPerBatch ?? quiz.max_attempts ?? 3} attempts remaining`}
         </div>
       )}
 
@@ -238,8 +239,8 @@ export function QuizResults({
         <div className="mb-6 space-y-4">
           <h3 className="text-base font-semibold text-slate-900 flex items-center gap-2">
             📚 {language === "ar"
-              ? (exhausted ? "ما تحتاج لمراجعته خلال فترة الانتظار" : "ما تحتاج لمراجعته قبل المحاولة التالية")
-              : (exhausted ? "What to Study During the Reset Period" : "What to Study Before Your Next Attempt")}
+              ? (isWaiting ? "ما تحتاج لمراجعته خلال فترة الانتظار" : "ما تحتاج لمراجعته قبل المحاولة التالية")
+              : (isWaiting ? "What to Study During the Wait" : "What to Study Before Your Next Attempt")}
           </h3>
 
           {/* Wrong questions with explanations */}
@@ -309,36 +310,19 @@ export function QuizResults({
             </div>
           )}
 
-          {/* Exhausted: 3-day reset */}
-          {exhausted && exhaustedResetAt && (
-            <div className="p-4 bg-red-50 border-2 border-red-300 rounded-lg text-center">
-              <p className="text-sm font-semibold text-red-900">
-                🔒 {language === "ar" ? "محاولات جديدة متاحة بعد" : "New attempts available in"}
-              </p>
-              <p className="text-2xl font-black text-red-700 mt-1">
-                {formatCooldown(exhaustedResetAt)}
-              </p>
-              <p className="text-xs text-red-700 mt-1">
-                {language === "ar"
-                  ? `في: ${exhaustedResetAt.toLocaleString("ar-EG")}`
-                  : `On: ${exhaustedResetAt.toLocaleString()}`}
-              </p>
-            </div>
-          )}
-
-          {/* 24-hour cooldown notice */}
-          {!exhausted && cooldownActive && cooldownEndsAt && (
+          {/* Batch wait notice */}
+          {isWaiting && waitingResetAt && (
             <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-lg text-center">
               <p className="text-sm font-semibold text-amber-900">
-                ⏰ {language === "ar" ? "المحاولة التالية متاحة بعد" : "Next attempt available in"}
+                ⏰ {language === "ar" ? "محاولات جديدة متاحة بعد" : "New attempts available in"}
               </p>
               <p className="text-2xl font-black text-amber-700 mt-1">
-                {formatCooldown(cooldownEndsAt)}
+                {formatCooldown(waitingResetAt)}
               </p>
               <p className="text-xs text-amber-700 mt-1">
                 {language === "ar"
-                  ? `يمكنك المحاولة مجدداً في: ${cooldownEndsAt.toLocaleString("ar-EG")}`
-                  : `Available again at: ${cooldownEndsAt.toLocaleString()}`}
+                  ? `في: ${waitingResetAt.toLocaleString("ar-EG")}`
+                  : `At: ${waitingResetAt.toLocaleString()}`}
               </p>
               <p className="text-xs text-amber-600 mt-2">
                 {language === "ar"
@@ -412,20 +396,11 @@ export function QuizResults({
           >
             {language === "ar" ? "تابع التعلم ←" : "Continue Learning →"}
           </button>
-        ) : exhausted ? (
-          // All attempts exhausted — 3-day lockout
-          <div className="flex-1 px-6 py-3 bg-red-50 border-2 border-red-200 rounded-lg text-center">
-            <p className="text-sm font-medium text-red-700">
-              🔒 {language === "ar"
-                ? `محاولات جديدة بعد ${exhaustedResetAt ? formatCooldown(exhaustedResetAt) : "3 أيام"}`
-                : `New attempts in ${exhaustedResetAt ? formatCooldown(exhaustedResetAt) : "3 days"}`}
-            </p>
-          </div>
-        ) : cooldownActive ? (
-          // 24h cooldown between attempts
+        ) : isWaiting ? (
+          // Batch exhausted — waiting for the next one to open
           <div className="flex-1 px-6 py-3 bg-slate-100 border border-slate-200 rounded-lg text-center">
             <p className="text-sm font-medium text-slate-500">
-              🔒 {language === "ar" ? "المحاولة مقفلة" : "Retry locked"} — {cooldownEndsAt ? formatCooldown(cooldownEndsAt) : "24h"} {language === "ar" ? "متبقية" : "remaining"}
+              🔒 {language === "ar" ? "المحاولة مقفلة" : "Retry locked"} — {waitingResetAt ? formatCooldown(waitingResetAt) : ""} {language === "ar" ? "متبقية" : "remaining"}
             </p>
           </div>
         ) : onRetake ? (

@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useAppStore } from "@/store/useAppStore";
 import { QuizResults } from "./QuizResults";
+import { getAttemptCycleState, getWaitHoursAfterBatch, type AttemptCycleState } from "@/utils/attemptCooldown";
 
 type QuizQuestion = {
   id: string;
@@ -51,9 +52,6 @@ type UserAnswer = {
   pointsEarned: number;
 };
 
-const COOLDOWN_HOURS = 24;   // wait between failed attempts
-const RESET_HOURS = 72;       // 3-day reset after all attempts exhausted
-
 function formatTimeLeft(endsAt: Date): string {
   const diffMs = endsAt.getTime() - Date.now();
   if (diffMs <= 0) return "now";
@@ -63,52 +61,6 @@ function formatTimeLeft(endsAt: Date): string {
   if (days > 0) return `${days}d ${hours}h`;
   if (hours > 0) return `${hours}h ${minutes}m`;
   return `${minutes}m`;
-}
-
-/**
- * Simulates attempt cycles chronologically to determine the current state.
- * A new cycle begins once the reset period expires after an exhaustion event.
- */
-function getCurrentCycleState(
-  failedAttempts: Array<{ completed_at: string }>,
-  maxAttempts: number,
-  resetHours: number
-): { currentCycleFailed: number; exhaustedAt: Date | null } {
-  if (!failedAttempts.length) return { currentCycleFailed: 0, exhaustedAt: null };
-
-  // Process chronologically
-  const sorted = [...failedAttempts].sort(
-    (a, b) => new Date(a.completed_at).getTime() - new Date(b.completed_at).getTime()
-  );
-
-  let roundFailures = 0;
-  let exhaustedAt: Date | null = null;
-
-  for (const attempt of sorted) {
-    const t = new Date(attempt.completed_at).getTime();
-
-    // If the reset window has passed since the last exhaustion, start a fresh cycle
-    if (exhaustedAt && t >= exhaustedAt.getTime() + resetHours * 60 * 60 * 1000) {
-      roundFailures = 0;
-      exhaustedAt = null;
-    }
-
-    roundFailures++;
-
-    if (roundFailures >= maxAttempts) {
-      exhaustedAt = new Date(attempt.completed_at);
-    }
-  }
-
-  // If exhausted but reset window has already expired, treat as fresh
-  if (exhaustedAt) {
-    const resetAt = new Date(exhaustedAt.getTime() + resetHours * 60 * 60 * 1000);
-    if (Date.now() >= resetAt.getTime()) {
-      return { currentCycleFailed: 0, exhaustedAt: null };
-    }
-  }
-
-  return { currentCycleFailed: roundFailures, exhaustedAt };
 }
 
 export function QuizPlayer({
@@ -140,12 +92,9 @@ export function QuizPlayer({
   const [results, setResults] = useState<any>(null);
   const [attemptNumber, setAttemptNumber] = useState(1);
 
-  // Cooldown: 24h wait after each failure (checkpoint + final quiz)
-  const [cooldownEndsAt, setCooldownEndsAt] = useState<Date | null>(null);
-  // Exhausted: all attempts used, 3-day reset (final quiz only)
-  const [exhaustedResetAt, setExhaustedResetAt] = useState<Date | null>(null);
-  // How many attempts remain in the current cycle (final quiz only)
-  const [attemptsRemainingInCycle, setAttemptsRemainingInCycle] = useState<number | null>(null);
+  // Batch/cooldown state (checkpoint + final quiz): 3 attempts per batch, no wait
+  // between them, then a growing (capped) wait before the next batch opens.
+  const [batchState, setBatchState] = useState<AttemptCycleState | null>(null);
   // Pre-start warning screen (checkpoint + final quiz, before every attempt)
   const [quizStarted, setQuizStarted] = useState(false);
 
@@ -184,47 +133,21 @@ export function QuizPlayer({
       .eq("quiz_id", quiz.id)
       .order("attempt_number", { ascending: false })
       .then(({ data: attempts }) => {
+        const attemptsPerBatch = quiz.max_attempts ?? 3;
+
         if (!attempts || attempts.length === 0) {
-          if (isFinalQuiz) setAttemptsRemainingInCycle(quiz.max_attempts ?? 3);
+          if (isCheckpoint || isFinalQuiz) {
+            setBatchState({ status: "ready", batchIndex: 0, attemptsLeft: attemptsPerBatch });
+          }
           setLoadingCooldown(false);
           return;
         }
 
         setAttemptNumber(attempts[0].attempt_number + 1);
 
-        // attempts is desc-sorted; failedAttempts preserves that order
-        const failedAttempts = attempts.filter((a) => !a.is_passed);
-
-        if (isFinalQuiz) {
-          const max = quiz.max_attempts ?? 3;
-          const { currentCycleFailed, exhaustedAt } = getCurrentCycleState(
-            failedAttempts,
-            max,
-            RESET_HOURS
-          );
-          setAttemptsRemainingInCycle(max - currentCycleFailed);
-
-          if (exhaustedAt) {
-            // Still exhausted
-            setExhaustedResetAt(
-              new Date(exhaustedAt.getTime() + RESET_HOURS * 60 * 60 * 1000)
-            );
-          } else if (failedAttempts.length > 0) {
-            // Check 24h cooldown on most recent failure in current cycle
-            const lastFailed = failedAttempts[0]; // desc-sorted → most recent first
-            const cooldownEnd = new Date(
-              new Date(lastFailed.completed_at).getTime() + COOLDOWN_HOURS * 60 * 60 * 1000
-            );
-            if (Date.now() < cooldownEnd.getTime()) setCooldownEndsAt(cooldownEnd);
-          }
-        } else if (isCheckpoint) {
-          if (failedAttempts.length > 0) {
-            const lastFailed = failedAttempts[0];
-            const cooldownEnd = new Date(
-              new Date(lastFailed.completed_at).getTime() + COOLDOWN_HOURS * 60 * 60 * 1000
-            );
-            if (Date.now() < cooldownEnd.getTime()) setCooldownEndsAt(cooldownEnd);
-          }
+        if (isCheckpoint || isFinalQuiz) {
+          const failedTimestamps = attempts.filter((a) => !a.is_passed).map((a) => a.completed_at);
+          setBatchState(getAttemptCycleState(failedTimestamps, attemptsPerBatch));
         }
 
         setLoadingCooldown(false);
@@ -309,20 +232,20 @@ export function QuizPlayer({
 
     if (error) console.error("Error saving quiz attempt:", error);
 
-    // Post-submission cooldown / exhaustion logic
-    if (isFinalQuiz && !isPassed) {
-      const newRemaining = (attemptsRemainingInCycle ?? quiz.max_attempts ?? 3) - 1;
-      setAttemptsRemainingInCycle(newRemaining);
+    // Post-submission batch state: attempts within a batch have no wait between them;
+    // once the batch is exhausted, a growing (capped at 24h) wait opens the next one.
+    if ((isCheckpoint || isFinalQuiz) && !isPassed) {
+      setBatchState((prev) => {
+        const attemptsPerBatch = quiz.max_attempts ?? 3;
+        const batchIndex = prev?.batchIndex ?? 0;
+        const attemptsLeft = (prev?.status === "ready" ? prev.attemptsLeft : attemptsPerBatch) - 1;
 
-      if (newRemaining <= 0) {
-        // All attempts used — 3-day reset
-        setExhaustedResetAt(new Date(Date.now() + RESET_HOURS * 60 * 60 * 1000));
-      } else {
-        // 24h cooldown until next attempt
-        setCooldownEndsAt(new Date(Date.now() + COOLDOWN_HOURS * 60 * 60 * 1000));
-      }
-    } else if (isCheckpoint && !isPassed) {
-      setCooldownEndsAt(new Date(Date.now() + COOLDOWN_HOURS * 60 * 60 * 1000));
+        if (attemptsLeft <= 0) {
+          const waitMs = getWaitHoursAfterBatch(batchIndex) * 60 * 60 * 1000;
+          return { status: "waiting", resetAt: new Date(Date.now() + waitMs), batchIndex };
+        }
+        return { status: "ready", batchIndex, attemptsLeft };
+      });
     }
 
     setResults({
@@ -339,21 +262,15 @@ export function QuizPlayer({
   }, [
     answers, shuffledQuestions, quiz, userId, attemptNumber,
     timeRemaining, isSubmitted, onComplete, supabase,
-    isCheckpoint, isFinalQuiz, attemptsRemainingInCycle,
+    isCheckpoint, isFinalQuiz,
   ]);
 
   const handleRetake = useCallback(() => {
-    // Exhausted — show exhausted screen
-    if (isFinalQuiz && exhaustedResetAt && Date.now() < exhaustedResetAt.getTime()) {
+    // Still waiting for the next batch to open
+    if ((isCheckpoint || isFinalQuiz) && batchState?.status === "waiting" && Date.now() < batchState.resetAt.getTime()) {
       setResults(null);
       return;
     }
-    // Still in 24h cooldown — show cooldown screen
-    if ((isCheckpoint || isFinalQuiz) && cooldownEndsAt && Date.now() < cooldownEndsAt.getTime()) {
-      setResults(null);
-      return;
-    }
-    setCooldownEndsAt(null);
     setResults(null);
     setCurrentQuestionIndex(0);
     setAnswers({});
@@ -366,7 +283,7 @@ export function QuizPlayer({
       setQuizStarted(false);
       setExamLanguageOverride(null);
     }
-  }, [quiz.time_limit_minutes, cooldownEndsAt, isCheckpoint, isFinalQuiz, exhaustedResetAt]);
+  }, [quiz.time_limit_minutes, batchState, isCheckpoint, isFinalQuiz]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -384,77 +301,9 @@ export function QuizPlayer({
     );
   }
 
-  // Exhausted screen — final quiz, all 3 attempts used, reset not yet due
-  if (isFinalQuiz && exhaustedResetAt && Date.now() < exhaustedResetAt.getTime()) {
-    return (
-      <div className="bg-white rounded-xl border-2 border-red-200 p-8 text-center" dir={language === "ar" ? "rtl" : "ltr"}>
-        <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4 text-3xl">
-          🔒
-        </div>
-        <h2 className="text-xl font-bold text-slate-900 mb-2">
-          {language === "ar" ? "تم استنفاد جميع المحاولات" : "All Attempts Used"}
-        </h2>
-        <p className="text-slate-600 text-sm mb-5 max-w-sm mx-auto">
-          {language === "ar"
-            ? "لقد استخدمت جميع محاولاتك الثلاث. ستُفتح لك محاولات جديدة بعد 3 أيام."
-            : "You've used all 3 attempts for this quiz. A fresh set of attempts will unlock in 3 days."}
-        </p>
-
-        <div className="inline-block px-6 py-4 bg-red-50 border-2 border-red-200 rounded-xl mb-6">
-          <p className="text-xs text-red-600 font-medium mb-1">
-            {language === "ar" ? "المحاولات الجديدة متاحة بعد" : "New attempts available in"}
-          </p>
-          <p className="text-3xl font-black text-red-700">{formatTimeLeft(exhaustedResetAt)}</p>
-          <p className="text-xs text-red-500 mt-1">
-            {language === "ar"
-              ? `في: ${exhaustedResetAt.toLocaleString("ar-EG")}`
-              : `On: ${exhaustedResetAt.toLocaleString()}`}
-          </p>
-        </div>
-
-        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-left text-sm mb-5">
-          <p className="font-semibold text-amber-900 mb-2">
-            {language === "ar" ? "📚 ماذا تفعل الآن:" : "📚 What to do now:"}
-          </p>
-          <ul className="space-y-1.5 text-amber-800 text-xs">
-            <li>• {language === "ar" ? "راجع جميع الفيديوهات والموارد في هذا المسار من البداية" : "Go through all videos and resources in this path from the beginning"}</li>
-            <li>• {language === "ar" ? "راجع نتائج محاولاتك السابقة وحدد المواضيع التي فشلت فيها" : "Review your previous attempt results to identify the topics you struggled with"}</li>
-            <li>• {language === "ar" ? "ادرس شرح الإجابات الخاطئة بعناية" : "Study the explanations for questions you got wrong"}</li>
-          </ul>
-          {(learningObjectives?.length || learningObjectivesAr?.length) && (
-            <div className="mt-3 pt-3 border-t border-amber-200">
-              <p className="font-semibold text-amber-900 mb-1.5 text-xs">
-                {language === "ar" ? "أهداف هذا المسار التي يجب إتقانها:" : "Path objectives to master:"}
-              </p>
-              <ul className="space-y-1">
-                {(language === "ar" && learningObjectivesAr?.length ? learningObjectivesAr : learningObjectives ?? []).map(
-                  (obj, i) => (
-                    <li key={i} className="text-xs text-amber-800 flex items-start gap-1.5">
-                      <span className="shrink-0 text-amber-500">□</span>
-                      <span>{obj}</span>
-                    </li>
-                  )
-                )}
-              </ul>
-            </div>
-          )}
-        </div>
-
-        {onContinue && (
-          <button
-            type="button"
-            onClick={onContinue}
-            className="px-6 py-2.5 border border-slate-300 rounded-lg font-medium text-sm text-slate-700 hover:bg-slate-50 transition-colors"
-          >
-            {language === "ar" ? "العودة للمحتوى" : "Back to Course Content"}
-          </button>
-        )}
-      </div>
-    );
-  }
-
-  // 24h cooldown screen (checkpoint or final quiz between attempts)
-  if (!results && (isCheckpoint || isFinalQuiz) && cooldownEndsAt && Date.now() < cooldownEndsAt.getTime()) {
+  // Waiting screen — shown between batches for checkpoint + final quiz
+  if (!results && (isCheckpoint || isFinalQuiz) && batchState?.status === "waiting") {
+    const resetAt = batchState.resetAt;
     return (
       <div className="bg-white rounded-xl border-2 border-amber-200 p-8 text-center" dir={language === "ar" ? "rtl" : "ltr"}>
         <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4 text-3xl">
@@ -463,27 +312,20 @@ export function QuizPlayer({
         <h2 className="text-xl font-bold text-slate-900 mb-2">
           {language === "ar" ? "الاختبار مقفل مؤقتاً" : "Quiz Temporarily Locked"}
         </h2>
-        {isFinalQuiz && attemptsRemainingInCycle !== null && attemptsRemainingInCycle > 0 && (
-          <p className="text-sm font-medium text-orange-600 mb-2">
-            {language === "ar"
-              ? `تبقى لك ${attemptsRemainingInCycle} محاولة من أصل ${quiz.max_attempts ?? 3}`
-              : `${attemptsRemainingInCycle} of ${quiz.max_attempts ?? 3} attempts remaining`}
-          </p>
-        )}
         <p className="text-slate-600 text-sm mb-5 max-w-sm mx-auto">
           {language === "ar"
-            ? "يجب الانتظار 24 ساعة بين المحاولات. استخدم هذا الوقت لمراجعة المادة."
-            : "You must wait 24 hours between attempts. Use this time to review the material."}
+            ? "لقد استخدمت جميع محاولاتك في هذه الدفعة. استخدم هذا الوقت لمراجعة المادة."
+            : "You've used all your attempts in this batch. Use this time to review the material."}
         </p>
         <div className="inline-block px-6 py-4 bg-amber-50 border-2 border-amber-300 rounded-xl mb-5">
           <p className="text-xs text-amber-700 font-medium mb-1">
-            {language === "ar" ? "المحاولة التالية متاحة بعد" : "Next attempt available in"}
+            {language === "ar" ? "المحاولات الجديدة متاحة بعد" : "New attempts available in"}
           </p>
-          <p className="text-3xl font-black text-amber-700">{formatTimeLeft(cooldownEndsAt)}</p>
+          <p className="text-3xl font-black text-amber-700">{formatTimeLeft(resetAt)}</p>
           <p className="text-xs text-amber-600 mt-1">
             {language === "ar"
-              ? `في: ${cooldownEndsAt.toLocaleString("ar-EG")}`
-              : `At: ${cooldownEndsAt.toLocaleString()}`}
+              ? `في: ${resetAt.toLocaleString("ar-EG")}`
+              : `At: ${resetAt.toLocaleString()}`}
           </p>
         </div>
         <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-left text-sm mb-5">
@@ -530,6 +372,7 @@ export function QuizPlayer({
   if ((isCheckpoint || isFinalQuiz) && !quizStarted && !results) {
     const allVideosWatched = !videosTotal || videosTotal === 0 || (videosCompleted ?? 0) >= videosTotal;
     const maxAtt = quiz.max_attempts ?? 3;
+    const currentBatchIndex = batchState?.status === "ready" ? batchState.batchIndex : 0;
 
     return (
       <div className="bg-white rounded-xl border-2 border-amber-200 p-8 max-w-lg mx-auto" dir={language === "ar" ? "rtl" : "ltr"}>
@@ -589,8 +432,8 @@ export function QuizPlayer({
               </p>
               <p className="text-xs text-red-700 mt-0.5">
                 {language === "ar"
-                  ? `لديك ${maxAtt} محاولة فقط. إذا فشلت في جميع المحاولات، ستنتظر ${COOLDOWN_HOURS} ساعة قبل المحاولة مجدداً.`
-                  : `You have ${maxAtt} attempt${maxAtt !== 1 ? "s" : ""}. If you fail all of them, you'll wait ${COOLDOWN_HOURS} hours before trying again.`}
+                  ? `لديك ${maxAtt} محاولة في هذه الدفعة. إذا فشلت في جميعها، ستنتظر ${getWaitHoursAfterBatch(currentBatchIndex)} ساعة قبل فتح دفعة جديدة.`
+                  : `You have ${maxAtt} attempt${maxAtt !== 1 ? "s" : ""} in this batch. If you fail all of them, you'll wait ${getWaitHoursAfterBatch(currentBatchIndex)} hours before a new batch opens.`}
               </p>
             </div>
           </div>
@@ -676,9 +519,9 @@ export function QuizPlayer({
         isFinalQuiz={isFinalQuiz}
         learningObjectives={learningObjectives}
         learningObjectivesAr={learningObjectivesAr}
-        cooldownEndsAt={cooldownEndsAt}
-        exhaustedResetAt={exhaustedResetAt}
-        attemptsRemainingInCycle={attemptsRemainingInCycle}
+        waitingResetAt={batchState?.status === "waiting" ? batchState.resetAt : null}
+        attemptsLeft={batchState?.status === "ready" ? batchState.attemptsLeft : null}
+        attemptsPerBatch={quiz.max_attempts ?? 3}
       />
     );
   }
@@ -686,7 +529,9 @@ export function QuizPlayer({
   const currentQuestion = shuffledQuestions[currentQuestionIndex];
   const currentAnswer = answers[currentQuestion.id];
   const isMarkedForReview = markedForReview.has(currentQuestion.id);
-  const isLastAttempt = isFinalQuiz && attemptsRemainingInCycle === 1;
+  const batchAttemptsLeft = batchState?.status === "ready" ? batchState.attemptsLeft : null;
+  const batchIndexNow = batchState?.batchIndex ?? 0;
+  const isLastAttempt = (isCheckpoint || isFinalQuiz) && batchAttemptsLeft === 1;
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-6" dir={language === "ar" ? "rtl" : "ltr"}>
@@ -696,8 +541,8 @@ export function QuizPlayer({
           <span className="text-base">⚠️</span>
           <span className="font-semibold">
             {language === "ar"
-              ? "تنبيه: هذه آخر محاولة لك. في حال الرسوب ستنتظر 3 أيام قبل المحاولة مجدداً."
-              : "Last attempt — if you fail, you'll wait 3 days before trying again."}
+              ? `تنبيه: هذه آخر محاولة لك في هذه الدفعة. في حال الرسوب ستنتظر ${getWaitHoursAfterBatch(batchIndexNow)} ساعة قبل فتح دفعة جديدة.`
+              : `Last attempt in this batch — if you fail, you'll wait ${getWaitHoursAfterBatch(batchIndexNow)}h before a new batch opens.`}
           </span>
         </div>
       )}
@@ -720,14 +565,14 @@ export function QuizPlayer({
               ? `السؤال ${currentQuestionIndex + 1} من ${shuffledQuestions.length}`
               : `Question ${currentQuestionIndex + 1} of ${shuffledQuestions.length}`}
           </span>
-          {isFinalQuiz && attemptsRemainingInCycle !== null && (
-            <span className={attemptsRemainingInCycle === 1 ? "text-red-600 font-semibold" : ""}>
+          {(isCheckpoint || isFinalQuiz) && batchAttemptsLeft !== null && (
+            <span className={batchAttemptsLeft === 1 ? "text-red-600 font-semibold" : ""}>
               {language === "ar"
-                ? `متبقي ${attemptsRemainingInCycle} محاولة من أصل ${quiz.max_attempts ?? 3}`
-                : `${attemptsRemainingInCycle} of ${quiz.max_attempts ?? 3} attempts remaining`}
+                ? `متبقي ${batchAttemptsLeft} محاولة من أصل ${quiz.max_attempts ?? 3}`
+                : `${batchAttemptsLeft} of ${quiz.max_attempts ?? 3} attempts remaining`}
             </span>
           )}
-          {!isFinalQuiz && quiz.max_attempts && (
+          {!isCheckpoint && !isFinalQuiz && quiz.max_attempts && (
             <span>
               {language === "ar"
                 ? `المحاولة ${attemptNumber} من ${quiz.max_attempts}`
